@@ -95,16 +95,17 @@ enum mwLoginType {
   mwLogin_JAVA_WEB      = 0x1001,  /**< official Lotus Java applet */
   mwLogin_BINARY        = 0x1002,  /**< official Lotus binary application */
   mwLogin_JAVA_APP      = 0x1003,  /**< official Lotus Java application */
-  mwLogin_NOTES_6_5     = 0x1200,
-  mwLogin_NOTES_7_0     = 0x1210,
-  mwLogin_ICT           = 0x1300,
-  mwLogin_NOTESBUDDY    = 0x1400,  /**< 0xff00 mask */
-  mwLogin_SANITY        = 0x1600,
-  mwLogin_ST_PERL       = 0x1625,
-  mwLogin_PMR_ALERT     = 0x1650,
-  mwLogin_TRILLIAN      = 0x16aa,  /**< http://sf.net/st-plugin/ */
-  mwLogin_TRILLIAN_IBM  = 0x16bb,
-  mwLogin_MEANWHILE     = 0x1700,  /**< Meanwhile library */
+  mwLogin_NOTES_6_5        = 0x1200,
+  mwLogin_NOTES_7_0        = 0x1210,
+  mwLogin_ICT              = 0x1300,
+  mwLogin_NOTESBUDDY       = 0x1400,  /**< 0xff00 mask? */
+  mwLogin_NOTESBUDDY_4_15  = 0x1405,
+  mwLogin_SANITY           = 0x1600,
+  mwLogin_ST_PERL          = 0x1625,
+  mwLogin_PMR_ALERT        = 0x1650,
+  mwLogin_TRILLIAN         = 0x16aa,  /**< http://sf.net/st-plugin/ */
+  mwLogin_TRILLIAN_IBM     = 0x16bb,
+  mwLogin_MEANWHILE        = 0x1700,  /**< Meanwhile library */
 
   /* these aren't ready for use yet, DO NOT USE WHILE THIS COMMENT
      EXISTS HERE, it will only cause you trouble */

@@ -911,6 +911,7 @@ const char *mwLoginType_getName(enum mwLoginType type) {
     return "IBM Community Tools (ICT)";
 
   case mwLogin_NOTESBUDDY:
+  case mwLogin_NOTESBUDDY_4_15:
     return "Alphaworks NotesBuddy";
 
   case mwLogin_SANITY:
@@ -923,10 +924,8 @@ const char *mwLoginType_getName(enum mwLoginType type) {
     return "PMR Alert";
 
   case mwLogin_TRILLIAN:
-    return "Trillian";
-
   case mwLogin_TRILLIAN_IBM:
-    return "Trillian with IBM Sametime Plugin";
+    return "Trillian";
 
   case mwLogin_MEANWHILE:
     return "Meanwhile";
