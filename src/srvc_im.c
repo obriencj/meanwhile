@@ -245,8 +245,8 @@ static int recv_text(struct mwServiceIM *srvc, struct mwChannel *chan,
   /* sometimes we receive a zero-length string. Let's ignore those */
   if(!text || !*text) return 0;
 
-  /* no longer inactive */
-  chan->inactive = 0x00;
+  /* we're active again */
+  mwChannel_markActive(chan, TRUE);
 
   if(srvc->got_text)
     srvc->got_text(srvc, &chan->user, text);
@@ -275,11 +275,12 @@ static int recv_data(struct mwServiceIM *srvc, struct mwChannel *chan,
     break;
 
   case mwIMData_MESSAGE:
-    /* a data message with a text message in it. what client is sending these,
-       and why? */
+    /* a data message with a text message in it. what client is
+       sending these, and why? Could this be Notes Buddy sending html
+       messages? */
 
     if(o.len) {
-      chan->inactive = 0x00;
+      mwChannel_markActive(chan, TRUE);
 
       if(srvc->got_text) {
 	x = (char *) g_malloc(o.len + 1);
@@ -292,7 +293,7 @@ static int recv_data(struct mwServiceIM *srvc, struct mwChannel *chan,
     break;
 
   default:
-    g_warning("unknown data message subtype %x for im service\n", t);
+    g_warning("unknown data message subtype 0x%04x for im service\n", t);
   }
 
   mwOpaque_clear(&o);

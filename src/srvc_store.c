@@ -232,12 +232,15 @@ static void start(struct mwService *srvc) {
   g_return_if_fail(MW_SERVICE_STOPPED(srvc));
 
   srvc_store = (struct mwServiceStorage *) srvc;
-
   srvc->state = mwServiceState_STARTING;
+
+  g_message(" starting storage service");
+
   chan = make_channel(srvc->session->channels);
   if(chan) {
     srvc_store->channel = chan;
   } else {
+    g_message(" stopped storage service");
     srvc->state = mwServiceState_STOPPED;
   }
 }
@@ -256,6 +259,7 @@ static void stop(struct mwService *srvc) {
   srvc_store = (struct mwServiceStorage *) srvc;
 
   srvc->state = mwServiceState_STOPPING;
+  g_message(" stopping storage service");
 
   if(srvc_store->channel) {
     mwChannel_destroyQuick(srvc_store->channel, ERR_ABORT);
@@ -272,6 +276,7 @@ static void stop(struct mwService *srvc) {
   }
 
   srvc->state = mwServiceState_STOPPED;
+  g_message(" stopped storage service");
 }
 
 
@@ -293,7 +298,10 @@ static void recv_channelAccept(struct mwService *srvc, struct mwChannel *chan,
   g_return_if_fail(srvc != NULL);
   g_return_if_fail(chan != NULL);
 
+  g_return_if_fail(srvc->state == mwServiceState_STARTING);
+
   srvc_stor = (struct mwServiceStorage *) srvc;
+  g_return_if_fail(chan == srvc_stor->channel);
 
   for(l = srvc_stor->pending; l; l = l->next) {
     struct mwStorageReq *req = (struct mwStorageReq *) l->data;
@@ -301,6 +309,9 @@ static void recv_channelAccept(struct mwService *srvc, struct mwChannel *chan,
       request_send(chan, req);
     }
   }
+
+  srvc->state = mwServiceState_STARTED;
+  g_message(" started storage service");
 }
 
 
@@ -335,9 +346,9 @@ static void recv(struct mwService *srvc, struct mwChannel *chan,
 
   g_return_if_fail(chan != NULL);
   g_return_if_fail(srvc != NULL);
-  srvc_stor = (struct mwServiceStorage *) srvc;
 
-  g_return_if_fail(chan != srvc_stor->channel);
+  srvc_stor = (struct mwServiceStorage *) srvc;
+  g_return_if_fail(chan == srvc_stor->channel);
 
   id = guint32_peek(buf, len);
   req = request_find(srvc_stor, id);
@@ -476,9 +487,13 @@ char *mwStorageUnit_asString(struct mwStorageUnit *item) {
     char *buf = item->data.data;
     gsize len = item->data.len;
     
-    b = guint16_peek(buf,len);
-    if(a == (b+2)) {
+    b = guint16_peek(buf, len);
+    if(a > b) {
       mwString_get(&buf, &len, &c);
+    } else {
+      g_message("tried to get a string from %u bytes, "
+		"but the heading only indicated %u bytes",
+		a, b);
     }
   }
 

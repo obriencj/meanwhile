@@ -1,16 +1,28 @@
 
 version 0.3  Chris O'Brien  <siege@preoccupied.net>
+
+	2004-06-18: Hopefully fixed bug #968973, requires testing by
+	someone normally afflicted
+
+	* channel.c, channel.h: added mwChannel_markActive
 	
-	2004-06-15: Reworking services to follow a start/stop
-	system. Moving service structures into a non-visible space. Added
-	support for the storage service. Meanwhile now has its own client
-	type identifier, 0x1700, and defaults to using that rather than
-	the Java App identifier of 0x1003
+	* service.c, service.h: added start/stop, as well as related state
+	tracking calls and utility functions
+	
+	* session.c: effectively rewrote mwSession_recv
+	
+	* srvc_store.c, srvc_store.h: added to CVS
+	
+	2004-06-15: Reworking services to follow a start/stop system.
+	Moving service structures into a non-visible space.  Added support
+	for the storage service.  Meanwhile now has its own client type
+	identifier, 0x1700, and defaults to using that rather than the
+	Java App identifier of 0x1003
 	
 version 0.2  Chris O'Brien  <siege@preoccupied.net>
 
 	2004-05-17: Refactoring service and channel related code out of
-	session.[ch], started using g_return_* functions. Moved
+	session.[ch], started using g_return_* functions.  Moved
 	meanwhile-gaim plugin into its own module, for my own sanity.
 
 version 0.1  Chris O'Brien  <siege@preoccupied.net>
@@ -18,23 +30,23 @@ version 0.1  Chris O'Brien  <siege@preoccupied.net>
 	2004-04-23: Release against Gaim 0.77, tagged v0_77
 
 	2004-04-20: Changed buddy list status text to be their message
-	rather than the name of their state. If there's no status message,
-	it still falls back to the state name.  Updates to match Gaim
-	0.77cvs. Chat rejection should be working now; Admin messages
-	might work. Difficult to test as only admins can send those
-	messages.
+	rather than the name of their state.  If there's no status
+	message, it still falls back to the state name.  Updates to match
+	Gaim 0.77cvs.  Chat rejection should be working now; Admin
+	messages might work.  Difficult to test as only admins can send
+	those messages.
 
-	2004-04-14: Added meanwhile-gaim.spec, tagged it into v0_76. first
-	rpm released
+	2004-04-14: Added meanwhile-gaim.spec, tagged it into v0_76.
+	First rpm released
 	
 	2004-04-05: Release against Gaim 0.76, tagged v0_76
 
-	2004-02-25: Added Features: create a conference with another
-	user. This seems to work with pretty much any client on the
-	receiving end; accept a conference from another user. This seems
-	to work with only some clients. eg: Sanity works, ICT doesn't.
+	2004-02-25: Added Features: create a conference with another user.
+	This seems to work with pretty much any client on the receiving
+	end; accept a conference from another user.  This seems to work
+	with only some clients. eg: Sanity works, ICT doesn't.
 	
-	2004-02-23: First import to IIOSB CVS.
+	2004-02-23: First import to IIOSB CVS
 
 	Features: working buddy list; status and away messages; idle
 	timer; send/receive im; encryption support; lovable icon

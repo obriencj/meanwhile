@@ -93,7 +93,7 @@ static int create_outgoing(struct mwChannel *chan,
   ret = mwSession_send(chan->session, (struct mwMessage *) msg);
   if(! ret) {
     /* effectively provide a time-out for outgoing WAIT */
-    chan->inactive = time(NULL); 
+    mwChannel_markActive(chan, FALSE);
     chan->status = mwChannel_WAIT;
   }
 
@@ -126,7 +126,7 @@ static int create_incoming(struct mwChannel *chan,
 int mwChannel_create(struct mwChannel *chan, struct mwMsgChannelCreate *msg) {
 
   g_return_val_if_fail(chan, -1);
-  g_message("sending channel %x create", chan->id);
+  g_message("sending channel 0x%08x create", chan->id);
 
   return CHAN_IS_INCOMING(chan)?
     create_incoming(chan, msg): create_outgoing(chan, msg);
@@ -137,7 +137,7 @@ static void channel_open(struct mwChannel *chan) {
   struct mwSession *s = chan->session;
 
   chan->status = mwChannel_OPEN;
-  chan->inactive = 0x00; 
+  mwChannel_markActive(chan, TRUE);
   flush_channel(chan);
     
   if(s->on_channelOpen)
@@ -276,7 +276,7 @@ int mwChannel_destroyQuick(struct mwChannel *chan, guint32 reason) {
 static void queue_outgoing(struct mwChannel *chan,
 			   struct mwMsgChannelSend *msg) {
 
-  g_message("queue_outgoing, channel 0x%8x", chan->id);
+  g_message("queue_outgoing, channel 0x%08x", chan->id);
   chan->outgoing_queue = g_slist_append(chan->outgoing_queue, msg);
 }
 
@@ -309,7 +309,7 @@ int mwChannel_send(struct mwChannel *chan, guint32 type,
 
   struct mwMsgChannelSend *msg;
 
-  g_return_val_if_fail(chan, -1);
+  g_return_val_if_fail(chan != NULL, -1);
 
   msg = (struct mwMsgChannelSend *) mwMessage_new(mwMessage_CHANNEL_SEND);
   msg->head.channel = chan->id;
@@ -438,6 +438,14 @@ static int find_inactive(GList *list, time_t thrsh,
       k[count++] = c;
   }
   return count;
+}
+
+
+void mwChannel_markActive(struct mwChannel *chan, gboolean active) {
+  g_return_if_fail(chan != NULL);
+  g_message("marking channel 0x%08x as %s",
+	    chan->id, active? "active": "inactive");
+  chan->inactive = active? 0: time(NULL);
 }
 
 

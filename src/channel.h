@@ -154,6 +154,14 @@ struct mwChannel *mwChannel_newIncoming(struct mwChannelSet *, guint32 id);
 struct mwChannel *mwChannel_newOutgoing(struct mwChannelSet *);
 
 
+/** marks a channel as active or inactive.
+    @param chan The channel to mark
+    @param active TRUE to mark the channel as active, FALSE to mark it
+    as inactive
+ */
+void mwChannel_markActive(struct mwChannel *chan, gboolean active);
+
+
 /** for outgoing channels: instruct the session to send a channel
     create message to the server, and to mark the channel (which must
     be in INIT status) as being in WAIT status.
