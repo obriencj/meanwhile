@@ -128,7 +128,7 @@ guint32 mwServiceResolve_resolve(struct mwServiceResolve *srvc,
 /** Cancel a resolve request by its generated ID. The handler function
     will not be called, and the optional cleanup function will be
     called upon the optional user data for the request */
-void mwServiceResolve_cancelSearch(struct mwServiceResolve *, guint32);
+void mwServiceResolve_cancelResolve(struct mwServiceResolve *, guint32);
 
 
 #endif
