@@ -43,56 +43,71 @@ AC_ARG_ENABLE(debug,
 	AC_DEFINE(DEBUG, 1, [Define if debugging is enabled.]), )
 
 
-dnl Auto-detect which python bindings should be built.
-dnl lifted with extreme prejudice from RPM
-dnl there's a better way (I think) to do this
-withval=auto
+dnl Python wrapper option
+withval="auto"
 AC_ARG_WITH(python,
-	[  --with-python           build meanwhile python bindings ])
+	[  --with-python[=auto]   compile Python wrappers for Meanwhile])
 
-WITH_PYTHON_VERSION=$withval
-if test $withval = auto ; then
-	AC_MSG_CHECKING(for python 2.3)
+if test "$withval" != "no" ; then
 
-	AC_RUN_IFELSE([AC_LANG_SOURCE([[
-		#include <python2.3/Python.h>
-			main() {
-			  exit(strncmp("2.3", PY_VERSION, 3));
-			} ]])],[withval=yes],[withval=no],[withval=yes])
-	AC_MSG_RESULT($withval)
-
-	if test $withval = yes ; then
-		WITH_PYTHON_VERSION="2.3"
-	else
-		AC_MSG_CHECKING(for python 2.2)
-		AC_RUN_IFELSE([AC_LANG_SOURCE([[
-			#include <python2.2/Python.h>
-			  main() {
-			    exit(strncmp("2.2", PY_VERSION, 3));
-			  } ]])],[withval=yes],[withval=no],[withval=yes])
-		AC_MSG_RESULT($withval)
-
-		if test $withval = yes ; then
-			WITH_PYTHON_VERSION="2.2"
-		else
-			WITH_PYTHON_VERSION=no
+	dnl Check 1: Python binary
+	if test "$withval" = "auto" ; then
+		AC_PATH_PROG(pythonpath, python)
+		if test "_$pythonpath" = _ ; then
+			AC_MSG_ERROR(python not found)
+			withval="no"
 		fi
+	else
+		pythonpath="$withval"
 	fi
 fi
 
-if test "$WITH_PYTHON_VERSION" != no ; then
-	WITH_PYTHON_SUBDIR=python
-	WITH_PYTHON_SUBPACKAGE=1
-	PYTHON_LIBS="$LIBDIR/python$WITH_PYTHON_VERSION"
-else
-	WITH_PYTHON_SUBDIR=
-	WITH_PYTHON_SUBPACKAGE=0
-fi
-AC_SUBST(WITH_PYTHON_SUBDIR)
-AC_SUBST(WITH_PYTHON_SUBPACKAGE)
-AC_SUBST(WITH_PYTHON_VERSION)
-AC_SUBST(PYTHON_LIBS)
+if test "$withval" != "no" ; then
 
+	dnl Check 2: Python version
+	AC_MSG_CHECKING(Python version)
+	PYTHON_VERSION=`$pythonpath -c 'import distutils.sysconfig; print "%s" % distutils.sysconfig.get_config_var("VERSION")' 2>/dev/null`
+
+	if test "$PYTHON_VERSION" = "" ; then
+		AC_MSG_ERROR([unable to determine version])
+	else
+		AC_MSG_RESULT($PYTHON_VERSION)
+		AC_SUBST(PYTHON_VERSION)
+	fi
+
+
+	dnl Check 3: Python CFLAGS
+	AC_MSG_CHECKING(for Python compile flags)
+	PYTHON_CFLAGS=`$pythonpath -c 'import distutils.sysconfig; print "-I%s" % distutils.sysconfig.get_python_inc()' 2>/dev/null`
+
+	if test "$PYTHON_CFLAGS" = "" ; then
+		AC_MSG_ERROR(not found)
+	else
+		AC_MSG_RESULT($PYTHON_CFLAGS)
+		AC_SUBST(PYTHON_CFLAGS)
+	fi
+
+
+	dnl Check 4: Python LIBS
+	AC_MSG_CHECKING(for Python linker flags)
+	PYTHON_LIBP=`$pythonpath -c 'import distutils.sysconfig; print "%s" % distutils.sysconfig.get_config_var("LIBP")' 2>/dev/null`
+
+	PYTHON_LIBS=`$pythonpath -c 'import distutils.sysconfig; print "-L%s %s" % (distutils.sysconfig.get_config_var("LIBP"), distutils.sysconfig.get_config_var("LIBS"))' 2>/dev/null`
+
+	if test "$PYTHON_LIBS" = "" ; then
+		AC_MSG_ERROR(not found)
+	else
+		AC_MSG_RESULT($PYTHON_LIBS)
+		AC_SUBST(PYTHON_LIBS)
+		AC_SUBST(PYTHON_LIBP)
+	fi
+
+	WITH_PYTHON_SUBPACKAGE=1
+	AC_SUBST(WITH_PYTHON_SUBPACKAGE)
+
+	WITH_PYTHON_SUBDIR="python"
+	AC_SUBST(WITH_PYTHON_SUBDIR)
+fi
 
 
 dnl Glib-2.0 option with some version detection for compat.h

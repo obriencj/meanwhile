@@ -73,7 +73,7 @@ class ServiceIm(meanwhile.ServiceIm):
 
         if text == 'shutdown':
             self.sendText(who, "good-bye")
-            tSession.stop()
+            self.session.stop()
 
         elif text.startswith('~ '):
             _cbExec(text[2:])
@@ -89,12 +89,12 @@ class ServiceIm(meanwhile.ServiceIm):
 if __name__ == "__main__":
     tSession = Session(WHERE, WHO)
     tSrvcIm = ServiceIm(tSession)
-    #tSrvcStore = meanwhile.ServiceStorage(tSession)
+    tSrvcStore = meanwhile.ServiceStorage(tSession)
     
     tSession.addService(tSrvcIm)
-    #tSession.addService(tSrvcStore)
+    tSession.addService(tSrvcStore)
 
     tSession.start(background=False, daemon=False)
 
     tSession.removeService(tSrvcIm.type)
-    #tSession.removeService(tSrvcStore.type)
+    tSession.removeService(tSrvcStore.type)

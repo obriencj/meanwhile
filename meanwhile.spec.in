@@ -1,7 +1,7 @@
 # Christopher (siege) O'Brien  <siege@preoccupied.net>
 
 %define with_python_subpackage  @WITH_PYTHON_SUBPACKAGE@%{nil}
-%define with_python_version     @WITH_PYTHON_VERSION@%{nil}
+%define with_python_version     @PYTHON_VERSION@%{nil}
 
 
 Summary: Lotus Sametime Community Client library

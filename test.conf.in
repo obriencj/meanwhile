@@ -15,3 +15,8 @@ export mw_host=server.domain.net
 # Port to connect to. Default is normally 1533
 export mw_port=1533
 
+# Which python binary to run the test in, and optionally where to look
+# for python libs
+export py_bin=`which python`
+export py_lib=
+

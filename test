@@ -9,9 +9,12 @@
 . test.conf
 
 cd src/python
+
+export LD_LIBRARY_PATH=$py_lib:../.libs/
+
 if test "$1" = "debug" ; then
-	LD_LIBRARY_PATH=../.libs/ gdb --args python -v test.py
+	gdb --args $py_bin -v test.py
 else
-	LD_LIBRARY_PATH=../.libs/ python test.py 
+	$py_bin test.py 
 fi
 

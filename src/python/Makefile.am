@@ -1,10 +1,6 @@
 
 
-pylibdir = /usr/lib/python@WITH_PYTHON_VERSION@
-pyincdir = /usr/include/python@WITH_PYTHON_VERSION@
-pythondir = ${pyincdir}/site-packages
-
-PYTHON_CFLAGS = -I ${pyincdir}
+pythondir = ${PYTHON_LIBP}/site-packages
 
 
 python_PROGRAMS = _meanwhile.so
@@ -31,7 +27,7 @@ _meanwhile_so_LDFLAGS = \
 
 _meanwhile_so_LDADD = \
 	../.libs/libmeanwhile.so \
-	$(GLIB_LIBS)
+	$(GLIB_LIBS) ${PYTHON_LIBS}
 
 AM_CPPFLAGS = \
 	-DG_LOG_DOMAIN=\"@PACKAGE@-python\"
