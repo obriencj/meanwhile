@@ -101,7 +101,7 @@ struct mwSession {
 struct mwSession *mwSession_new();
 
 
-/* stop, clear, free a session */
+/* stop, clear, free a session. Does not free the contained services. */
 void mwSession_free(struct mwSession *);
 
 

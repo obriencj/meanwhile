@@ -12,6 +12,7 @@
 #include "session.h"
 
 
+
 static void flush_channel(struct mwChannel *);
 
 
@@ -461,7 +462,7 @@ void mwChannelSet_destroyInactive(struct mwChannelSet *cs, time_t thrsh) {
 }
 
 
-void mwChannelSet_clear(struct mwChannelSet *cs) {
+void mwChannelSet_free(struct mwChannelSet *cs) {
   GList *l;
 
   for(l = cs->incoming; l; l = l->next) {
@@ -479,4 +480,11 @@ void mwChannelSet_clear(struct mwChannelSet *cs) {
   }
   g_list_free(cs->outgoing);
   cs->outgoing = NULL;
+}
+
+
+struct mwChannelSet *mwChannelSet_new(struct mwSession *s) {
+  struct mwChannelSet *cs = g_new0(struct mwChannelSet, 1);
+  cs->session = s;
+  return cs;
 }

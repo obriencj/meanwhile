@@ -15,8 +15,7 @@
 struct mwSession *mwSession_new() {
   struct mwSession *s = g_new0(struct mwSession, 1);
 
-  s->channels = g_new0(struct mwChannelSet, 1);
-  s->channels->session = s;
+  s->channels = mwChannelSet_new(s);
   s->login.type = mwLogin_MEANWHILE;
   
   return s;
@@ -35,14 +34,17 @@ void mwSession_free(struct mwSession *s) {
 
   session_buf_free(s);
 
+  /* seems a bad idea to free services with the session */
+  /*
   while(s->services) {
     struct mwService *srv = (struct mwService *) s->services->data;
     mwSession_removeService(s, srv->type);
     mwService_free(srv);
   }
+  */
+  g_list_free(s->services);
 
-  mwChannelSet_clear(s->channels);
-  g_free(s->channels);
+  mwChannelSet_free(s->channels);
 
   g_free(s->auth.password);
 

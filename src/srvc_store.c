@@ -10,7 +10,6 @@
 #include "srvc_store.h"
 
 
-
 enum storage_action {
   action_load    = 0x0004,
   action_loaded  = 0x0005,

@@ -201,6 +201,10 @@ static void recv_channelCreate(struct mwService *srvc, struct mwChannel *chan,
     g_message(" rejecting pre-conference");
     mwChannel_destroyQuick(chan, ERR_IM_NOT_REGISTERED);
 
+  } else if(s->status.status == mwStatus_BUSY) {
+    g_message(" rejecting chat due to DND status");
+    mwChannel_destroyQuick(chan, ERR_CLIENT_USER_DND);
+
   } else {
     g_message(" accepting: param = 0x01, sub_param = 0x%08x", b);
 

@@ -1,6 +1,10 @@
 
 version 0.3  Chris O'Brien  <siege@preoccupied.net>
-
+	2004-06-21: Bug fix and some more API cleanup.
+		
+	* srvc_im.c: fixed a reported bug where messages were not being
+	rejected even when the user was in mwStatus_BUSY. Thanks jdob!
+	
 	2004-06-18: Hopefully fixed bug #968973, requires testing by
 	someone normally afflicted
 
