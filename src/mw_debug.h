@@ -3,6 +3,12 @@
 #define _MW_DEBUG_H_
 
 
+#include <glib.h>
+
+
+#define g_debug(format...) g_log(G_LOG_DOMAIN, G_LOG_LEVEL_DEBUG, format)
+#define g_info(format...) g_log(G_LOG_DOMAIN, G_LOG_LEVEL_INFO, format)
+
 
 /**
   debug_printf is a printf that happens only when debugging is compiled on.
