@@ -105,7 +105,8 @@ int gboolean_put(char **b, gsize *n, gboolean val) {
   if(*n < 1)
     return 1;
 
-  *(*b)++ = !! val;
+  **b = !! val;
+  (*b)++;
   (*n)--;
   return 0;
 }
@@ -115,7 +116,8 @@ int gboolean_get(char **b, gsize *n, gboolean *val) {
   if(*n < 1)
     return 1;
 
-  *val = !! *(*b)++;
+  *val = !! **b;
+  (*b)++;
   (*n)--;
   return 0;
 }
@@ -372,8 +374,10 @@ gsize mwPrivacyInfo_buflen(struct mwPrivacyInfo *info) {
   guint32 c = info->count;
   gsize ret = 7; /* guint16, gboolean, guint32 */
 
-  while(c--)
+  while(c--) {
     ret += mwUserItem_buflen(info->users + c);
+    ret += 2; /* empty string for name */
+  }
 
   return ret;
 }
@@ -387,15 +391,19 @@ int mwPrivacyInfo_put(char **b, gsize *n, struct mwPrivacyInfo *info) {
       guint32_put(b, n, c) )
     return -1;
 
-  while(c--)
-    if(mwUserItem_put(b, n, info->users + c))
+  while(c--) {
+    if( mwUserItem_put(b, n, info->users + c) ||
+	mwString_put(b, n, NULL) )
       return -1;
+  }
 
   return 0;
 }
 
 
 int mwPrivacyInfo_get(char **b, gsize *n, struct mwPrivacyInfo *info) {
+  char *ignored_for_now = NULL;
+
   if( guint16_get(b, n, &info->reserved) ||
       gboolean_get(b, n, &info->deny) ||
       guint32_get(b, n, &info->count) )
@@ -405,9 +413,14 @@ int mwPrivacyInfo_get(char **b, gsize *n, struct mwPrivacyInfo *info) {
     guint32 c = info->count;
 
     info->users = (struct mwUserItem *) g_new0(struct mwUserItem, c);
-    while(c--)
-      if(mwUserItem_get(b, n, info->users + c))
+    while(c--) {
+      if( mwUserItem_get(b, n, info->users + c) ||
+	  mwString_get(b, n, &ignored_for_now) )
 	return -1;
+
+      g_free(ignored_for_now);
+      ignored_for_now = NULL;
+    }
   }
 
   return 0;

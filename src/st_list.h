@@ -104,6 +104,7 @@ GList *mwSametimeGroup_getUsers(struct mwSametimeGroup *g);
 /** Create a user in a group */
 struct mwSametimeUser *mwSametimeUser_new(struct mwSametimeGroup *g,
 					  struct mwIdBlock *user,
+					  const char *name,
 					  const char *alias);
 
 
@@ -118,6 +119,9 @@ const char *mwSametimeUser_getUser(struct mwSametimeUser *u);
 
 
 const char *mwSametimeUser_getCommunity(struct mwSametimeUser *u);
+
+
+const char *mwSametimeUser_getName(struct mwSametimeUser *u);
 
 
 const char *mwSametimeUser_getAlias(struct mwSametimeUser *u);

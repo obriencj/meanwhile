@@ -1,5 +1,4 @@
 
-
 #include <glib/ghash.h>
 #include <glib/gprintf.h>
 #include <stdio.h>
@@ -28,6 +27,7 @@ struct mwSametimeGroup {
 struct mwSametimeUser {
   struct mwSametimeGroup *group;
   struct mwIdBlock id;
+  char *name;
   char *alias;
 };
 
@@ -57,6 +57,7 @@ static void user_free(gpointer u) {
   if(! u) return;
   user = (struct mwSametimeUser *) u;
 
+  g_free(user->name);
   g_free(user->alias);
   mwIdBlock_clear(&user->id);
 
@@ -200,6 +201,7 @@ GList *mwSametimeGroup_getUsers(struct mwSametimeGroup *g) {
 
 struct mwSametimeUser *mwSametimeUser_new(struct mwSametimeGroup *g,
 					  struct mwIdBlock *user,
+					  const char *name,
 					  const char *alias) {
   struct mwSametimeUser *usr;
 
@@ -209,6 +211,7 @@ struct mwSametimeUser *mwSametimeUser_new(struct mwSametimeGroup *g,
   usr = g_new0(struct mwSametimeUser, 1);
 
   mwIdBlock_clone(MW_ST_USER_KEY(usr), user);
+  usr->name = g_strdup(name);
   usr->alias = g_strdup(alias);
   usr->group = g;
 
@@ -240,6 +243,12 @@ const char *mwSametimeUser_getUser(struct mwSametimeUser *u) {
 const char *mwSametimeUser_getCommunity(struct mwSametimeUser *u) {
   g_return_val_if_fail(u != NULL, NULL);
   return u->id.community;
+}
+
+
+const char *mwSametimeUser_getName(struct mwSametimeUser *u) {
+  g_return_val_if_fail(u != NULL, NULL);
+  return u->name;
 }
 
 
@@ -381,7 +390,7 @@ static int get_user(char *b, struct mwSametimeList *l,
     }
   }
   
-  user = mwSametimeUser_new(g, &idb, alias);
+  user = mwSametimeUser_new(g, &idb, name, alias);
 
   return 0;
 }
