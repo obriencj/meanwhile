@@ -296,7 +296,7 @@ static void CHANNEL_ACCEPT_recv(struct mwSession *s,
   srvc = mwSession_getService(s, chan->service);
   if(! srvc) {
     mwChannel_destroyQuick(chan, ERR_SERVICE_NO_SUPPORT);
-    g_message("CHANNEL_ACCEPT_recv, no service: 0x%x\n", chan->service);
+    g_message("CHANNEL_ACCEPT_recv, no service: 0x%x", chan->service);
     return;
   }
 
@@ -553,7 +553,7 @@ int mwSession_send(struct mwSession *s, struct mwMessage *msg) {
   /* ensure we could correctly serialize the message */
   if(! ret) {
     s->handler->write(s->handler, buf, len);
-    debug_printf("mwSession_send, sent %u bytes\n", len);
+    g_message("mwSession_send, sent %u bytes", len);
 
     /* trigger these outgoing events */
     switch(msg->type) {
@@ -580,8 +580,6 @@ int mwSession_send(struct mwSession *s, struct mwMessage *msg) {
 int mwSession_setUserStatus(struct mwSession *s, struct mwUserStatus *stat) {
   int ret;
   struct mwMsgSetUserStatus *msg;
-
-  debug_printf(" --> mwSession_setUserStatus\n");
 
   msg = (struct mwMsgSetUserStatus *)
     mwMessage_new(mwMessage_SET_USER_STATUS);

@@ -8,7 +8,6 @@
    logging a bit more sensible. Hence all the explicit "foo != NULL"
    checks. */
 
-
 void mwService_recvChannelCreate(struct mwService *s, struct mwChannel *chan,
 				 struct mwMsgChannelCreate *msg) {
 
