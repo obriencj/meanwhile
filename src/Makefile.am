@@ -12,6 +12,7 @@ mwinclude_HEADERS = \
 	mw_service.h \
 	mw_session.h \
 	mw_srvc_aware.h \
+	mw_srvc_dir.h \
 	mw_srvc_conf.h \
 	mw_srvc_im.h \
 	mw_srvc_resolve.h \
@@ -44,6 +45,7 @@ libmeanwhile_la_SOURCES = \
 	service.c \
 	session.c \
 	srvc_aware.c \
+	srvc_dir.c \
 	srvc_conf.c \
 	srvc_im.c \
 	srvc_store.c \

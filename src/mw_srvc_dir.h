@@ -180,24 +180,19 @@ struct mwAddressBook *mwDirectory_getAddressBook(struct mwDirectory *dir);
 
 
 /** initialize a directory. */
-int mwDirectory_open(struct mwDirectory *dir, mwSearchHandler *cb,
-		     gpointer data, GDestroyNotify clear);
-
-
-/* get the first set of results for a directory */
-guint32 mwDirectory_first(struct mwDirectory *dir);
+int mwDirectory_open(struct mwDirectory *dir, mwSearchHandler cb);
 
 
 /** continue a search into its next results */
-guint32 mwDirectory_next(struct mwDirectory *dir);
+int mwDirectory_next(struct mwDirectory *dir);
 
 
 /** continue a search into its previous results */
-guint32 mwDirectory_previous(struct mwDirectory *dir);
+int mwDirectory_previous(struct mwDirectory *dir);
 
 
 /** initiate a search on an open directory */
-guint32 mwDirectory_search(struct mwDirectory *dir, const char *query);
+int mwDirectory_search(struct mwDirectory *dir, const char *query);
 
 
 /** close and free the directory, and unassociate it with its owning

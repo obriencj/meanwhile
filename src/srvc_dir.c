@@ -22,6 +22,7 @@
 
 #include "mw_channel.h"
 #include "mw_common.h"
+#include "mw_error.h"
 #include "mw_message.h"
 #include "mw_service.h"
 #include "mw_session.h"
@@ -29,11 +30,11 @@
 #include "mw_util.h"
 
 
-#define PROTO TYPE  0x0000001c
-#define PROTO_VER   0x00000005
+#define PROTOCOL_TYPE  0x0000001c
+#define PROTOCOL_VER   0x00000005
 
 
-enum action {
+enum dir_action {
   action_list    = 0x0000,  /**< list address books */
   action_open    = 0x0001,  /**< open an addressbook as a directory */
   action_close   = 0x0002,  /**< close a directory */
@@ -106,33 +107,39 @@ static void dir_remove(struct mwDirectory *dir) {
 }
 
 
+__attribute__((used))
 static struct mwDirectory *dir_new(struct mwAddressBook *book, guint32 id) {
   struct mwDirectory *dir = g_new0(struct mwDirectory, 1);
   dir->service = book->service;
   dir->book = book;
   dir->id = id;
   map_guint_insert(book->dirs, id, dir);
+  return dir;
 }
 
 
 /** called when book is removed from the service book map. Removed all
     directories as well */
+__attribute__((used))
 static void book_free(struct mwAddressBook *book) {
   g_hash_table_destroy(book->dirs);
-  g_free(name);
+  g_free(book->name);
 }
 
 
+__attribute__((used))
 static void book_remove(struct mwAddressBook *book) {
   struct mwServiceDirectory *srvc = book->service;
   g_hash_table_remove(srvc->books, book->name);
 }
 
 
+__attribute__((used))
 static struct mwAddressBook *book_new(struct mwServiceDirectory *srvc) {
   struct mwAddressBook *book = g_new0(struct mwAddressBook, 1);
   book->service = srvc;
   book->dirs = map_guint_new_full((GDestroyNotify) dir_free);
+  return book;
 }
 
 
@@ -177,20 +184,20 @@ static void start(struct mwServiceDirectory *srvc) {
 
 
 static void stop(struct mwServiceDirectory *srvc) {
-  /* @todo close channel */
+  /* XXX */
+
+  if(srvc->channel) {
+    mwChannel_destroy(srvc->channel, ERR_SUCCESS, NULL);
+    srvc->channel = NULL;
+  }
 }
 
 
 static void clear(struct mwServiceDirectory *srvc) {
   struct mwDirectoryHandler *handler;
 
-  if(srvc->dirs) {
-    g_hash_table_free(srvc->dirs);
-    srvc->dirs = NULL;
-  }
-
   if(srvc->books) {
-    g_hash_table_free(srvc->books);
+    g_hash_table_destroy(srvc->books);
     srvc->books = NULL;
   }
   
@@ -218,15 +225,14 @@ mwServiceDirectory_new(struct mwSession *session,
   mwService_init(service, session, SERVICE_DIRECTORY);
   service->get_name = get_name;
   service->get_desc = get_desc;
-  service->start = start;
-  service->stop = stop;
-  service->clear = clear;
+  service->start = (mwService_funcStart) start;
+  service->stop = (mwService_funcStop) stop;
+  service->clear = (mwService_funcClear) clear;
 
   srvc->handler = handler;
   srvc->requests = map_guint_new();
   srvc->books = g_hash_table_new_full(g_str_hash, g_str_equal,
 				      NULL, (GDestroyNotify) book_free);
-
   return srvc;
 }
 
@@ -238,6 +244,28 @@ mwServiceDirectory_getHandler(struct mwServiceDirectory *srvc) {
 }
 
 
+int mwServiceDirectory_refreshAddressBooks(struct mwServiceDirectory *srvc) {
+  struct mwChannel *chan;
+  struct mwPutBuffer *b;
+  struct mwOpaque o;
+  int ret;
+
+  g_return_val_if_fail(srvc != NULL, -1);
+
+  chan = srvc->channel;
+  g_return_val_if_fail(chan != NULL, -1);
+
+  b = mwPutBuffer_new();
+  guint32_put(b, next_request_id(srvc));
+
+  mwPutBuffer_finalize(&o, b);
+  ret = mwChannel_send(chan, action_list, &o);
+  mwOpaque_clear(&o);
+
+  return ret;
+}
+
+
 GList *mwServiceDirectory_getAddressBooks(struct mwServiceDirectory *srvc) {
   g_return_val_if_fail(srvc != NULL, NULL);
   g_return_val_if_fail(srvc->books != NULL, NULL);
@@ -246,18 +274,27 @@ GList *mwServiceDirectory_getAddressBooks(struct mwServiceDirectory *srvc) {
 }
 
 
-int mwServiceDirectory_refreshAddressBooks(struct mwServiceDirectory *srvc) {
+GList *mwServiceDirectory_getDirectories(struct mwServiceDirectory *srvc) {
+  GList *bl, *ret = NULL;
   
+  g_return_val_if_fail(srvc != NULL, NULL);
+  g_return_val_if_fail(srvc->books != NULL, NULL);
+
+  bl = map_collect_values(srvc->books);
+  for( ; bl; bl = g_list_delete_link(bl, bl)) {
+    struct mwAddressBook *book = bl->data;
+    ret = g_list_concat(ret, map_collect_values(book->dirs));
+  }
+
+  return ret;
 }
 
 
-GList mwServiceDirectory_getDirectories(struct mwServiceDirectory *srvc) {
+GList *mwAddressBook_getDirectories(struct mwAddressBook *book) {
+  g_return_val_if_fail(book != NULL, NULL);
+  g_return_val_if_fail(book->dirs != NULL, NULL);
 
-}
-
-
-GList mwAddressBook_getDirectories(struct mwAddressBook *book) {
-
+  return map_collect_values(book->dirs);
 }
 
 
@@ -315,11 +352,20 @@ struct mwAddressBook *mwDirectory_getAddressBook(struct mwDirectory *dir) {
 }
 
 
-int dir_open(struct mwDirectory *dir) {
+static int dir_open(struct mwDirectory *dir) {
+  struct mwServiceDirectory *srvc;
+  struct mwChannel *chan;
   struct mwPutBuffer *b;
   struct mwOpaque o;
-  struct mwChannel *chan;
   int ret;
+
+  g_return_val_if_fail(dir != NULL, -1);
+
+  srvc = dir->service;
+  g_return_val_if_fail(srvc != NULL, -1);
+
+  chan = srvc->channel;
+  g_return_val_if_fail(chan != NULL, -1);
 
   b = mwPutBuffer_new();
   guint32_put(b, map_request(dir));
@@ -339,9 +385,7 @@ int dir_open(struct mwDirectory *dir) {
 }
 
 
-int mwDirectory_open(struct mwDirectory *dir, mwSearchHandler *cb) {
-  int ret = 0;
-
+int mwDirectory_open(struct mwDirectory *dir, mwSearchHandler cb) {
   g_return_val_if_fail(dir != NULL, -1);
   g_return_val_if_fail(cb != NULL, -1);
   g_return_val_if_fail(MW_DIRECTORY_IS_NEW(dir), -1);
@@ -353,37 +397,113 @@ int mwDirectory_open(struct mwDirectory *dir, mwSearchHandler *cb) {
 }
 
 
-guint32 mwDirectory_first(struct mwDirectory *dir) {
-  g_return_val_if_fail(dir != NULL, DIR_SEARCH_ERROR);
-  g_return_val_if_fail(MW_DIRECTORY_IS_OPEN(dir), DIR_SEARCH_ERROR);
+int mwDirectory_next(struct mwDirectory *dir) {  
+  struct mwServiceDirectory *srvc;
+  struct mwChannel *chan;
+  struct mwPutBuffer *b;
+  struct mwOpaque o;
+  int ret;
+
+  g_return_val_if_fail(dir != NULL, -1);
+  g_return_val_if_fail(MW_DIRECTORY_IS_OPEN(dir), -1);
+
+  srvc = dir->service;
+  g_return_val_if_fail(srvc != NULL, -1);
+
+  chan = srvc->channel;
+  g_return_val_if_fail(chan != NULL, -1);
+
+  b = mwPutBuffer_new();
+  guint32_put(b, map_request(dir));
+  guint32_put(b, dir->id);
+  guint16_put(b, 0xffff);      /* some magic? */
+  guint32_put(b, 0x00000000);  /* next results */
+
+  mwPutBuffer_finalize(&o, b);
+  ret = mwChannel_send(chan, action_search, &o);
+  mwOpaque_clear(&o);
+
+  return ret;
 }
 
 
-guint32 mwDirectory_next(struct mwDirectory *dir) {
-  g_return_val_if_fail(dir != NULL, DIR_SEARCH_ERROR);
-  g_return_val_if_fail(MW_DIRECTORY_IS_OPEN(dir), DIR_SEARCH_ERROR);
+int mwDirectory_previous(struct mwDirectory *dir) {
+  struct mwServiceDirectory *srvc;
+  struct mwChannel *chan;
+  struct mwPutBuffer *b;
+  struct mwOpaque o;
+  int ret;
 
+  g_return_val_if_fail(dir != NULL, -1);
+  g_return_val_if_fail(MW_DIRECTORY_IS_OPEN(dir), -1);
+
+  srvc = dir->service;
+  g_return_val_if_fail(srvc != NULL, -1);
+
+  chan = srvc->channel;
+  g_return_val_if_fail(chan != NULL, -1);
+
+  b = mwPutBuffer_new();
+  guint32_put(b, map_request(dir));
+  guint32_put(b, dir->id);
+  guint16_put(b, 0x0061);      /* some magic? */
+  guint32_put(b, 0x00000001);  /* prev results */
+
+  mwPutBuffer_finalize(&o, b);
+  ret = mwChannel_send(chan, action_search, &o);
+  mwOpaque_clear(&o);
+
+  return ret;
 }
 
 
-guint32 mwDirectory_previous(struct mwDirectory *dir) {
-  g_return_val_if_fail(dir != NULL, DIR_SEARCH_ERROR);
-  g_return_val_if_fail(MW_DIRECTORY_IS_OPEN(dir), DIR_SEARCH_ERROR);
+int mwDirectory_search(struct mwDirectory *dir, const char *query) {
+  struct mwServiceDirectory *srvc;
+  struct mwChannel *chan;
+  struct mwPutBuffer *b;
+  struct mwOpaque o;
+  int ret;
 
-}
+  g_return_val_if_fail(dir != NULL, -1);
+  g_return_val_if_fail(MW_DIRECTORY_IS_OPEN(dir), -1);
+  g_return_val_if_fail(query != NULL, -1);
+  g_return_val_if_fail(*query != '\0', -1);
 
+  srvc = dir->service;
+  g_return_val_if_fail(srvc != NULL, -1);
 
-guint32 mwDirectory_search(struct mwDirectory *dir) {
-  g_return_val_if_fail(dir != NULL, DIR_SEARCH_ERROR);
-  g_return_val_if_fail(MW_DIRECTORY_IS_OPEN(dir), DIR_SEARCH_ERROR);
+  chan = srvc->channel;
+  g_return_val_if_fail(chan != NULL, -1);
 
+  b = mwPutBuffer_new();
+  guint32_put(b, map_request(dir));
+  guint32_put(b, dir->id);
+  guint16_put(b, 0x0061);      /* some magic? */
+  guint32_put(b, 0x00000008);  /* seek results */
+  mwString_put(b, query);
+
+  mwPutBuffer_finalize(&o, b);
+  ret = mwChannel_send(chan, action_search, &o);
+  mwOpaque_clear(&o);
+
+  return ret;
 }
 
 
 static int dir_close(struct mwDirectory *dir) {
+  struct mwServiceDirectory *srvc;
+  struct mwChannel *chan;
   struct mwPutBuffer *b;
   struct mwOpaque o;
   int ret;
+
+  g_return_val_if_fail(dir != NULL, -1);
+
+  srvc = dir->service;
+  g_return_val_if_fail(srvc != NULL, -1);
+
+  chan = srvc->channel;
+  g_return_val_if_fail(chan != NULL, -1);
 
   b = mwPutBuffer_new();
   guint32_put(b, next_request_id(dir->service));
@@ -402,7 +522,7 @@ int mwDirectory_destroy(struct mwDirectory *dir) {
 
   g_return_val_if_fail(dir != NULL, -1);
 
-  if(MW_DIR_IS_OPEN(dir) || MW_DIR_IS_PENDING(dir)) {
+  if(MW_DIRECTORY_IS_OPEN(dir) || MW_DIRECTORY_IS_PENDING(dir)) {
     ret = dir_close(dir);
   }
   dir_remove(dir);
