@@ -53,19 +53,19 @@ int mwSametimeList_get(char **b, gsize *n, struct mwSametimeList *l);
 int mwSametimeList_put(char **b, gsize *n, struct mwSametimeList *l);
 
 
-void mwSametimeList_putMajor(struct mwSametimeList *l, guint v);
+void mwSametimeList_setMajor(struct mwSametimeList *l, guint v);
 
 
 guint mwSametimeList_getMajor(struct mwSametimeList *l);
 
 
-void mwSametimeList_putMinor(struct mwSametimeList *l, guint v);
+void mwSametimeList_setMinor(struct mwSametimeList *l, guint v);
 
 
 guint mwSametimeList_getMinor(struct mwSametimeList *l);
 
 
-void mwSametimeList_putRevision(struct mwSametimeList *l, guint v);
+void mwSametimeList_setRevision(struct mwSametimeList *l, guint v);
 
 
 guint mwSametimeList_getRevision(struct mwSametimeList *l);

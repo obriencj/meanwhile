@@ -106,7 +106,7 @@ int gboolean_put(char **b, gsize *n, gboolean val) {
     return 1;
 
   *(*b)++ = !! val;
-  *n--;
+  (*n)--;
   return 0;
 }
 
@@ -116,7 +116,7 @@ int gboolean_get(char **b, gsize *n, gboolean *val) {
     return 1;
 
   *val = !! *(*b)++;
-  *n--;
+  (*n)--;
   return 0;
 }
 

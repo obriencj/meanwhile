@@ -172,12 +172,12 @@ static void recv_channelCreate(struct mwService *srvc, struct mwChannel *chan,
   struct mwSession *s;
   struct mwChannelSet *cs;
   unsigned int a, b;
-  
-  s = chan->session;
-  cs = s->channels;
 
   char *buf = msg->addtl.data;
   gsize n = msg->addtl.len;
+  
+  s = chan->session;
+  cs = s->channels;
 
   if( (msg->service != mwService_IM) ||
       (msg->proto_type != mwProtocol_IM) ||

@@ -103,7 +103,7 @@ GList *mwSametimeList_getGroups(struct mwSametimeList *l) {
 }
 
 
-void mwSametimeList_putMajor(struct mwSametimeList *l, guint v) {
+void mwSametimeList_setMajor(struct mwSametimeList *l, guint v) {
   g_return_if_fail(l != NULL);
   l->ver_major = v;
 }
@@ -115,7 +115,7 @@ guint mwSametimeList_getMajor(struct mwSametimeList *l) {
 }
 
 
-void mwSametimeList_putMinor(struct mwSametimeList *l, guint v) {
+void mwSametimeList_setMinor(struct mwSametimeList *l, guint v) {
   g_return_if_fail(l != NULL);
   l->ver_minor = v;
 }
@@ -127,7 +127,7 @@ guint mwSametimeList_getMinor(struct mwSametimeList *l) {
 }
 
 
-void mwSametimeList_putRevision(struct mwSametimeList *l, guint v) {
+void mwSametimeList_setRevision(struct mwSametimeList *l, guint v) {
   g_return_if_fail(l != NULL);
   l->ver_revision = v;
 }
@@ -353,31 +353,35 @@ static int get_group(char *b, struct mwSametimeList *l,
 static int get_user(char *b, struct mwSametimeList *l,
 		    struct mwSametimeGroup *g) {
 
-  char **split = NULL;
-  char *id, *name, *alias;
+  char *name, *alias = NULL;
+  char *tmp;
 
   struct mwIdBlock idb = { NULL, NULL };
   struct mwSametimeUser *user;
 
+  g_return_val_if_fail(strlen(b) > 2, -1);
   g_return_val_if_fail(g != NULL, -1);
 
-  split = g_strsplit_set(b, " :,", 6);
+  idb.user = b + 2; /* advance past "U " */
+  tmp = strstr(b, "1:: "); /* backwards thinking saves overruns */
+  if(! tmp) return -1;
+  *tmp = '\0';
+  str_replace(idb.user, ';', ' ');
+  b = tmp;
 
-  id = g_strdup(split[1]);
-  name = split[4];
-  alias = split[5];
+  name = b + 4; /* advance past the "1:: " */
+  tmp = strchr(name, ',');
+  if(tmp) {
+    *tmp = '\0';
 
-  id[strlen(id)-1] = '\0';
-  str_replace(id, ';', ' ');
-  idb.user = id;
-
-  /* if(! *alias) alias = name; */
-  if(alias) str_replace(alias, ';', ' ');
-
+    tmp++;
+    if(*tmp) {
+      str_replace(tmp, ';', ' ');
+      alias = tmp;
+    }
+  }
+  
   user = mwSametimeUser_new(g, &idb, alias);
-
-  g_free(id);
-  g_strfreev(split);
 
   return 0;
 }
@@ -385,7 +389,8 @@ static int get_user(char *b, struct mwSametimeList *l,
 
 int mwSametimeList_get(char **b, gsize *n, struct mwSametimeList *l) {
   /* - read a line
-     - process line */
+     - process line
+     - free line  */
 
   struct mwSametimeGroup *g = NULL;
   char *line = NULL;

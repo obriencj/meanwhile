@@ -490,8 +490,8 @@ char *mwStorageUnit_asString(struct mwStorageUnit *item) {
     if(a > b) {
       mwString_get(&buf, &len, &c);
     } else {
-      g_message("tried to get a string from %u bytes, "
-		"but the heading only indicated %u bytes",
+      g_message("tried to get a string from an opaque of %u bytes, "
+		"but the string heading indicated %u bytes",
 		a, b);
     }
   }
