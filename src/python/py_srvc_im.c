@@ -81,7 +81,7 @@ static void mw_got_mime(struct mwServiceIm *srvc,
   b = PyString_SafeFromString(from->community);
   c = PyBuffer_FromMemory(mime->data, mime->len);
 
-  robj = PyObject_CallMethod((PyObject *) self, ON_HTML,
+  robj = PyObject_CallMethod((PyObject *) self, ON_MIME,
 			     "(NN)N", a, b, c);
   Py_XDECREF(robj);
 }
@@ -143,7 +143,7 @@ static void mw_conversation_recv(struct mwConversation *conv,
     mw_got_html(srvc, idb, msg);
     break;
   case mwImSend_MIME:
-    mw_got_mime(srvc, idb, msg);
+    mw_got_mime(srvc, idb, (struct mwOpaque *) msg);
     break;
   case mwImSend_SUBJECT:
     mw_got_subject(srvc, idb, msg);
@@ -230,7 +230,7 @@ static PyObject *py_send_text(mwPyService *self, PyObject *args) {
 
   /* don't free text or clear id, those strings are borrowed */
   if(mwConversation_send(conv, mwImSend_PLAIN, text)) {
-    mw_throw("error sending message over conversation");
+    mw_throw("error sending text message over conversation");
   } else {
     mw_return_none();
   }
@@ -263,7 +263,38 @@ static PyObject *py_send_html(mwPyService *self, PyObject *args) {
 
   /* don't free text or clear id, those strings are borrowed */
   if(mwConversation_send(conv, mwImSend_HTML, text)) {
-    mw_throw("error sending message over conversation");
+    mw_throw("error sending HTML message over conversation");
+  } else {
+    mw_return_none();
+  }
+}
+
+
+static PyObject *py_send_mime(mwPyService *self, PyObject *args) {
+  struct mwIdBlock id = { 0, 0 };
+  struct mwOpaque data = { 0, 0 };
+  struct mwServiceIm *srvc_im;
+  struct mwConversation *conv;
+
+  PyObject *a, *b;
+
+  if(! PyArg_ParseTuple(args, "(OO)t#", &a, &b, &data.data, &data.len))
+    return NULL;
+
+  id.user = (char *) PyString_SafeAsString(a);
+  id.community = (char *) PyString_SafeAsString(b);
+
+  srvc_im = (struct mwServiceIm *) self->wrapped;
+  conv = mwServiceIm_findConversation(srvc_im, &id);
+
+  if(!conv || !MW_CONVO_IS_OPEN(conv)) {
+    mw_throw("conversation not currently open");
+  } else if(! mwConversation_supports(conv, mwImSend_MIME)) {
+    mw_throw("conversation does not support sending MIME");
+  }
+
+  if(mwConversation_send(conv, mwImSend_MIME, &data)) {
+    mw_throw("error sending MIME message over conversation");
   } else {
     mw_return_none();
   }
@@ -296,7 +327,7 @@ static PyObject *py_send_subject(mwPyService *self, PyObject *args) {
 
   /* don't free text or clear id, those strings are borrowed */
   if(mwConversation_send(conv, mwImSend_SUBJECT, text)) {
-    mw_throw("error sending message over conversation");
+    mw_throw("error sending subject over conversation");
   } else {
     mw_return_none();
   }
@@ -328,7 +359,7 @@ static PyObject *py_send_typing(mwPyService *self, PyObject *args) {
 
   /* don't clead id, it has borrowed strings */
   if(mwConversation_send(conv, mwImSend_TYPING, GINT_TO_POINTER(typing))) {
-    mw_throw("error sending message over conversation");
+    mw_throw("error sending typing over conversation");
   } else {
     mw_return_none();
   }
@@ -463,6 +494,9 @@ static struct PyMethodDef tp_methods[] = {
 
   { "sendHtml", (PyCFunction) py_send_html,
     METH_VARARGS, "send an HTML formatted message" },
+
+  { "sendMime", (PyCFunction) py_send_mime,
+    METH_VARARGS, "send a MIME encoded message" },
 
   { "sendSubject", (PyCFunction) py_send_subject,
     METH_VARARGS, "send the conversation subject" },

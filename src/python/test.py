@@ -207,6 +207,33 @@ class ServiceIm(meanwhile.ServiceIm):
         self.processCmd(who, text)
 
 
+    def onMime(self, who, data):
+        '''Handles incoming MIME messages
+        '''
+
+        from email.Parser import Parser
+        from StringIO import StringIO
+        
+        print '<mime>%s' % who[0]
+        msg = Parser().parsestr(data)
+
+        html = StringIO()  # combined text segments
+        images = {}        # map of Content-ID:binary image
+                
+        for part in msg.walk():
+            mt = part.get_content_maintype()
+            if mt == 'text':
+                html.write(part.get_payload(decode=True))
+            elif mt == 'image':
+                cid = part.get('Content-ID')
+                images[cid] = part.get_payload(decode=True)
+
+        print ' <text/html>:', html.getvalue()
+        html.close()
+
+        print ' <images>:', [k[1:-1] for k in images.keys()]
+                
+
     def onSubject(self, who, subj):
         print '<subject>%s: "%s"' % (who[0], subj)
 

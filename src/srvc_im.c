@@ -696,9 +696,22 @@ static int convo_sendTyping(struct mwConversation *conv, gboolean typing) {
 
 static int convo_sendMime(struct mwConversation *conv,
 			  struct mwOpaque *mime) {
+  struct mwPutBuffer *b;
+  struct mwOpaque o = { 0, NULL };
+  int ret;
 
-  /** @todo actually implement */
-  return 0;
+  b = mwPutBuffer_new();
+
+  guint32_put(b, mwIm_DATA);
+  guint32_put(b, mwImData_MIME);
+  guint32_put(b, 0x00);
+  mwOpaque_put(b, mime);
+
+  mwPutBuffer_finalize(&o, b);
+  ret = mwChannel_send(conv->channel, msg_MESSAGE, &o);
+  mwOpaque_clear(&o);
+
+  return ret;
 }
 
 
@@ -719,7 +732,7 @@ int mwConversation_send(struct mwConversation *conv, enum mwImSendType type,
   case mwImSend_HTML:
     return convo_sendHtml(conv, msg);
   case mwImSend_MIME:
-    return convo_sendMime(conv, msg);
+    return convo_sendMime(conv, (struct mwOpaque *) msg);
 
   default:
     g_warning("unsupported IM Send Type, 0x%x", type);
