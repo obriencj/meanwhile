@@ -12,7 +12,6 @@
 #include "session.h"
 
 
-
 static void flush_channel(struct mwChannel *);
 
 
