@@ -170,11 +170,11 @@ const char *PyString_SafeAsString(PyObject *str);
 
 
 #define PyGuint32_FromGuint32(ui32) \
-  PyLong_FromUnsignedLong(ui32)
+  PyInt_FromLong(ui32)
 
 
 #define PyGuint32_AsGuint32(pyobj) \
-  (guint32) PyLong_AsUnsignedLong(pyobj)
+  (guint32) PyInt_AsLong(pyobj)
 
 
 #define PyGuint16_FromGuint16(ui16) \
