@@ -143,6 +143,8 @@ static void recv_channelDestroy(struct mwServiceFileTransfer *srvc,
   struct mwFileTransfer *ft;
   guint32 code;
 
+  code = msg->reason;
+
   g_return_if_fail(srvc->handler != NULL);
   handler = srvc->handler;
 
@@ -150,9 +152,7 @@ static void recv_channelDestroy(struct mwServiceFileTransfer *srvc,
   g_return_if_fail(ft != NULL);
 
   if(handler->ft_closed)
-    handler->ft_closed(ft, code);
-
-  
+    handler->ft_closed(ft, code);  
 }
 
 
