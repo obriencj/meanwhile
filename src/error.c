@@ -3,13 +3,12 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "mw_compat.h"
 #include "mw_error.h"
 
 
 static char *err_to_str(guint32 code) {
   static char b[11]; /* 0x12345678 + NULL terminator */
-  g_sprintf((char *) b, "0x%08x", code);
+  sprintf((char *) b, "0x%08x", code);
   b[10] = '\0';
   return b;
 }

@@ -1,6 +1,5 @@
 
 #include <glib/ghash.h>
-#include <glib/gprintf.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -490,8 +489,8 @@ static int put_group(char **b, gsize *n, struct mwSametimeGroup *group) {
   name = g_strdup(group->name);
   str_replace(name, ' ', ';');
 
-  writ = g_sprintf(*b, "G %s2 %s %c\n",
-		   name, name, group->open? 'O': 'C');
+  writ = sprintf(*b, "G %s2 %s %c\n",
+		 name, name, group->open? 'O': 'C');
 
   g_free(name);
 
@@ -516,8 +515,8 @@ static int put_user(char **b, gsize *n, struct mwSametimeUser *user) {
 
   if(!name && alias) name = g_strdup(alias);
 
-  writ = g_sprintf(*b, "U %s1:: %s,%s\n",
-		   id, name? name: id, alias? alias: "");
+  writ = sprintf(*b, "U %s1:: %s,%s\n",
+		 id, name? name: id, alias? alias: "");
 
   g_free(id);
   g_free(name);
@@ -539,8 +538,8 @@ int mwSametimeList_put(char **b, gsize *n, struct mwSametimeList *list) {
 
   g_return_val_if_fail(list != NULL, -1);
 
-  writ = g_sprintf(*b, "Version=%u.%u.%u\n",
-		   list->ver_major, list->ver_minor, list->ver_revision);
+  writ = sprintf(*b, "Version=%u.%u.%u\n",
+		 list->ver_major, list->ver_minor, list->ver_revision);
 
   *b += writ;
   *n -= writ;

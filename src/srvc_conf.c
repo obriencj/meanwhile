@@ -4,12 +4,12 @@
 #include <glib/ghash.h>
 #include <glib/glist.h>
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 
 #include "mw_channel.h"
-#include "mw_compat.h"
 #include "mw_debug.h"
 #include "mw_error.h"
 #include "mw_message.h"
@@ -100,7 +100,7 @@ static char *conf_generate_name(const char *user) {
   srand(clock());
   a = ((rand() & 0xff) << 8) | (rand() & 0xff);
   b = time(NULL);
-  g_sprintf(c, "(%08x,%04x)", b, a);
+  sprintf(c, "(%08x,%04x)", b, a);
 
   ret = g_strconcat(user, c, NULL);
 

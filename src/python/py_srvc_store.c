@@ -89,11 +89,13 @@ static void mw_stored(struct mwServiceStorage *srvc,
 
 
 static PyObject *py_load_t(mwPyService *self, PyObject *args, enum cb_type t) {
-  struct mwStorageService *srvc = self->wrapped;
+  struct mwServiceStorage *srvc;
   guint32 key;
   PyObject *cb;
   struct cb_data *cbd;
   struct mwStorageUnit *su;
+
+  srvc = (struct mwServiceStorage *) self->wrapped;
 
   if(! PyArg_ParseTuple(args, "lO", &key, &cb))
     return NULL;
