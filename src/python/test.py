@@ -39,10 +39,6 @@ def _cbLoadStr(who, key, result, value):
         print t
         tSrvcIm.sendText(who, t)
 
-    time.sleep(10)
-    print "stopping session"
-    tSession.stop()
-
 
 
 def _cbLoad(who, kstr):
