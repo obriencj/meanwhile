@@ -23,7 +23,7 @@ _meanwhile_so_SOURCES = \
 	py_srvc_store.c
 
 _meanwhile_so_CFLAGS = \
-	-Wall -Werror $(DEBUG_CFLAGS) \
+	-fpic -Wall -Werror $(DEBUG_CFLAGS) \
 	$(GLIB_CFLAGS) $(PYTHON_CFLAGS)
 
 _meanwhile_so_LDFLAGS = \

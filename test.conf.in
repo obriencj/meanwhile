@@ -6,20 +6,17 @@
 # information to Python. If you want to use the test script, just edit
 # the variables in this file accordingly
 #
-# If you're seeing this from running the test script for the first
-# time, press i to enter insert mode. When you've finished editing,
-# hit escape and type :wq and press enter to save your changes and
-# quit vi.
 #
 ##############################################################################
 
 
-# User name. This needs to be the 'short' ID, such as an email address
-# or an LDAP UID
+# User name. This needs to be the actual ID, such as an email address
+# or an LDAP UID. Will result in an error 0x80000211 if incorrect
 export mw_user=
 
 
-# Password in plaintext
+# Password in plaintext. Will result in an error 0x80000211 if
+# incorrect
 export mw_pass=
 
 

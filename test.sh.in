@@ -21,14 +21,19 @@ if test "$PYTHON" = "" ; then
 fi
 
 
-# obtain configuration data
+# set up blank configuration data if necessary
 if test ! -e $CONFIG ; then
     cp $CONFIG.in $CONFIG
-    if test -n `which vim` ; then
-	vim $CONFIG
+    if test -z "$EDITOR" ;
+	if test -n `which vim` 2> /dev/null ; then
+	    vim $CONFIG
+	fi
+    else
+	$EDITOR $CONFIG
     fi
 fi
 
+# obtain configuration data
 . $CONFIG
 
 if test -z "$mw_user" || test -z "$mw_host" ; then

@@ -143,7 +143,7 @@ class SocketSession(Session):
         self.stop()
 
         # setup a socket elsewhere
-        self._server[0] = host
+        self._server = (host, self._server[1])
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._sock.connect(self._server)
         
