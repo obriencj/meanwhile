@@ -19,8 +19,6 @@
 
 \tableofcontents{}
 
-\newpage{}
-
 \par{} This document is an Internet-Draft and is NOT
 offered in accordance with Section 10 of RFC2026, and the authors do
 not provide the IETF with any rights other than to publish it as an
@@ -117,19 +115,300 @@ managed by the community.
 
 \section{Sametime Community Architecture}
 
+\par{} A Sametime user can have multiple logins to the community. Each
+login is done via a different TCP connection. The community
+synchronizes between the various logins of the User to maintain a
+consistent presence. For example, when a user updates its details
+through one of her/his logins, the community reports to the other
+logins about the change.
+
+\par{} The user can inform the community how that user's visibility
+should be limited. The user informs the system either by supplying a
+list of others to whom the user's presence should not be published, or
+by supplying a list of others who are the only ones to whom the user's
+presence should be published. This feature is called Privacy. Privacy
+is also synchronized between the multiple logins of the user if they
+exist.
+
+\par{} Multiple logins are needed when the user runs two or more
+Sametime applications and the applications are not able (or were not
+written to) share the same TCP connection. We call these type of
+applications non- cooperative applications. The ability to have
+different logins enables using such applications without letting the
+user feel that they are using different logins.
+
+\par{} Each login in a Sametime community can use many services in the
+community. Each service may be used by a different application that is
+run by the user. Upon connecting to the community, the login connects
+with the basic service of the community - the Community Service. Using
+the community service, it is possible to locate other services in the
+community and connect with them.
+
+\par{} Traffic on a TCP connection is divided into channels. A channel
+is a virtual connection between two entities (login, server or service
+provider). Upon connecting to the community a default master channel
+is created between the client and the server. Using the master
+channel, other channels can be created. When a client connects to some
+service in the community or interacts with a login of another user, a
+channel is created for the interaction.
+
+\par{} A channel may be encrypted. Upon creation of the channel, a
+method of encryption is selected by its two endpoints. After selecting
+an encryption method, messages passing on the channel may be
+encrypted.  This document does not describe how an encrypted channel
+is created and what encryption methods are supported.
+
+\par{} This document does not cover the architecture of the server
+side of the Sametime community. In general, we can say that a Sametime
+community is composed of multiple servers acting in concert. The
+Sametime community is scalable and distributed. Scalability means that
+the number of users that can be served by a community is larger than
+the number of the users that can be served by a single server.
+Distribution means that the community is composed of multiple servers,
+where each server is in a different location.
+
+\par{} A user connected to one community may get services from other
+Sametime communities. This is achieved via a community-to-community
+connection.  When a service from another community is requested, the
+community of the user can connect to the other community and get
+services for the user from there. Of course, the ability to get
+inter-community services is dependent on agreements between the
+communities.
+
 \chapter{User Model}
+
+\par{} The Sametime user and login model supports multiple logins of
+the same user to the community. The user model is divided into
+persistent and runtime parts.
+
 \section{Persistent User Data}
+
+\par{} Each user in a Sametime community has the following basic
+properties.  These properties are persistent across server shutdowns.
+
+\par{} - Home server - The default server into which the user should
+usually login.
+
+\par{} - User ID - A string representing an identifier of a user in
+the community. This string is unique among all the users in the
+community.
+
+\par{} - Login Params - Set of fields used for the creation of a login
+into the community. Common fields will be a login name and a
+password. The login name is a string that has no further usage beyond
+the login phase.
+
+\par{} - User-Name - A name under which other users see the user. A
+user might have different user-names for different logins (4.2)
+
+\par{} - Description - A descriptive text about the user. Again, a
+description may be different for different logins.
+
+\par{} - Privacy List - A list of user IDs that may or may not know
+that the user is online. A privacy list is maintained per user. If a
+user logs into the community several times simultaneously, the server
+synchronizes the privacy list of the user between its different
+logins.
+
 \section{Runtime User Structures}
 
+\par{} The runtime user model of Sametime enables each user to create
+multiple concurrent logins to the community. As shown in the example
+below, a single User-ID may have multiple Login Params, each of which
+may have multiple Login-IDs.
+
+\begin{verbatim}
+   +-------------------+
+   | User-ID           |
+   +-------------------+
+    | +---------------+
+    =>| Login Params  |
+    | +---------------+
+    |   | +----------+
+    |   =>| Login-ID |
+    |     +----------+
+    |
+    | +---------------+
+    =>| Login Params  |
+      +---------------+
+        | +----------+
+        =>| Login-ID |
+        | +----------+
+        |
+        | +----------+
+        =>| Login-ID |
+          +----------+
+\end{verbatim}
+
+\par{} Each TCP/IP connection of a user creates a single login of the
+user to the community. A login ID that is unique throughout the
+community is assigned to each login.
+
+\par{} Sametime applications may be written by different vendors, or
+may be written by the same vendor using different programming
+environments (e.g. Java and OCX). Therefore it is not possible in all
+cases that the various Sametime applications run by the user will
+share the same TCP connection to the community.
+
+\par{} For this reason a Sametime community supports multiple logins
+of a user. Multiple logins enable the various Sametime applications
+run by the user to be independent on each other. Even though there are
+multiple logins of the user, the Sametime community synchronizes
+various updates (e.g. privacy) between the logins.
+
+\par{} In current implementations of the Sametime community, it is not
+possible to create different simultaneous logins from different user
+machines. The restriction is enforced by the Sametime community by
+logging out an "old" login.
+
 \chapter{Protocol Elements}
+
+\par{} This section defines the elements used in the Sametime
+protocol.
+
 \section{Community}
+
+\par{} A string uniquely identifying a Sametime community. Usually
+this string will be a domain name or some other identifier that is
+guaranteed to be unique.
+
 \section{User-ID}
+
+\par{} A string uniquely identifying a user in a community. user-ID is
+saved in a persistent storage and is not affected by server
+restarts. At runtime the user-id is augmented to conatain also the
+community name.
+
 \section{Login-ID}
+
+\par{} Every entity logged into a community has a runtime
+login-ID. The login- ID is unique over all the Sametime
+communities. This uniqueness is achieved by having the login-ID be
+composed of the following:
+
+\par{} - A string uniquely identifying the community
+
+\par{} - A unique string constructed from the IP address of the server
+into which the user is logged and a number assigned by the server.
+
+\par{} The login-ID is the primary handle for referencing logins in
+the Community. When a channel to another user in the community is to
+be created, someone (either the client or some community component)
+first has to find a login-ID of the user and only then can the channel
+be created.
+
 \section{Channels}
+
+\par{} A Sametime community is composed from multiple servers and
+service providers - hence, the network path between two community
+entities (login or community component) may span several hops. Each
+hop is a TCP connection.
+
+\par{} A Channel is a virtual connection between two community
+entities. The channel spans over the route of network connections that
+exist between the two sides of the channel. Hence the channel supplies
+the following functions:
+
+\par{} - Defines the routing path between the two sides of the
+channel.
+
+\par{} - Ensures order of messages.
+
+\par{} - Supplies notifications to both sides of the channel when some
+network connection along the path is broken.
+
+\par{} Channels are also used for efficient propagation of
+messages. When there is a need (e.g. in a N-way chat) to send a
+message to multiple recipients, the sender can send a single instance
+of the message with the list of recipients channels. Upon receiving
+the message, the server sends the message along the appropriate
+network connections where each network connection gets a single copy
+of the message and a list of channels that are contained in the
+network connection. This method of message propagation is called:
+multi-send on channel.
+
 \section{Master Channel}
+
+\par{} When a TCP connection from a client to a server is initiated, a
+default channel named Master-Channel is created. The master-channel
+serves the following purposes:
+
+\par{} - Authentication (Handshake and Login messages)
+
+\par{} - Creation of other Channels
+
+\par{} - Sending Broadcast messages
+
+\par{} - Sending One Time messages
+
+\par{} - Sending utility messages
+
+\par{} - Sending Privacy and Status messages
+
 \section{Channel-ID}
+
+\par{} Channel-ID numbers are unsigned words (32 bits). The numbering
+of channels is local to the TCP connection between each pair of
+community entities along the channel path.
+
+\par{} The channel creator can be on either side of the TCP
+connection. In order to avoid using the same ID when creating a
+channel, the range of possible IDs is divided between the two sides of
+the TCP connection.  The initiator of the TCP connection (the ACTIVE
+side) is allocated the numbers with the Most Significant Bit (MSB) at
+zero. The other side (the PASSIVE side) is allocated the numbers with
+the Most Significant Bit (MSB) at one.
+
+\par{} Due to the locality of the channel numbering, channel-IDs can
+be reused immediately after the channel is closed.
+
 \section{Service Providers}
+
+\par{} Clients connected to a Sametime community are served by Service
+Providers. Each service provider is responsible for a certain
+functionality. We refer to these functionalities as Services.
+
+\par{} The following services are among those offered by Sametime
+service providers, and are relevant to this protocol documentation:
+
+\par{} * Who Is Online - Widely known as the buddy list service. This
+service supplies users with notifications about status & properties of
+other users in the community.
+
+\par{} * Authenticate - Authenticates users against the database for
+its server.
+
+\par{} * Resolve - Resolves a user-name into zero or more user-IDs
+
+\par{} * N-Way Chat - Supplies chat-rooms, where several users can
+participate.
+
+\par{} The Instant Messages (IM) are supplied directly by the Sametime
+server.
+
 \section{Encryptption}
+
+\par{} Encryption is supported in the Sametime community. When a
+channel is created it can be specified as encrypted. The parameters
+specifying the encryption method to be used are sent in the channel
+creation phase. So immediately after the channel is created, the
+channel is either encrypted or not. There are no messages for
+converting a non-encrypted channel to an encrypted one or vice versa.
+
+\par{} It is possible to send a non-encrypted message on an encrypted
+channel. A flag in the messages indicates whether the message is
+encrypted or not.
+
+\par{} Encryption is also supported in a N-way chat. The channel of
+each chat participant is encrypted. The encryption method and keys
+used are local to each participant in the chat. Therefore, each
+message sent by the chat service provider has to be encrypted per each
+participant. The current chat service provider encrypts only the text
+sent by the chat participants. Messages indicating updates to the
+participant list of the chat are not encrypted.
+
+\par{} This document describes only the parameters required for
+creating a non-encrypted channel.
 
 \chapter{Protocol Overview}
 \section{Login}
@@ -211,7 +490,7 @@ managed by the community.
 \chapter{Author Addresses}
 
 
-
+\begin{verbatim}
 2. Abstract
 
 
@@ -225,290 +504,33 @@ managed by the community.
 
 3.3. Sametime Community Architecture
 
-A Sametime user can have multiple logins to the community. Each login
-is done via a different TCP connection. The community synchronizes
-between the various logins of the User to maintain a consistent
-presence. For example, when a user updates its details through one of
-her/his logins, the community reports to the other logins about the
-change.
-
-The user can inform the community how that user's visibility should be
-limited. The user informs the system either by supplying a list of
-others to whom the user's presence should not be published, or by
-supplying a list of others who are the only ones to whom the user's
-presence should be published. This feature is called Privacy. Privacy
-is also synchronized between the multiple logins of the user if they
-exist.
-
-Multiple logins are needed when the user runs two or more Sametime
-applications and the applications are not able (or were not written to)
-share the same TCP connection. We call these type of applications non-
-cooperative applications. The ability to have different logins enables
-using such applications without letting the user feel that they are
-using different logins.
-
-Each login in a Sametime community can use many services in the
-community. Each service may be used by a different application that is
-run by the user. Upon connecting to the community, the login connects
-with the basic service of the community - the Community Service. Using
-the community service, it is possible to locate other services in
-the community and connect with them.
-
-Traffic on a TCP connection is divided into channels. A channel is a
-virtual connection between two entities (login, server or service
-provider). Upon connecting to the community a default master channel is
-created between the client and the server. Using the master channel,
-other channels can be created. When a client connects to some service
-in the community or interacts with a login of another user, a channel
-is created for the interaction.
-
-A channel may be encrypted. Upon creation of the channel,
-a method of
-encryption is selected by its two endpoints. After selecting an
-encryption method, messages passing on the channel may be encrypted.
-This document does not describe how an encrypted channel is created and
-what encryption methods are supported.
-
-This document does not cover the architecture of the server side of the
-Sametime community. In general, we can say that a Sametime community is
-
-composed of multiple servers acting in concert. The Sametime community
-is scalable and distributed. Scalability means that the number of users
-that can be served by a community is larger than the number of the
-users that can be served by a single server. Distribution means that
-the community is composed of multiple servers, where each server is in
-a different location.
-
-A user connected to one community may get services from other Sametime
-communities. This is achieved via a community-to-community connection.
-When a service from another community is requested, the community of
-the user can connect to the other community and get services for the
-user from there. Of course, the ability to get inter-community services
-is dependent on agreements between the communities.
 
 4. User model
 
-The Sametime user and login model supports multiple logins of the same
-user to the community. The user model is divided into persistent and
-runtime parts.
-
 4.1 Persistent User Data
-
-Each user in a Sametime community has the following basic properties.
-These properties are persistent across server shutdowns.
-
-- Home server - The default server into which the user should usually
-login.
-
-- User ID - A string representing an identifier of a user in the
-community. This string is unique among all the users in the community.
-
-- Login Params - Set of fields used for the creation of a login into
-the community. Common fields will be a login name and a password. The
-login name is a string that has no further usage beyond the login
-phase.
-
-- User-Name - A name under which other users see the user. A user might
-have different user-names for different logins
-(4.2)
-
-- Description - A descriptive text about the user. Again, a description
-may be different for different logins.
-
-- Privacy List - A list of user IDs that may or may not know that the
-user is online. A privacy list is maintained per user. If a user logs
-into the community several times simultaneously, the server
-synchronizes the privacy list of the user between its different logins.
 
 
 4.2 Runtime User Structures
 
 
-The runtime user model of Sametime enables each user to create multiple
-concurrent logins to the community. As shown in the example below, a
-single User-ID may have multiple Login Params, each of which may have
-multiple Login-IDs.
-
-   +-------------------+
-   | User-ID           |
-   +-------------------+
-    | +---------------+
-    =>| Login Params  |
-    | +---------------+
-    |   | +----------+
-    |   =>| Login-ID |
-    |     +----------+
-    |
-    | +---------------+
-    =>| Login Params  |
-      +---------------+
-        | +----------+
-        =>| Login-ID |
-        | +----------+
-        |
-        | +----------+
-        =>| Login-ID |
-          +----------+
-
-Each TCP/IP connection of a user creates a single login of the user to
-the community. A login ID that is unique throughout the community is
-assigned to each login.
-
-Sametime applications may be written by different vendors, or may be
-written by the same vendor using different programming environments
-(e.g. Java and OCX). Therefore it is not possible in all cases that the
-various Sametime applications run by the user will share the same TCP
-connection to the community.
-
-For this reason a Sametime community supports multiple logins of a
-user. Multiple logins enable the various Sametime applications run by
-the user to be independent on each other. Even though there are
-multiple logins of the user, the Sametime community synchronizes
-various updates (e.g. privacy) between the logins.
-
-In current implementations of the Sametime community, it is not
-possible to create different simultaneous logins from different user
-machines. The restriction is enforced by the Sametime community by
-logging out an "old" login.
-
 5. Protocol Elements
-
-This section defines the elements used in the Sametime protocol.
 
 5.1. Community
 
-A string uniquely identifying a Sametime community. Usually this string
-will be a domain name or some other identifier that is guaranteed to be
-unique.
 
 5.2. User-ID
 
-A string uniquely identifying a user in a community. user-ID is saved
-in a persistent storage and is not affected by server restarts. At
-runtime the user-id is augmented to conatain also the community name.
-
 5.3. Login-ID
-
-Every entity logged into a community has a runtime login-ID. The login-
-ID is unique over all the Sametime communities. This uniqueness is
-achieved by having the login-ID be composed of the following:
-
-- A string uniquely identifying the community
-
-- A unique string constructed from the IP address of the server into
-which the user is logged and a number assigned by the server.
-
-The login-ID is the primary handle for referencing logins in the
-Community. When a channel to another user in the community is to be
-created, someone (either the client or some community component) first
-has to find a login-ID of the user and only then can the channel be
-created.
 
 5.4. Channels
 
-A Sametime community is composed from multiple servers and service
-providers - hence, the network path between two community entities
-(login or community component) may span several hops. Each hop is a TCP
-connection.
-
-A Channel is a virtual connection between two community entities. The
-channel spans over the route of network connections that exist between
-the two sides of the channel. Hence the channel supplies the following
-functions:
-
-- Defines the routing path between the two sides of the channel.
-- Ensures order of messages.
-- Supplies notifications to both sides of the channel when some network
-connection along the path is broken.
-
-Channels are also used for efficient propagation of messages. When
-there is a need (e.g. in a N-way chat) to send a message to multiple
-recipients, the sender can send a single instance of the message with
-the list of recipients channels. Upon receiving the message, the server
-sends the message along the appropriate network connections where each
-network connection gets a single copy of the message and a list of
-channels that are contained in the network connection. This method of
-message propagation is called: multi-send on channel.
-
 5.5 Master Channel
-
-When a TCP connection from a client to a server is initiated, a default
-channel named Master-Channel is created. The master-channel serves the
-following purposes:
-
-- Authentication (Handshake and Login messages)
-- Creation of other Channels
-- Sending Broadcast messages
-- Sending One Time messages
-
-page 8  Sametime Community - Client Protocol   Page 8
-
-- Sending utility messages
-- Sending Privacy and Status messages
 
 5.6. Channel-ID
 
-Channel-ID numbers are unsigned words (32 bits). The numbering of
-channels is local to the TCP connection between each pair of community
-entities along the channel path.
-
-The channel creator can be on either side of the TCP connection. In
-order to avoid using the same ID when creating a channel, the range of
-possible IDs is divided between the two sides of the TCP connection.
-The initiator of the TCP connection (the ACTIVE side) is allocated the
-numbers with the Most Significant Bit (MSB) at zero. The other side
-(the PASSIVE side) is allocated the numbers with the Most Significant
-Bit (MSB) at one.
-
-Due to the locality of the channel numbering, channel-IDs can be reused
-immediately after the channel is closed.
-
 5.7. Service Providers
 
-Clients connected to a Sametime community are served by
-Service Providers. Each service provider is responsible for a
-certain functionality. We refer to these functionalities as Services.
-
-The following services are among those offered by Sametime service
-providers, and are relevant to this protocol documentation:
-
-* Who Is Online - Widely known as the buddy list service. This service
-supplies users with notifications about status & properties of other
-users in the community.
-
-* Authenticate - Authenticates users against the database for its
-server.
-
-* Resolve - Resolves a user-name into zero or more user-IDs
-
-* N-Way Chat - Supplies chat-rooms, where several users can
-participate.
-
-The Instant Messages (IM) are supplied directly by the Sametime server.
-
 5.8. Encryption
-
-Encryption is supported in the Sametime community. When a channel is
-created it can be specified as encrypted. The parameters specifying the
-encryption method to be used are sent in the channel creation phase. So
-immediately after the channel is created, the channel is either
-encrypted or not. There are no messages for converting a non-encrypted
-channel to an encrypted one or vice versa.
-
-It is possible to send a non-encrypted message on an encrypted channel.
-A flag in the messages indicates whether the message is encrypted or
-not.
-
-Encryption is also supported in a N-way chat. The channel of each chat
-participant is encrypted. The encryption method and keys used are local
-to each participant in the chat. Therefore, each message sent by the
-chat service provider has to be encrypted per each participant. The
-current chat service provider encrypts only the text sent by the chat
-participants. Messages indicating updates to the participant list of
-the chat are not encrypted.
-
-This document describes only the parameters required for creating
-a non-encrypted channel.
 
 6. Protocol Overview
 
@@ -2453,6 +2475,6 @@ contirbuted to this document: Mark Day, Alon Kleinman, Maxim Kovalenko
 & Marjorie Schejter.
 
 10. Authors Addresses
-
+\end{verbatim}
 
 \end{document}

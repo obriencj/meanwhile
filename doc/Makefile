@@ -11,7 +11,7 @@ DIA_SRC =	chan_create.dia \
 EPS_OUT =	$(DIA_SRC:%.dia=%.eps)
 
 
-all:	pdf html
+all:	pdf html doxygen
 
 
 pdf:	$(EPS_OUT) $(DVI_OUT)
@@ -32,8 +32,11 @@ html:	$(EPS_OUT)
 	./epsscale.sh $@.tmp 0.50 > $@
 	rm -f $@.tmp
 
+doxygen:
+	mkdir doxygen
+	doxygen doxygen.conf
 
 clean:
-	rm -rf meanwhile/
+	rm -rf meanwhile/ doxygen/
 	rm -f .nfs* *.aux *.dvi *.eps *.lof *.log *.out *.pdf *.toc
 
