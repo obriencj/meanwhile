@@ -887,3 +887,64 @@ void mwAwareSnapshot_clear(struct mwAwareSnapshot *idb) {
 }
 
 
+const char *mwLoginType_getName(enum mwLoginType type) {
+  switch(type) {
+  case mwLogin_LIB:
+    return "Lotus Binary Library";
+
+  case mwLogin_JAVA_WEB:
+    return "Lotus Java Client Applet";
+
+  case mwLogin_BINARY:
+    return "Lotus Sametime";
+
+  case mwLogin_JAVA_APP:
+    return "Lotus Java Client Application";
+
+  case mwLogin_NOTES_6_5:
+    return "Lotus Notes Client 6.5.2+";
+
+  case mwLogin_NOTES_7_0:
+    return "Lotus Notes Client 7";
+
+  case mwLogin_ICT:
+    return "IBM Community Tools (ICT)";
+
+  case mwLogin_NOTESBUDDY:
+    return "Alphaworks NotesBuddy";
+
+  case mwLogin_SANITY:
+    return "Sanity";
+
+  case mwLogin_ST_PERL:
+    return "ST-Send-Message";
+
+  case mwLogin_PMR_ALERT:
+    return "PMR Alert";
+
+  case mwLogin_TRILLIAN:
+    return "Trillian";
+
+  case mwLogin_TRILLIAN_IBM:
+    return "Trillian with IBM Sametime Plugin";
+
+  case mwLogin_MEANWHILE:
+    return "Meanwhile";
+
+  case mwLogin_MW_PYTHON:
+    return "Meanwhile Python";
+
+  case mwLogin_MW_GAIM:
+    return "Meanwhile Gaim";
+
+  case mwLogin_MW_ADIUM:
+    return "Meanwhile Adium";
+
+  case mwLogin_MW_KOPETE:
+    return "Meanwhile Kopete";
+
+  default:
+    return NULL;
+  }
+}
+

@@ -82,11 +82,24 @@ struct mwOpaque {
 /** The type of login. Normally meaning the type of client code being
     used to login with. */
 enum mwLoginType {
-  mwLogin_LIB       = 0x1000,  /**< official Lotus binary library */
-  mwLogin_JAVA_WEB  = 0x1001,  /**< official Lotus Java applet */
-  mwLogin_BINARY    = 0x1002,  /**< official Lotus binary application */
-  mwLogin_JAVA_APP  = 0x1003,  /**< official Lotus Java application */
-  mwLogin_MEANWHILE = 0x1700   /**< Meanwhile library */
+  mwLogin_LIB           = 0x1000,  /**< official Lotus binary library */
+  mwLogin_JAVA_WEB      = 0x1001,  /**< official Lotus Java applet */
+  mwLogin_BINARY        = 0x1002,  /**< official Lotus binary application */
+  mwLogin_JAVA_APP      = 0x1003,  /**< official Lotus Java application */
+  mwLogin_NOTES_6_5     = 0x1200,
+  mwLogin_NOTES_7_0     = 0x1210,
+  mwLogin_ICT           = 0x1300,
+  mwLogin_NOTESBUDDY    = 0x1400,
+  mwLogin_SANITY        = 0x1600,
+  mwLogin_ST_PERL       = 0x1625,
+  mwLogin_PMR_ALERT     = 0x1650,
+  mwLogin_TRILLIAN      = 0x16aa,
+  mwLogin_TRILLIAN_IBM  = 0x16bb,
+  mwLogin_MEANWHILE     = 0x1700,  /**< Meanwhile library */
+  mwLogin_MW_PYTHON     = 0x1710,
+  mwLogin_MW_GAIM       = 0x1720,
+  mwLogin_MW_ADIUM      = 0x1730,
+  mwLogin_MW_KOPETE     = 0x1740,
 };
 
 
@@ -257,6 +270,11 @@ gboolean mwGetBuffer_error(struct mwGetBuffer *b);
 
 
 /*@}*/
+
+
+/** provides a textual name for a given login type. If the type is not
+    known by name, returns NULL */
+const char *mwLoginType_getName(enum mwLoginType type);
 
 
 /** @name Basic Data Type Marshalling
