@@ -80,7 +80,16 @@ struct mwOpaque {
 /* 8.3.6 Login Types */
 
 /** The type of login. Normally meaning the type of client code being
-    used to login with. */
+    used to login with.
+
+    If you know of any additional client identifiers, please add them
+    below.
+
+    If you are using Meanwhile in your client code and would like to
+    differentiate yourself, please email siege at preoccupied dot net
+    with all the relevant information you can think of. I intend to be
+    pretty liberal with 'em.
+*/
 enum mwLoginType {
   mwLogin_LIB           = 0x1000,  /**< official Lotus binary library */
   mwLogin_JAVA_WEB      = 0x1001,  /**< official Lotus Java applet */
