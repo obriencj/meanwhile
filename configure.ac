@@ -114,6 +114,11 @@ if test "$withval" != "no" ; then
 	if test "$PYTHON_LIBS" = "" ; then
 		AC_MSG_ERROR(not found)
 	else
+
+		if test `uname` = "Darwin" ; then
+			PYTHON_LIBS="-framework Python $PYTHON_LIBS"
+		fi
+
 		AC_MSG_RESULT($PYTHON_LIBS)
 		AC_SUBST(PYTHON_LIBS)
 		AC_SUBST(PYTHON_LIBP)
