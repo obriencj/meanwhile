@@ -544,7 +544,11 @@ static void get_user(const char *line, struct mwSametimeGroup *g) {
   }
 
   if(name && *name) {
-    char *tmp = strrchr(name, ',');
+    char *tmp;
+
+    str_replace(name, ';', ' ');
+
+    tmp = strrchr(name, ',');
     if(tmp) {
       *tmp++ = '\0';
       if(*tmp) alias = tmp;

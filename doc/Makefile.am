@@ -10,3 +10,6 @@ docs:
 clean-local:
 	rm -rf html latex man
 
+
+install:
+

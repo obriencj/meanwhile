@@ -42,8 +42,8 @@
    clients */
 
 
-#define PROTOCOL_TYPE  0x00000010
-#define PROTOCOL_VER   0x00000002
+#define PROTOCOL_TYPE   0x00000010
+#define PROTOCOL_VER    0x00000002
 
 
 /** @see mwMsgChannelSend::type

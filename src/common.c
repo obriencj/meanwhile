@@ -750,6 +750,7 @@ void mwEncryptItem_put(struct mwPutBuffer *b, struct mwEncryptItem *ei) {
   
   guint16_put(b, ei->id);
   mwOpaque_put(b, &ei->info);
+
 }
 
 

@@ -175,6 +175,8 @@ static void LOGIN_REDIRECT_clear(struct mwMsgLoginRedirect *msg) {
 
 
 static void enc_offer_put(struct mwPutBuffer *b, struct mwEncryptOffer *enc) {
+  char tail = 0x07;
+
   guint16_put(b, enc->mode);
   
   if(enc->items) {
@@ -202,6 +204,8 @@ static void enc_offer_put(struct mwPutBuffer *b, struct mwEncryptOffer *enc) {
     guint32_put(b, 0x00);
     guint32_put(b, 0x00);
   }
+
+  mwPutBuffer_write(b, &tail, 1);
 }
 
 
@@ -293,6 +297,7 @@ static void CHANNEL_CREATE_clear(struct mwMsgChannelCreate *msg) {
 
 static void enc_accept_put(struct mwPutBuffer *b,
 			   struct mwEncryptAccept *enc) {
+  char tail = 0x07;
 
   guint16_put(b, enc->mode);
 
@@ -310,9 +315,11 @@ static void enc_accept_put(struct mwPutBuffer *b,
 
   } else {
     guint32_put(b, 0x00);
-    guint32_put(b, 0x00);
-    gboolean_put(b, FALSE);
+    guint32_put(b,enc->extra);
+    gboolean_put(b, enc->flag);
   }
+
+  mwPutBuffer_write(b, &tail, 1);
 }
 
 
