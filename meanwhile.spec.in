@@ -2,7 +2,7 @@ Summary: Meanwhile
 Name: @PACKAGE@
 Epoch: 0
 Version: @VERSION@
-Release: 0
+Release: @RELEASE@
 License: LGPL
 Group: Applications/Internet
 URL: http://meanwhile.sf.net/

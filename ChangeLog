@@ -1,7 +1,11 @@
 
-version 0.3  Chris O'Brien  <siege@preoccupied.net>
+version 0.3-1 (2004-08-05)
 
-	2004-06-28: Release! CVS tagged as meanwhile-0_3
+	- Fix [989872] Version incompatibility (0x80000200 errors)
+
+	- Fix some st_list parsing problems
+
+version 0.3-0 (2004-06-28)
 		
 	2004-06-27: Fixed bug #980572. Thanks a lot to Joe Marcus Clarke
 	for all the debugging help!

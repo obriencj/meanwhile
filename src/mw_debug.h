@@ -6,6 +6,9 @@
 #include <glib.h>
 
 
+#define NSTR(str) ((str != NULL)? str: "(null)")
+
+
 #define g_debug(format...) g_log(G_LOG_DOMAIN, G_LOG_LEVEL_DEBUG, format)
 #define g_info(format...) g_log(G_LOG_DOMAIN, G_LOG_LEVEL_INFO, format)
 
