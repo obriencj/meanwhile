@@ -359,9 +359,11 @@ static void HANDSHAKE_ACK_recv(struct mwSession *s,
 		   mwSession_isState(s, mwSession_LOGIN_CONT));
 
   if(mwSession_isState(s, mwSession_LOGIN_CONT)) {
-    state(s, mwSession_HANDSHAKE_ACK, 0);
     /* this is a login continuation, don't re-send the login. We
        should receive a login ack in a moment */
+
+    state(s, mwSession_HANDSHAKE_ACK, 0);
+    state(s, mwSession_LOGIN, 0);
     return;
 
   } else {
@@ -384,7 +386,11 @@ static void HANDSHAKE_ACK_recv(struct mwSession *s,
   /* send the login message */
   ret = mwSession_send(s, MW_MESSAGE(log));
   mwMessage_free(MW_MESSAGE(log));
-  if(! ret) state(s, mwSession_LOGIN, 0);
+
+  if(! ret) {
+    /* sent login OK, set state appropriately */
+    state(s, mwSession_LOGIN, 0);
+  }
 }
 
 
