@@ -26,9 +26,10 @@ def _cbExec_real(who, text):
     print "executing code %s" % text
     try:
         exec text in globals()
-    except:
-        print "caught exception"
-        tSrvcIm.sendText(who, "caught exception")
+    except Exception, err:
+        msg = "caught exception: %s" % err
+        #print msg
+        tSrvcIm.sendText(who, msg)
             
 
 def _cbExec_none(text):
@@ -91,7 +92,8 @@ class ServiceAware(meanwhile.ServiceAware):
 
 
 class ServiceIm(meanwhile.ServiceIm):
-    def _init_(self):
+    def __init__(self, session):
+        meanwhile.ServiceIm.__init__(self, session)
         self._send_queue = {}
     
     def processCmd(self, who, text):
@@ -116,23 +118,33 @@ class ServiceIm(meanwhile.ServiceIm):
 
 
     def _queue(self, who, cb, data):
+        ''' queues up a send call to be handled when the conversation
+        is fully opened.  '''
+        
         q = self._send_queue
+        t = (cb, data)
         if not q.has_key(who):
-            q[who] = []
-        q[who].append((cb, data))
+            q[who] = [t]
+        else:
+            q[who].append(t)
 
 
     def _delqueue(self, who):
+        ''' deletes all queued send calls '''
+        
+        q = self._send_queue
         if q.has_key(who):
             del q[who]
 
 
     def _runqueue(self, who):
+        ''' sends all queued calls '''
+        
         q = self._send_queue
         if q.has_key(who):
             for act in q[who]:
-                act[0](act[1])
-        del q[who]
+                act[0](self,who,act[1])
+            del q[who]
 
 
     def onOpened(self, who):
@@ -141,7 +153,7 @@ class ServiceIm(meanwhile.ServiceIm):
         
 
     def onClosed(self, who, err):
-        print '<closed>%s: 0x%x' % (who[0], text)
+        print '<closed>%s: 0x%x' % (who[0], err)
         self._delqueue(who)
 
 
@@ -152,7 +164,7 @@ class ServiceIm(meanwhile.ServiceIm):
         else:
             self._queue(who, meanwhile.ServiceIm.sendText, text)
             if state == meanwhile.CONVERSATION_CLOSED:
-                self.conversationOpen(who)
+                self.openConversation(who)
 
 
     def sendHtml(self, who, html):
@@ -162,7 +174,7 @@ class ServiceIm(meanwhile.ServiceIm):
         else:
             self._queue(who, meanwhile.ServiceIm.sendHtml, html)
             if state == meanwhile.CONVERSATION_CLOSED:
-                self.conversationOpen(who)
+                self.openConversation(who)
 
 
     def sendSubject(self, who, subj):
@@ -172,7 +184,7 @@ class ServiceIm(meanwhile.ServiceIm):
         else:
             self._queue(who, meanwhile.ServiceIm.sendSubject, subj)
             if state == meanwhile.CONVERSATION_CLOSED:
-                self.conversationOpen(who)
+                self.openCconversation(who)
 
 
     def sendTyping(self, who, typing=True):
@@ -182,7 +194,7 @@ class ServiceIm(meanwhile.ServiceIm):
         else:
             self._queue(who, meanwhile.ServiceIm.sendTyping, typing)
             if state == meanwhile.CONVERSATION_CLOSED:
-                self.conversationOpen(who)
+                self.openConversation(who)
                 
     
     def onText(self, who, text):
