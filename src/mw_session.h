@@ -7,6 +7,12 @@
 #include "mw_common.h"
 
 
+/** @file mw_session.h
+    ...
+*/
+
+
+
 #ifndef PROTOCOL_VERSION_MAJOR
 /** protocol versioning. */
 #define PROTOCOL_VERSION_MAJOR  0x001e
@@ -18,9 +24,36 @@
 #endif
 
 
-#define PROPERTY_SERVER_VER_MAJOR  "session.server.version.major"
-#define PROPERTY_SERVER_VER_MINOR  "session.server.version.minor"
-#define PROPERTY_SERVER_VER_
+/** @section Session Properties
+    ...
+*/
+/*@{*/
+
+/** char *, session user ID */
+#define PROPERTY_SESSION_USER_ID   "session.auth.user"
+
+/** char *, plaintext password */
+#define PROPERTY_SESSION_PASSWORD  "session.auth.password"
+
+/** struct mwOpaque *, authentication token */
+#define PROPERTY_SESSION_TOKEN     "session.auth.token"
+
+/** guint16, major version of client protocol */
+#define PROPERTY_CLIENT_VER_MAJOR  "client.version.major"
+
+/** guint16, minor version of client protocol */
+#define PROPERTY_CLIENT_VER_MINOR  "client.version.minor"
+
+/** guint16, client type identifier */
+#define PROPERTY_CLIENT_TYPE_ID    "client.id"
+
+/** guint16, major version of server protocol */
+#define PROPERTY_SERVER_VER_MAJOR  "server.version.major"
+
+/** guint16, minor version of server protocol */
+#define PROPERTY_SERVER_VER_MINOR  "server.version.minor"
+
+/*@}*/
 
 
 /* place-holders */
@@ -165,12 +198,6 @@ void mwSession_recv(struct mwSession *, const char *, gsize);
     @param msg  message to serialize and send
     @returns    0 for success */
 int mwSession_send(struct mwSession *s, struct mwMessage *msg);
-
-
-void mwSession_setUserId(struct mwSession *s, const char *user);
-
-
-void mwSession_setPassword(struct mwSession *s, const char *pass);
 
 
 /** set the internal privacy information, and inform the server as

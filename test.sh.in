@@ -47,8 +47,11 @@ export LD_LIBRARY_PATH=$PYLIBDIR/../:../.libs/
 
 
 if test "$1" = "debug" ; then
+	echo run | gdb --quiet --args $PYTHON -v test.py
+
+elif test "$1" = "valgrind" ; then
 	shift
-	echo run | gdb --quiet --args $PYTHON -v test.py $*
+	valgrind $* $PYTHON test.py
 
 elif test "$1" = "pydoc" ; then
 	shift

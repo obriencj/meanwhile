@@ -53,7 +53,7 @@ static void mw_io_close(struct mwSession *s) {
 
 
 static void mw_clear(struct mwSession *s) {
-  g_free(mwSession_getHandler(s));
+  ;
 }
 
 
@@ -347,7 +347,7 @@ static struct PyMethodDef tp_methods[] = {
 };
 
 
-static PyObject *_new(PyTypeObject *t, PyObject *args, PyObject *kwds) {
+static PyObject *tp_new(PyTypeObject *t, PyObject *args, PyObject *kwds) {
   struct pyObj_mwSession *self;
 
   self = (struct pyObj_mwSession *) t->tp_alloc(t, 0);
@@ -366,15 +366,20 @@ static PyObject *_new(PyTypeObject *t, PyObject *args, PyObject *kwds) {
     h->on_loginRedirect = mw_on_redirect;
 
     self->session = mwSession_new(h);
-    self->services = g_hash_table_new(g_direct_hash, g_direct_equal);
+    self->services = g_hash_table_new(g_direct_hash, g_direct_equal,
+				      NULL, (GDestroyNotify) Py_DECREF);
   }
 
   return (PyObject *) self;
 }
 
 
-static void _dealloc(struct pyObj_mwSession *self) {
+static void tp_dealloc(struct pyObj_mwSession *self) {
+  struct mwSessionHandler *h;
+
+  h = mwSession_getHandler(self->session);
   mwSession_free(self->session);
+  g_free(h);
 
   g_hash_table_destroy(self->services);
   /** @todo: need to Py_DECREF contained services */
@@ -389,7 +394,7 @@ static PyTypeObject pyType_mwSession = {
   "_meanwhile.Session",
   sizeof(mwPySession),
   0, /* tp_itemsize */
-  (destructor) _dealloc,
+  (destructor) tp_dealloc,
   0, /* tp_print */
   0, /* tp_getattr */
   0, /* tp_setattr */
@@ -422,7 +427,7 @@ static PyTypeObject pyType_mwSession = {
   0, /* tp_dictoffset */
   0, /* tp_init */
   0, /* tp_alloc */
-  (newfunc) _new,
+  (newfunc) tp_new,
 };
 
 

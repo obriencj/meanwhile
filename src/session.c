@@ -56,8 +56,8 @@ struct session_property {
 };
 
 
-struct session_property *property_new(gconstpointer data,
-				      GDestroyNotify clean) {
+static struct session_property *property_new(gconstpointer data,
+					     GDestroyNotify clean) {
   struct session_property *p;
   p = g_new0(struct session_property, 1);
   p->data = data;
@@ -66,9 +66,38 @@ struct session_property *property_new(gconstpointer data,
 }
 
 
-void property_free(struct session_property *p) {
+static void property_free(struct session_property *p) {
   if(p->clean) p->clean(p->data);
   g_free(p);
+}
+
+
+static void property_set(struct mwSession *s, const char *key,
+			 gconstpointer val, GDestroyNotify clean) {
+
+  g_hash_table_insert(s->attributes, g_strdup(key),
+		      property_new(val, clean));
+}
+
+
+static gconstpointer property_get(struct mwSession *s, const char *key) {
+  struct session_property *p = g_hash_table_lookup(s->attributes, key);
+  return p? p->data: NULL;
+}
+
+
+static void property_del(struct mwSession *s, const char *key) {
+  g_hash_table_remove(s->attributes, key);
+}
+
+
+/**
+   set up the default properties for a newly created session
+*/
+static void session_defaults(struct mwSession *s) {
+  property_set(s, PROPERTY_CLIENT_VER_MAJOR, PROTOCOL_VERSION_MAJOR, NULL);
+  property_set(s, PROPERTY_CLIENT_VER_MINOR, PROTOCOL_VERSION_MINOR, NULL);
+  property_set(s, PROPERTY_CLIENT_TYPE_ID, mwLogin_MEANWHILE, NULL);
 }
 
 
@@ -86,7 +115,6 @@ struct mwSession *mwSession_new(struct mwSessionHandler *handler) {
   s->state = mwSession_STOPPED;
 
   s->handler = handler;
-  s->login.type = mwLogin_MEANWHILE;
 
   s->channels = mwChannelSet_new(s);
   s->services = g_hash_table_new(g_direct_hash, g_direct_equal);
@@ -152,6 +180,7 @@ void mwSession_free(struct mwSession *s) {
   mwChannelSet_free(s->channels);
   g_hash_table_destroy(s->services);
   g_hash_table_destroy(s->ciphers);
+  g_hash_table_destroy(s->attributes);
 
   g_free(s->password);
   g_free(s->token);
@@ -227,9 +256,9 @@ void mwSession_start(struct mwSession *s) {
   state(s, mwSession_STARTING, 0);
 
   msg = (struct mwMsgHandshake *) mwMessage_new(mwMessage_HANDSHAKE);
-  msg->major = PROTOCOL_VERSION_MAJOR;
-  msg->minor = PROTOCOL_VERSION_MINOR;
-  msg->login_type = s->login.type;
+  msg->major = property_get(s, PROPERTY_CLIENT_VER_MAJOR);
+  msg->minor = property_get(s, PROPERTY_CLIENT_VER_MINOR);
+  msg->login_type = property_get(s, PROPERTY_CLIENT_TYPE_ID);
 
   ret = mwSession_send(s, MW_MESSAGE(msg));
   mwMessage_free(MW_MESSAGE(msg));
@@ -272,20 +301,6 @@ void mwSession_stop(struct mwSession *s, guint32 reason) {
   io_close(s);
 
   state(s, mwSession_STOPPED, reason);
-}
-
-
-void mwSession_setUserId(struct mwSession *s, const char *user) {
-  g_return_if_fail(s != NULL);
-  g_free(s->login.user_id);
-  s->login.user_id = g_strdup(user);
-}
-
-
-void mwSession_setPassword(struct mwSession *s, const char *pass) {
-  g_return_if_fail(s != NULL);
-  g_free(s->password);
-  s->password = g_strdup(pass);
 }
 
 
@@ -339,28 +354,22 @@ static void HANDSHAKE_ACK_recv(struct mwSession *s,
 
   state(s, mwSession_HANDSHAKE_ACK, 0);
 
-  log = (struct mwMsgLogin *) mwMessage_new(mwMessage_LOGIN);
-  log->login_type = s->login.type;
-  log->name = g_strdup(s->login.user_id);
-  log->auth_type = mwAuthType_ENCRYPT;
+  property_set(s, PROPERTY_SERVER_VER_MAJOR, msg->major, NULL);
+  property_set(s, PROPERTY_SERVER_VER_MINOR, msg->minor, NULL);
 
-  /* default to password for now */
-  compose_auth(&log->auth_data, s->password);
+  log = (struct mwMsgLogin *) mwMessage_new(mwMessage_LOGIN);
+  log->login_type = property_get(s, PROPERTY_CLIENT_TYPE_ID);
+  log->name = g_strdup(property_get(s, PROPERTY_SESSION_USER_ID));
+
+  /** @todo default to password for now. later use token optionally */
+  log->auth_type = mwAuthType_ENCRYPT;
+  compose_auth(&log->auth_data,
+	       property_get(s, PROPERTY_SESSION_PASSWORD));
   
   ret = mwSession_send(s, MW_MESSAGE(log));
   mwMessage_free(MW_MESSAGE(log));
   if(! ret) state(s, mwSession_LOGIN, 0);
 }
-
-
-/* I really need to set up a second server to test this */
-/*
-static void LOGIN_REDIRECT_recv(struct mwSession *s,
-				struct mwMsgLoginRedirect *msg) {
-  if(s->on_loginRedirect)
-    s->on_loginRedirect(s, msg);
-}
-*/
 
 
 /** handle the receipt of a login_ack message. This completes the
@@ -965,28 +974,26 @@ void mwSession_setProperty(struct mwSession *s, const char *key,
   g_return_if_fail(s->attributes != NULL);
   g_return_if_fail(key != NULL);
 
-  g_hash_table_insert(g_strdup(key), property_new(val, clean));
+  property_set(s, key, val, clean);
 }
 
 
-gconstpointer mwSession_getProperty(struct mwSession *c, const char *key) {
-  struct session_property *p;
-  
+gconstpointer mwSession_getProperty(struct mwSession *s, const char *key) {
+ 
   g_return_val_if_fail(s != NULL, NULL);
   g_return_val_if_fail(s->attributes != NULL, NULL);
   g_return_val_if_fail(key != NULL, NULL);
 
-  p = g_hash_table_lookup(key);
-  return p? p->data: NULL;
+  return property_get(s, key);
 }
 
 
-void mwSession_removeProperty(struct mwSession *c, const char *key) {
+void mwSession_removeProperty(struct mwSession *s, const char *key) {
   g_return_if_fail(s != NULL);
   g_return_if_fail(s->attributes != NULL);
   g_return_if_fail(key != NULL);
 
-  g_hash_table_remove(key);
+  property_del(s, key);
 }
 
 
