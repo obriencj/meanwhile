@@ -35,14 +35,22 @@
 #define NSTR(str) ((str)? (str): "(null)")
 
 
+#ifndef g_debug
 #define g_debug(format...) g_log(G_LOG_DOMAIN, G_LOG_LEVEL_DEBUG, format)
+#endif
+
+
+#ifndef g_info
 #define g_info(format...) g_log(G_LOG_DOMAIN, G_LOG_LEVEL_INFO, format)
+#endif
 
 
 /** define DEBUG to have buf printed in hex pairs to stdout */
 void pretty_print(const char *buf, gsize len);
 
 
+/** define DEBUG to have struct mwOpaque *opaque printed in hex pairs
+    to stdout */
 #define pretty_opaque(opaque) \
   pretty_print((opaque)->data, (opaque)->len)
 

@@ -29,7 +29,7 @@ fi
 
 # Verify a setting for $EDITOR
 if test -z "${EDITOR}" ; then
-    if sh -c "vim --version" 1>&2 2>/dev/null; then
+    if sh -c "vim --version" 2>&1 1> /dev/null; then
        EDITOR=vim
     else
        # Should we check for vi?  At least provide a message if we
@@ -94,7 +94,7 @@ if test "$1" = "debug" ; then
 # valgrind
 elif test "$1" = "valgrind" ; then
     shift
-    if sh -c "valgrind --version" 1>&2 2> /dev/null ; then
+    if sh -c "valgrind --version" 2>&1 1> /dev/null ; then
 	valgrind $* "$PYTHON" "$SCRIPT"
     else
 	echo "valgrind not found in \$PATH"
