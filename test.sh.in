@@ -84,7 +84,8 @@ fi
 LD_LIBRARY_PATH="$PYLIBDIR/../":"${dir}/src/.libs/"
 export LD_LIBRARY_PATH
 
-PYTHONPATH="${dir}/src/python"
+PYTHONPATH="${dir}/src/python":"${dir}/src/python/.libs/":$PYTHONPATH
+export PYTHONPATH
 
 
 # debug

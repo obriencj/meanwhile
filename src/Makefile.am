@@ -26,7 +26,9 @@ noinst_HEADERS = \
 mwincludedir = $(includedir)/meanwhile
 
 libmeanwhile_la_CFLAGS = \
-	-fpic -Wall -Werror $(DEBUG_CFLAGS) \
+	-fPIC \
+	-Wall -Werror -Wno-format \
+	$(DEBUG_CFLAGS) \
 	$(GLIB_CFLAGS)
 
 libmeanwhile_la_LDFLAGS = -no-undefined

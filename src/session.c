@@ -770,7 +770,7 @@ int mwSession_send(struct mwSession *s, struct mwMessage *msg) {
 
   /* ensure we could actually write the message */
   if(! ret) {
-    g_message("session wrote %u bytes", len);
+    g_debug("session wrote %i bytes", len);
 
     /* special case, as the server doesn't always respond to user
        status messages. Thus, we trigger the event when we send the

@@ -39,6 +39,18 @@ AC_ARG_ENABLE(debug,
 	AC_DEFINE(DEBUG, 1, [Define if debugging is enabled.]), )
 
 
+dnl Darwin...
+if test `uname` = "Darwin" ; then
+	os_so_ext=".dylib"
+	os_ld_flags="-dynamic-lib"
+else	
+	os_so_ext=".so"
+	os_ld_flags="-shared -no-undefined"
+fi
+AC_SUBST(os_so_ext)
+AC_SUBST(os_ld_flags)
+
+
 dnl Python wrapper option
 withval="auto"
 AC_ARG_WITH(python,
