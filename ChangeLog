@@ -1,10 +1,9 @@
 
 version 0.4 (cvs)
 	
-	- ChangeLog brevity
-	- added support for server-side groups to aware service
-	- renamed mwSnapshotAwareIdBlock to mwAwareSnapshot
-	- added Python wrappers
+	- Closed RFE [] support for server-side groups to aware service
+	- Closed RFE [] Python wrappers
+	- Fix []
 
 version 0.3-1 (2004-08-05)
 

@@ -140,6 +140,9 @@ static void convo_create_chan(struct mwServiceIm *srvc,
   mwChannel_setProtoType(chan, mwProtocol_IM);
   mwChannel_setProtoVer(chan, 0x03);
 
+  /* offer all known ciphers */
+  mwChannel_populateSupportedCipherInstances(chan);
+
   /* set the target */
   login = mwChannel_getUser(chan);
   login->user_id = g_strdup(c->target.user);
