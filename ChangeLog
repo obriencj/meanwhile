@@ -4,6 +4,9 @@ version 0.3  Chris O'Brien  <siege@preoccupied.net>
 	2004-06-23: Sametime blist format parser/generator seems to be
 	working.
 
+	* srvc_aware.c: fixed nasty bug in removing entries from a list
+	which made the whole service unstable.
+
 	* st_list.c, st_list.h: added to CVS. Simple API for loading and
 	storing a heirarchy of group/users into a sametime format list.
 	

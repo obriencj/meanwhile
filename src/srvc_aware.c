@@ -428,7 +428,7 @@ struct mwServiceAware *mwServiceAware_new(struct mwSession *session) {
   srvc->get_desc = desc;
 
   srvc_aware->entries = g_hash_table_new_full(id_hash, id_equal,
-					      aware_entry_free, NULL);
+					      NULL, aware_entry_free);
 
   return srvc_aware;
 }
@@ -515,19 +515,15 @@ int mwAwareList_addAware(struct mwAwareList *list,
   for(; count--; id_list++) {
     aware = g_hash_table_lookup(list->entries, id_list);
     if(aware) {
-      /*
       g_message("buddy: %s, %s already exists",
 		id_list->user, id_list->community);
-      */
       continue;
     }
 
     aware = g_hash_table_lookup(srvc->entries, id_list);
     if(! aware) {
-      /*
       g_message("adding buddy %s, %s to the aware service",
 		id_list->user, id_list->community);
-      */
 
       aware = g_new0(struct aware_entry, 1);
       mwAwareIdBlock_clone(ENTRY_KEY(aware), id_list);
@@ -535,12 +531,11 @@ int mwAwareList_addAware(struct mwAwareList *list,
       g_hash_table_insert(srvc->entries, ENTRY_KEY(aware), aware);
     }
 
-    /*
     g_message("adding buddy %s, %s to the list",
 	      id_list->user, id_list->community);
-    */
     aware->membership = g_list_append(aware->membership, list);
     g_hash_table_insert(list->entries, ENTRY_KEY(aware), aware);
+
     additions = g_list_prepend(additions, ENTRY_KEY(aware));
   }
 
@@ -580,6 +575,7 @@ int mwAwareList_removeAware(struct mwAwareList *list,
 
   for(; c--; idb++) {
     aware = g_hash_table_lookup(list->entries, idb);
+
     if(! aware) {
       g_warning("buddy %s, %s not in list", idb->user, idb->community);
       continue;
@@ -630,5 +626,6 @@ const char *mwServiceAware_getText(struct mwServiceAware *srvc,
 
   return aware->aware.status.desc;
 }
+
 
 
