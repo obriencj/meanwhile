@@ -266,8 +266,16 @@ static void user_buflen(gpointer k, gpointer v, gpointer data) {
 
   gsize len = 8; /* "U %s1:: %s,%s\n" */
 
-  len += (strlen(u->id.user) * 2);
-  if(u->alias) len += strlen(u->alias);
+  len += strlen(u->id.user);
+
+  if(u->name) {
+    len += strlen(u->name);
+  } else {
+    len += strlen(u->id.user);
+  }
+
+  if(u->alias)
+    len += strlen(u->alias);
     
   *l += len;
 }
@@ -465,12 +473,12 @@ static int put_user(char **b, gsize *n, struct mwSametimeUser *user) {
   name = g_strdup(user->name);
   alias = g_strdup(user->alias);
 
-  str_replace(id, ' ', ';');
-  str_replace(name, ' ', ';');
-  str_replace(alias, ' ', ';');
+  if(id) str_replace(id, ' ', ';');
+  if(name) str_replace(name, ' ', ';');
+  if(alias) str_replace(alias, ' ', ';');
 
   writ = g_sprintf(*b, "U %s1:: %s,%s\n",
-		   id, name? name: "", alias? alias: "");
+		   id, name? name: id, alias? alias: "");
 
   g_free(id);
   g_free(name);
