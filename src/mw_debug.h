@@ -22,7 +22,10 @@
 #define _MW_DEBUG_H
 
 
+#include <stdarg.h>
 #include <glib.h>
+
+#include "mw_common.h"
 
 
 /** replaces NULL strings with "(null)". useful for printf where
@@ -39,8 +42,42 @@
 /** define DEBUG to have buf printed in hex pairs to stdout */
 void pretty_print(const char *buf, gsize len);
 
+
 #define pretty_opaque(opaque) \
   pretty_print((opaque)->data, (opaque)->len)
+
+
+#ifndef MW_MAILME_ADDRESS
+#define MW_MAILME_ADDRESS  "meanwhile-devel@lists.sourceforge.net"
+#endif
+
+
+#ifndef MW_MAILME_CUT_START
+#define MW_MAILME_CUT_START  "-------- begin copy --------\n"
+#endif
+
+
+#ifndef MW_MAILME_CUT_STOP
+#define MW_MAILME_CUT_STOP   "--------- end copy ---------\n"
+#endif
+
+
+#ifndef MW_MAILME_MESSAGE
+#define MW_MAILME_MESSAGE "\n" \
+ "  Greetings! It seems that you've run across protocol data that the\n" \
+ "Meanwhile library does not yet know about. As such, there may be\n"    \
+ "some unexpected behaviour in this session. If you'd like to help\n"    \
+ "resolve this issue, please copy and paste the following block into\n"  \
+ "an email to the address listed below with a brief explanation of\n"    \
+ "what you were doing at the time of this message. Thanks a lot!\n"      \
+ "  Please send mail to: " MW_MAILME_ADDRESS
+#endif
+
+
+void mw_debug_mailme_v(struct mwOpaque *block, const char *info, va_list args);
+
+
+void mw_debug_mailme(struct mwOpaque *block, const char *info, ...);
 
 
 #endif

@@ -1,15 +1,7 @@
 
-- License
-  - add LGPL comment to all files
-
 - Session
   - add support for privacy controls
   - implement LoginContinue
-
-- Resolve requests
-  - mwServiceResolve
-  - submit the query with a call-back function
-  - on receipt of a reponse, lookup id and call function with results
 
 - Storage service
   - why does the server crash on some load requests??
@@ -17,4 +9,9 @@
 - Messages
   - Handshake is more complex than implemented, with login
     information/token
+
+- Debugging
+  - Add debugging message for "strange" or "unsure" protocol data, with
+    copy/paste segment of opaque message data and instructions to send it
+    to meanwhile-devel@lists.sourceforge.net
 

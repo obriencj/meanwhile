@@ -23,41 +23,95 @@
 #include "mw_debug.h"
 
 
-#ifdef DEBUG
-
 #define FRM               "%02x"
 #define FRMT              "%02x%02x "
 #define BUF(n)            ((unsigned char) buf[n])
 #define ADVANCE(b, n, c)  {b += c; n -= c;}
 
-void pretty_print(const char *buf, gsize len) {
+
+static char *t_pretty_print(const char *buf, gsize len) {
+  char *ret = "\n";
+
   while(len) {
     if(len >= 16) {
-      printf(FRMT FRMT FRMT FRMT FRMT FRMT FRMT FRMT "\n",
-             BUF(0),  BUF(1),  BUF(2),  BUF(3),
-             BUF(4),  BUF(5),  BUF(6),  BUF(7),
-             BUF(8),  BUF(9),  BUF(10), BUF(11),
-             BUF(12), BUF(13), BUF(14), BUF(15));
+      char part[42]; part[41] = '\0';
+
+      sprintf(part,
+	      FRMT FRMT FRMT FRMT FRMT FRMT FRMT FRMT "\n",
+	      BUF(0),  BUF(1),  BUF(2),  BUF(3),
+	      BUF(4),  BUF(5),  BUF(6),  BUF(7),
+	      BUF(8),  BUF(9),  BUF(10), BUF(11),
+	      BUF(12), BUF(13), BUF(14), BUF(15));
       ADVANCE(buf, len, 16);
+      ret = g_strconcat(ret, part, NULL);
       continue;
       
     } else if(len > 1) {
-      printf(FRMT, BUF(0), BUF(1));
+      char part[6]; part[5] = '\0';
+
+      sprintf(part, FRMT, BUF(0), BUF(1));
       ADVANCE(buf, len, 2);
-
+      ret = g_strconcat(ret, part, NULL);
+      
     } else {
-      printf(FRM, BUF(0));
-      ADVANCE(buf, len, 1);
-    }
+      char part[4]; part[3] = '\0';
 
-    if(! len) putchar('\n');
+      sprintf(part, FRM "\n", BUF(0));
+      ADVANCE(buf, len, 1);
+      ret = g_strconcat(ret, part, NULL);
+    }
   }
+
+  return ret;
 }
 
-#else
 
-void pretty_print(const char *buf, gsize len) { ; }
-
+void pretty_print(const char *buf, gsize len) {
+#ifdef DEBUG
+  char *p = t_pretty_print(buf, len);
+  g_debug(p);
+  g_free(p);
 #endif
+  ;
+}
 
+
+void mw_debug_mailme_v(struct mwOpaque *block,
+		       const char *info, va_list args) {
+
+  /*
+    MW_MAILME_MESSAGE
+    begin here
+    pretty_print
+    end here
+  */
+
+  char *msg = MW_MAILME_MESSAGE;
+  char *dat;
+
+  if(block) {
+    dat = t_pretty_print(block->data, block->len);
+  } else {
+    dat = "";
+  }
+
+  msg = g_strconcat(msg,
+		    MW_MAILME_CUT_START,
+		    dat,
+		    MW_MAILME_CUT_STOP,
+		    NULL);
+  g_debug(msg);
+
+  g_free(dat);
+  g_free(msg);
+}
+
+
+void mw_debug_mailme(struct mwOpaque *block,
+		     const char *info, ...) {
+  va_list args;
+  va_start(args, info);
+  mw_debug_mailme_v(block, info, args);
+  va_end(args);
+}
 
