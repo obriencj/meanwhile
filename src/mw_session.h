@@ -291,10 +291,10 @@ GList *mwSession_getCiphers(struct mwSession *);
     associated with the same key, it will have its clear function called
     and will be replaced with the new value */
 void mwSession_setProperty(struct mwSession *, const char *key,
-			   gconstpointer val, GDestroyNotify clear);
+			   gpointer val, GDestroyNotify clear);
 
 
-gconstpointer mwSession_getProperty(struct mwSession *, const char *key);
+gpointer mwSession_getProperty(struct mwSession *, const char *key);
 
 
 void mwSession_removeProperty(struct mwSession *, const char *key);

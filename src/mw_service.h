@@ -309,6 +309,11 @@ void mwService_setClientData(struct mwService *service,
 gpointer mwService_getClientData(struct mwService *service);
 
 
+/** Removes client data from service. If there is a cleanup function,
+    it will be called. */
+void mwService_removeClientData(struct mwService *service);
+
+
 /*@}*/
 
 
