@@ -68,6 +68,20 @@ struct mwConference {
   g_hash_table_lookup(conf->members, GUINT_TO_POINTER((guint) id))
 
 
+#define MEMBER_ADD(conf, id, member) \
+  g_hash_table_insert(conf->members, GUINT_TO_POINTER((guint) id), member)
+
+
+#define MEMBER_REM(conf, id) \
+  g_hash_table_remove(conf->members, GUINT_TO_POINTER((guint) id));
+
+
+static void hash_collect(gpointer key, gpointer val, gpointer data) {
+  GList **l = data;
+  *l = g_list_append(*l, val);
+}
+
+
 /** clear and free a login info block */
 static void login_free(struct mwLoginInfo *li) {
   mwLoginInfo_clear(li);
@@ -298,8 +312,7 @@ static void WELCOME_recv(struct mwServiceConference *srvc,
       break;
     }
 
-    g_hash_table_insert(conf->members, GUINT_TO_POINTER((guint) member_id),
-			member);
+    MEMBER_ADD(conf, member_id, member);
     l = g_list_append(l, member);
   }
 
@@ -341,7 +354,7 @@ static void JOIN_recv(struct mwServiceConference *srvc,
     return;
   }
 
-  g_hash_table_insert(conf->members, GUINT_TO_POINTER((guint) m_id), m);
+  MEMBER_ADD(conf, m_id, m);
 
   h = srvc->handler;
   if(h->on_peer_joined)
@@ -370,7 +383,7 @@ static void PART_recv(struct mwServiceConference *srvc,
   m = MEMBER_FIND(conf, id);
   if(! m) return;
 
-  g_hash_table_remove(conf->members, GUINT_TO_POINTER((guint) id));
+  MEMBER_REM(conf, id);
 
   h = srvc->handler;
   if(h->on_peer_parted)
@@ -610,8 +623,13 @@ const char *mwConference_getTitle(struct mwConference *conf) {
 }
 
 
-GList *mwConference_getMemebers(struct mwConference *conf) {
+GList *mwConference_memebers(struct mwConference *conf) {
   GList *members = NULL;
+
+  g_return_val_if_fail(conf != NULL, NULL);
+  g_return_val_if_fail(conf->members != NULL, NULL);
+
+  g_hash_table_foreach(conf->members, hash_collect, &members);
   
   return members;
 }
@@ -780,5 +798,11 @@ int mwConference_sendTyping(struct mwConference *conf, gboolean typing) {
   mwOpaque_clear(&o);
 
   return ret;
+}
+
+
+GList *mwServiceConference_conferences(struct mwServiceConference *srvc) {
+  g_return_val_if_fail(srvc != NULL, NULL);
+  return g_list_copy(srvc->confs);
 }
 
