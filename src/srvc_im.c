@@ -362,8 +362,6 @@ static void recv(struct mwService *srvc, struct mwChannel *chan,
 
   g_return_if_fail(type == msg_MESSAGE);
 
-  g_message(" --> srvc_im:recv");
-
   b = mwGetBuffer_wrap(data);
   guint32_get(b, &mt);
 
@@ -390,8 +388,6 @@ static void recv(struct mwService *srvc, struct mwChannel *chan,
     g_warning("failed to parse message type 0x%08x for IM service", mt);
 
   mwGetBuffer_free(b);
-
-  g_message(" <-- srvc_im:recv");
 }
 
 

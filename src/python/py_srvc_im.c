@@ -33,26 +33,17 @@ static void mw_got_text(struct mwServiceIm *srvc,
   struct mwServiceImHandler *h;
   struct pyObj_mwService *self;
   PyObject *robj = NULL;
-  PyObject *a, *b, *c, *t, *z;
+  PyObject *a, *b, *c;
 
   h = mwServiceIm_getHandler(srvc);
   self = h->data;
 
-  /* getting crazy here, just messing around to try and fix a segfault
-     in PyObject_Malloc */
   a = PyString_SafeFromString(from->user);
   b = PyString_SafeFromString(from->community);
   c = PyString_SafeFromString(text);
-  t = PyTuple_New(2);
-  PyTuple_SetItem(t, 0, a);
-  PyTuple_SetItem(t, 1, b);
-  z = PyString_SafeFromString(ON_TEXT);
 
-  robj = PyObject_CallMethodObjArgs((PyObject *) self, z, t, c, NULL);
-
-  Py_DECREF(c);
-  Py_DECREF(t);
-  Py_DECREF(z);
+  robj = PyObject_CallMethod((PyObject *) self, ON_TEXT,
+			     "(NN)N", a, b, c);
   Py_XDECREF(robj);
 }
 
@@ -68,19 +59,12 @@ static void mw_got_html(struct mwServiceIm *srvc,
   h = mwServiceIm_getHandler(srvc);
   self = h->data;
 
-  g_message("mw_got_html (%s,%s)%s",
-	    from->user, from->community, html);
-
   a = PyString_SafeFromString(from->user);
   b = PyString_SafeFromString(from->community);
   c = PyString_SafeFromString(html);
 
   robj = PyObject_CallMethod((PyObject *) self, ON_HTML,
-			     "(OO)O", a, b, c);
-
-  Py_DECREF(a);
-  Py_DECREF(b);
-  Py_DECREF(c);
+			     "(NN)N", a, b, c);
   Py_XDECREF(robj);
 }
 
@@ -91,7 +75,7 @@ static void mw_got_typing(struct mwServiceIm *srvc,
   struct mwServiceImHandler *h;
   struct pyObj_mwService *self;
   PyObject *robj = NULL;
-  PyObject *a, *b, *c;
+  PyObject *a, *b;
 
   h = mwServiceIm_getHandler(srvc);
   self = h->data;
@@ -101,21 +85,9 @@ static void mw_got_typing(struct mwServiceIm *srvc,
 
   a = PyString_SafeFromString(from->user);
   b = PyString_SafeFromString(from->community);
-  c = PyInt_FromLong((int) typing);
 
   robj = PyObject_CallMethod((PyObject *) self, ON_TYPING,
-			     "(OO)O", a, b, c);
-
-  /*
-  if(! robj) {
-    g_message("CallMethod failed");
-    if(PyErr_Occurred()) PyErr_Print();
-  }
-  */
-
-  Py_DECREF(a);
-  Py_DECREF(b);
-  Py_DECREF(c);
+			     "(NN)l", a, b, typing);
   Py_XDECREF(robj);
 }
 
@@ -138,10 +110,7 @@ static void mw_got_error(struct mwServiceIm *srvc,
   b = PyString_SafeFromString(user->community);
 
   robj = PyObject_CallMethod((PyObject *) self, ON_ERROR,
-			     "(OO)l", a, b, error);
-
-  Py_DECREF(a);
-  Py_DECREF(b);
+			     "(NN)l", a, b, error);
   Py_XDECREF(robj);
 }
 
@@ -200,12 +169,18 @@ static PyObject *py_send_text(mwPyService *self, PyObject *args) {
 
 static PyObject *py_send_html(mwPyService *self, PyObject *args) {
   struct mwIdBlock id = { 0, 0 };
-  char *text = NULL;
+  const char *text = NULL;
   struct mwServiceIm *srvc_im;
   int ret;
 
-  if(! PyArg_ParseTuple(args, "(ss)s", &id.user, &id.community, &text))
+  PyObject *a, *b, *c;
+
+  if(! PyArg_ParseTuple(args, "(OO)O", &a, &b, &c))
     return NULL;
+
+  id.user = (char *) PyString_SafeAsString(a);
+  id.community = (char *) PyString_SafeAsString(b);
+  text = PyString_SafeAsString(c);
 
   srvc_im = (struct mwServiceIm *) self->wrapped;
   ret = mwServiceIm_sendHtml(srvc_im, &id, text);
