@@ -71,7 +71,7 @@ static void mw_io_close(struct mwSession *s) {
 
 
 static void mw_clear(struct mwSession *s) {
-  ;
+  g_free(mwSession_getHandler(s));
 }
 
 
@@ -145,42 +145,6 @@ static PyObject *py_io_write(mwPySession *self, PyObject *args) {
 }
 
 
-static PyObject *py_io_close(mwPySession *self) {
-  Py_INCREF(Py_None);
-  return Py_None;
-}
-
-
-static PyObject *py_on_state(mwPySession *self) {
-  Py_INCREF(Py_None);
-  return Py_None;
-}
-
-
-static PyObject *py_on_privacy(mwPySession *self) {
-  Py_INCREF(Py_None);
-  return Py_None;
-}
-
-
-static PyObject *py_on_user(mwPySession *self) {
-  Py_INCREF(Py_None);
-  return Py_None;
-}
-
-
-static PyObject *py_on_admin(mwPySession *self, PyObject *args) {
-  Py_INCREF(Py_None);
-  return Py_None;
-}
-
-
-static PyObject *py_on_redirect(mwPySession *self, PyObject *args) {
-  Py_INCREF(Py_None);
-  return Py_None;
-}
-
-
 static PyObject *py_start(mwPySession *self, PyObject *args) {
   PyObject *uo, *po;
   char *user, *pass;
@@ -196,8 +160,7 @@ static PyObject *py_start(mwPySession *self, PyObject *args) {
 
   mwSession_start(self->session);
 
-  Py_INCREF(Py_None);
-  return Py_None;
+  mw_return_none();
 }
 
 
@@ -209,8 +172,7 @@ static PyObject *py_stop(mwPySession *self, PyObject *args) {
 
   mwSession_stop(self->session, reason);
 
-  Py_INCREF(Py_None);
-  return Py_None;
+  mw_return_none();
 }
 
 
@@ -222,9 +184,7 @@ static PyObject *py_recv(mwPySession *self, PyObject *args) {
     return NULL;
 
   mwSession_recv(self->session, buf, len);
-
-  Py_INCREF(Py_None);
-  return Py_None;
+  mw_return_none();
 }
 
 
@@ -240,8 +200,7 @@ static PyObject *py_find_channel(mwPySession *self, PyObject *args) {
     return (PyObject *) mwPyChannel_wrap(self, c);
 
   } else {
-    Py_INCREF(Py_None);
-    return Py_None;
+    mw_return_none();
   }
 }
 
@@ -318,26 +277,26 @@ static PyObject *py_rem_service(mwPySession *self, PyObject *args) {
 
 static struct PyMethodDef tp_methods[] = {
   /* intended to be overridden by handler methods */
-  { ON_IO_WRITE, (PyCFunction) py_io_write,
-    METH_VARARGS, "override to handle session's outgoing data writes" },
+  { ON_IO_WRITE, (PyCFunction) py_io_write, METH_VARARGS,
+    "override to handle session's outgoing data writes" },
 
-  { ON_IO_CLOSE, (PyCFunction) py_io_close,
-    METH_NOARGS, "override to handle session's outgoing close request" },
+  { ON_IO_CLOSE, MW_METH_NOARGS_NONE, METH_NOARGS,
+    "override to handle session's outgoing close request" },
 
-  { ON_STATE_CHANGE, (PyCFunction) py_on_state,
-    METH_NOARGS, "override to be notified on session state change" },
+  { ON_STATE_CHANGE, MW_METH_NOARGS_NONE, METH_NOARGS,
+    "override to be notified on session state change" },
 
-  { ON_SET_PRIVACY, (PyCFunction) py_on_privacy,
-    METH_NOARGS, "override to be notified on session privacy change" },
+  { ON_SET_PRIVACY, MW_METH_NOARGS_NONE, METH_NOARGS,
+    "override to be notified on session privacy change" },
 
-  { ON_SET_USER, (PyCFunction) py_on_user,
-    METH_NOARGS, "override to be notified on session user status change" },
+  { ON_SET_USER, MW_METH_NOARGS_NONE, METH_NOARGS,
+    "override to be notified on session user status change" },
 
-  { ON_ADMIN, (PyCFunction) py_on_admin,
-    METH_VARARGS, "override to handle session's admin broadcast messages" },
+  { ON_ADMIN, MW_METH_VARARGS_NONE, METH_VARARGS,
+    "override to handle session's admin broadcast messages" },
 
-  { ON_REDIR, (PyCFunction) py_on_redirect,
-    METH_VARARGS, "override to handle login redirect messages" },
+  { ON_REDIR, MW_METH_VARARGS_NONE, METH_VARARGS,
+    "override to handle login redirect messages" },
 
   /* real methods */
   { "start", (PyCFunction) py_start,
@@ -398,11 +357,7 @@ static PyObject *tp_new(PyTypeObject *t, PyObject *args, PyObject *kwds) {
 
 
 static void tp_dealloc(struct pyObj_mwSession *self) {
-  struct mwSessionHandler *h;
-
-  h = mwSession_getHandler(self->session);
   mwSession_free(self->session);
-  g_free(h);
 
   g_hash_table_destroy(self->services);
   /** @todo: need to Py_DECREF contained services */
