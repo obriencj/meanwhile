@@ -7,7 +7,7 @@ HOURI_SRC =	draft-houri.tex
 HOURI_OUT =	$(HOURI_SRC:%.tex=%.dvi)
 
 
-all:	mw-pdf mw-html houri-pdf houri-html doxygen
+all:	mw-pdf mw-html doxygen #houri-pdf houri-html
 
 
 mw-pdf:	$(MW_OUT)
