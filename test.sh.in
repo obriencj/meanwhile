@@ -12,10 +12,12 @@ PYTHON="@PYTHON@"
 PYLIBDIR="@PYTHON_LIBP@"
 
 
+# location of necessary files
 dir=`dirname $0`
-[ -z "${dir}" ] && dir=.
+test -z "${dir}" && dir=.
 
 CONFIG="${dir}/test.conf"
+SCRIPT="${dir}/src/python/test.py"
 
 
 # if not configured with python support, than this script can't run
@@ -37,7 +39,7 @@ if test -z "${EDITOR}" ; then
 fi
 
 
-# set up blank configuration data if necessary
+# set up blank configuration data if necessary, and let the user edit it
 if test ! -f "$CONFIG" ; then
     cp "$CONFIG.in" "$CONFIG"
     "$EDITOR" "$CONFIG"
@@ -60,7 +62,7 @@ if test "$1" = "help" ; then
 Meanwhile Python Test Script -
 
   Execute to log in to server using test ID from test.conf and act as a
-simple bot. See src/python/test.py for test script. This does not require
+simple bot. See $SCRIPT for test script. This does not require
 the meanwhile library or the python wrappers to be actually installed, just
 compiled.
 
@@ -78,21 +80,22 @@ fi
 # we don't require the module to be installed for the script to run
 # but that means we'll need to put ourselves into a position to find
 # the library and module
-cd src/python
 
-LD_LIBRARY_PATH="$PYLIBDIR/../":"../.libs/"
+LD_LIBRARY_PATH="$PYLIBDIR/../":"${dir}/src/.libs/"
 export LD_LIBRARY_PATH
+
+PYTHONPATH="${dir}/src/python"
 
 
 # debug
 if test "$1" = "debug" ; then
-    gdb --quiet --args "$PYTHON" -v test.py
+    gdb --quiet --args "$PYTHON" -v "$SCRIPT"
 
 # valgrind
 elif test "$1" = "valgrind" ; then
     shift
     if sh -c "valgrind --version" 1>&2 2> /dev/null ; then
-	valgrind $* "$PYTHON" test.py
+	valgrind $* "$PYTHON" "$SCRIPT"
     else
 	echo "valgrind not found in \$PATH"
 	exit 1
@@ -105,6 +108,10 @@ elif test "$1" = "pydoc" ; then
 
 # test bot
 else
-    "$PYTHON" test.py 
+    "$PYTHON" "$SCRIPT"
 fi
+
+
+#
+# The End.
 
