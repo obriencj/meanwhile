@@ -1,7 +1,25 @@
 
-'''
+"""
 Wrappers for the Meanwhile library
-'''
+
+
+  Meanwhile - Unofficial Lotus Sametime Community Client Library
+  Copyright (C) 2004  Christopher (siege) O'Brien
+  
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Library General Public
+  License as published by the Free Software Foundation; either
+  version 2 of the License, or (at your option) any later version.
+  
+  This library is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+  Library General Public License for more details.
+  
+  You should have received a copy of the GNU Library General Public
+  License along with this library; if not, write to the Free
+  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+"""
 
 # todo: add more documentation for the base classes and their
 # call-back methods
@@ -21,10 +39,12 @@ from _meanwhile import ServiceResolve
 from _meanwhile import ServiceStorage
 from _meanwhile import Session
 
+
 # service state values
 from _meanwhile import \
      SERVICE_STARTING, SERVICE_STARTED, SERVICE_STOPPING, \
      SERVICE_STOPPED, SERVICE_ERROR, SERVICE_UNKNOWN
+
 
 # session state values
 from _meanwhile import \
@@ -32,26 +52,32 @@ from _meanwhile import \
      SESSION_LOGIN, SESSION_LOGIN_REDIR, SESSION_LOGIN_ACK, \
      SESSION_STARTED, SESSION_STOPPING, SESSION_STOPPED, SESSION_UNKNOWN
 
+
 # awareness id states
 from _meanwhile import \
      STATUS_ACTIVE, STATUS_IDLE, STATUS_AWAY, STATUS_BUSY
+
 
 # awareness id types
 from _meanwhile import \
      AWARE_SERVER, AWARE_USER, AWARE_GROUP
 
+
 # IM client types/features
 from _meanwhile import \
      IM_CLIENT_PLAIN, IM_CLIENT_NOTESBUDDY
+
 
 # IM conversation message types/features
 from _meanwhile import \
      IM_PLAIN, IM_TYPING, IM_HTML, IM_SUBJECT, IM_MIME
 
+
 # IM conversation states
 from _meanwhile import \
      CONVERSATION_CLOSED, CONVERSATION_PENDING, CONVERSATION_OPEN, \
      CONVERSATION_UNKNOWN
+
 
 # conference states
 from _meanwhile import \
@@ -59,9 +85,11 @@ from _meanwhile import \
      CONFERENCE_OPEN, CONFERENCE_CLOSING, CONFERENCE_ERROR, \
      CONFERENCE_UNKNOWN
 
+
 # resolve options
 from _meanwhile import \
      RESOLVE_UNIQUE, RESOLVE_FIRST, RESOLVE_ALL_DIRS, RESOLVE_USERS
+
 
 # resolve result codes
 from _meanwhile import \
