@@ -1,7 +1,7 @@
 
 version 0.4.0 (cvs)
 
-	- installed header file names have changed to now have a mw_
+	- installed header file names have changed to now have a "mw_"
 	prefix
 
 	Features
@@ -14,6 +14,7 @@ version 0.4.0 (cvs)
 	- Bug #1021353 meanwhile won't build w/Sun GNOME2
 	- Bug #1036056 meanwhile-CRITICAL - when add a buddy to my list
 	- Bug #1089971 pkg-config file does not list liner flags
+	- Bug #1110902 configure shouldn't set CFLAGS
 	
 version 0.3-1 (2004-08-05)
 

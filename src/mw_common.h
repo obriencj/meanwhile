@@ -96,10 +96,10 @@ enum mwLoginType {
   mwLogin_TRILLIAN      = 0x16aa,
   mwLogin_TRILLIAN_IBM  = 0x16bb,
   mwLogin_MEANWHILE     = 0x1700,  /**< Meanwhile library */
-  mwLogin_MW_PYTHON     = 0x1710,
-  mwLogin_MW_GAIM       = 0x1720,
-  mwLogin_MW_ADIUM      = 0x1730,
-  mwLogin_MW_KOPETE     = 0x1740,
+  mwLogin_MW_PYTHON     = 0x1701,  /**< Meanwhile Python */
+  mwLogin_MW_GAIM       = 0x1702,  /**< gaim-meanwhile */
+  mwLogin_MW_ADIUM      = 0x1703,  /**< adium-meanwhile */
+  mwLogin_MW_KOPETE     = 0x1704,  /**< kopete-meanwhile */
 };
 
 

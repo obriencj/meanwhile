@@ -28,13 +28,13 @@ AC_C_CONST
 AC_STRUCT_TM
 
 
-dnl Debugging option
+# Debugging option
 AC_ARG_ENABLE(debug,
 	[  --enable-debug	  compile with debugging support],
 	AC_DEFINE(DEBUG, 1, [Define if debugging is enabled.]), )
 
 
-dnl Darwin...
+# Darwin...
 if test `uname` = "Darwin" ; then
 	os_so_ext=".dylib"
 	os_ld_flags="-dynamic-lib"
@@ -46,7 +46,7 @@ AC_SUBST(os_so_ext)
 AC_SUBST(os_ld_flags)
 
 
-dnl Glib-2.0 option with some version detection for compat.h
+# Glib-2.0 option with some version detection for compat.h
 AM_PATH_GLIB_2_0(glib_required_version, ,
 	AC_MSG_ERROR([*** GLib glib_required_version is required.])
  )

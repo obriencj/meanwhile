@@ -10,15 +10,10 @@
   - Handshake is more complex than implemented, with login
     information/token
 
-- Debugging
-  - Add debugging message for "strange" or "unsure" protocol data,
-    with copy/paste segment of opaque message data and instructions to
-    send it to meanwhile-devel@lists.sourceforge.net
-
 
 - IM Service
-  - new Client Type, 0xbadf00d  (0x0b ad f0 0d)
-  - data message type 0xbadf00d	feature negotiation
+  - new Client Type, 0x00c0ffee  (0x00 CO FF EE)
+  - data message type 0xdecafbad	feature negotiation
 	- subtype 0x01		offer named features
 	OPAQUE
 		COUNT
