@@ -194,13 +194,12 @@ static void recv(struct mwServiceResolve *srvc,
   search = g_hash_table_lookup(srvc->searches, GUINT_TO_POINTER(id));
 
   if(! search) {
-    g_warning("couldn't find resolve request 0x%08x in resolve service", id);
     mwGetBuffer_free(b);
     return;
   }
 
   /** @todo: get mwResolveResults from b */
-
+  
 }
 
 
@@ -230,7 +229,7 @@ struct mwServiceResolve *mwServiceResolve_new(struct mwSession *session) {
 
 
 guint32 mwServiceResolve_search(struct mwServiceResolve *srvc,
-				const char *query, enum mwResolveFlag flags,
+				const char *query[], enum mwResolveFlag flags,
 				mwResolveHandler handler,
 				gpointer data, GDestroyNotify cleanup) {
 
@@ -238,19 +237,22 @@ guint32 mwServiceResolve_search(struct mwServiceResolve *srvc,
   struct mwPutBuffer *b;
   struct mwOpaque o = { 0, 0 };
   int ret;
+  int count = 0;
 
-  g_return_val_if_fail(srvc != NULL, 0x00);
-  g_return_val_if_fail(query != NULL, 0x00);
-  g_return_val_if_fail(*query != '\0', 0x00);
-  g_return_val_if_fail(handler != NULL, 0x00);
+  g_return_val_if_fail(srvc != NULL, SEARCH_ERROR);
+  g_return_val_if_fail(query != NULL, SEARCH_ERROR);
+  g_return_val_if_fail(handler != NULL, SEARCH_ERROR);
+
+  while(query[count]) count++;
+  g_return_val_if_fail(count > 0, SEARCH_ERROR);
 
   search = search_new(srvc, data, cleanup);
 
   b = mwPutBuffer_new();
   guint32_put(b, 0x00); /* to be overwritten */
   guint32_put(b, search->id);
-  guint32_put(b, 1); /* just search for one item at a time */
-  mwString_put(b, query);
+  guint32_put(b, count);
+  for(; query; query++) mwString_put(b, *query);
   guint32_put(b, flags);
 
   mwPutBuffer_finalize(&o, b);
