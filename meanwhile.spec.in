@@ -1,7 +1,7 @@
 Summary: Meanwhile
 Name: @PACKAGE@
-Version: @VERSION@
 Epoch: 0
+Version: @VERSION@
 Release: 0
 License: LGPL
 Group: Applications/Internet
@@ -49,7 +49,7 @@ rm -rf %{buildroot}
 Group: Applications/Internet
 Summary: Development packages for the Meanwhile library
 License: LGPL
-Requires: meanwhile = 1:%{version}-%{release}
+Requires: meanwhile = %{epoch}:%{version}-%{release}
 
 
 %description devel
