@@ -10,9 +10,12 @@ Wrappers for the Meanwhile library
 # some sort of synchronization wrapper around the feed thread, or
 # remove it. Maybe I can do that in the base type C implementations.
 
+
+# the useful classes
 from _meanwhile import Channel
 from _meanwhile import Service
 from _meanwhile import ServiceAware
+from _meanwhile import ServiceConference
 from _meanwhile import ServiceIm
 from _meanwhile import ServiceStorage
 from _meanwhile import Session
@@ -45,11 +48,18 @@ from _meanwhile import \
      CONVERSATION_CLOSED, CONVERSATION_PENDING, CONVERSATION_OPEN, \
      CONVERSATION_UNKNOWN
 
+# conference states
+from _meanwhile import \
+     CONFERENCE_NEW, CONFERENCE_PENDING, CONFERENCE_INVITED, \
+     CONFERENCE_OPEN, CONFERENCE_CLOSING, CONFERENCE_ERROR, \
+     CONFERENCE_UNKNOWN
+
+
 
 class SocketSession(Session):
-    '''Implementation of a meanwhile session with built-in socket-handling
-    functionality.
-    '''
+
+    ''' Implementation of a meanwhile session with built-in socket
+    handling functionality.  '''
     
     def __init__(self, where, who):
         '''
@@ -80,6 +90,11 @@ class SocketSession(Session):
 
 
     def onLoginRedirect(self, host):
+        
+        ''' handles a login redirect message by closing the existing
+        socket and attempting to connect to the new server as
+        directed.  '''
+        
         import socket
 
         # close off the existing session
@@ -106,14 +121,19 @@ class SocketSession(Session):
 
 
     def start(self, background=False, daemon=False):
-        '''
+        
+        ''' open the connection to the indicated server and port and
+        start the process of logging in. Optionally set background to
+        True to cause the processing to take place in the background
+        after a socket is successfully opened. Additionally set daemon
+        to True to indicate the background thread should be daemonized.
         '''
         
         import socket
         import threading
         
-        if self._sock:
-            return
+        if self._sock or self._thread:
+            raise Exception, "SocketSession already started and running"
 
         # open the socket
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -129,10 +149,18 @@ class SocketSession(Session):
             self._thread.setDaemon(daemon)
             self._thread.start()
         else:
+            # continuously read from server in the current thread
             self._thread = threading.currentThread()
             self._recvLoop()
 
 
     def getThread(self):
+
+        ''' the thread that the read loop is being executed in
+        '''
+        
         return self._thread
 
+
+
+# The End.

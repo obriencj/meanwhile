@@ -34,6 +34,10 @@ struct pyObj_mwChannel {
 PyTypeObject *mwPyChannel_type();
 
 
+#define mwPyChannel_check(obj) \
+  PyObject_IsInstance((obj), mwPyChannel_type())
+
+
 /** instantiate a mwPyChannel wrapping a given mwChannel. */
 mwPyChannel *mwPyChannel_wrap(mwPySession *sess, struct mwChannel *chan);
 
@@ -50,6 +54,10 @@ struct pyObj_mwService {
 /** static instance of the type for mwPyService objects. Generic
     wrapper for a native mwService */
 PyTypeObject *mwPyService_type();
+
+
+#define mwPyService_check(obj) \
+  PyObject_IsInstance((obj), mwPyService())
 
 
 /** create an instance of the wrapper service with the given service
@@ -72,14 +80,36 @@ mwPyService *mwServicePyWrap_getSelf(struct mwServicePyWrap *srvc);
 PyTypeObject *mwPyServiceAware_type();
 
 
+#define mwPyServiceAware_check(obj) \
+  PyObject_IsInstance((obj), mwPyServiceAware_type())
+
+
+/** static instance of the type for mwPyServiceConference
+    objects. sub-type of mwPyService for wrapping a
+    mwServiceConference instance */
+PyTypeObject *mwPyServiceConference_type();
+
+
+#define mwPyServiceConference_check(obj) \
+  PyObject_IsInstance((obj), mwPyServiceConference_type())
+
+
 /** static instance of the type for mwPyServiceIm objects. sub-type of
     mwPyService for wrapping a mwServiceIm instance */
 PyTypeObject *mwPyServiceIm_type();
 
 
+#define mwPyServiceIm_check(obj) \
+  PyObject_IsInstance((obj), mwPyServiceIm_type())
+
+
 /** static instance of the type for mwPyServiceStorage objects.
     sub-type of mwPyService for wrapping a mwServiceStore instance */
 PyTypeObject *mwPyServiceStorage_type();
+
+
+#define mwPyServiceStorage_check(obj) \
+  PyObject_IsInstance((obj), mwPyServiceStorage_type())
 
 
 struct pyObj_mwSession {
@@ -91,6 +121,10 @@ struct pyObj_mwSession {
 
 /** static instance of the type for mwPySession objects. */
 PyTypeObject *mwPySession_type();
+
+
+#define mwPySession_check(obj) \
+  PyObject_IsInstance((obj), mwPySession_type())
 
 
 /** @section utility functions */
@@ -114,31 +148,34 @@ PyObject *mw_noargs_none(PyObject *obj);
 PyObject *mw_varargs_none(PyObject *obj, PyObject *args);
 
 
-/** useful for creating types with empty callback functions intended to
-    be overridden. Calls to mw_noargs_none, which always returns None */
+/** useful for creating types with empty callback functions intended
+    to be overridden. Calls to mw_noargs_none, which always returns
+    None */
 #define MW_METH_NOARGS_NONE   (PyCFunction) mw_noargs_none
 
 
-/** useful for creating types with empty callback functions intended to
-    be overridden. Calls to mw_varargs_none, which always returns None */
+/** useful for creating types with empty callback functions intended
+    to be overridden. Calls to mw_varargs_none, which always returns
+    None */
 #define MW_METH_VARARGS_NONE  (PyCFunction) mw_varargs_none
 
 
-/** macro to return from current function with an incremented Py_None */
+/** macro to return from current function with an incremented
+    Py_None */
 #define mw_return_none() \
   { Py_INCREF(Py_None); return Py_None; }
 
 
-/** macro to set a python exception of type ex with text e, and return
-    NULL */
-#define mw_throw_ex(ex, e) \
-  { PyErr_SetString((ex), (e)); return NULL; }
+/** macro to set a python exception of type exc with text e, and
+    return NULL */
+#define mw_raise_exc(exc, e) \
+  { PyErr_SetString((exc), (e)); return NULL; }
 
 
 /** macro to set a python exception of type Exception with text e, and
     return NULL */
-#define mw_throw(e) \
-  mw_throw_ex(PyExc_Exception, (e))
+#define mw_raise(e) \
+  mw_raise_exc(PyExc_Exception, (e))
 
 
 /*@}*/

@@ -1,26 +1,44 @@
+#############################################################################
+# Welcome to the Meanwhile Python Test Script Configuration File
 #
-# Meanwhile Python Test Script Configuration File
 #
-# test.conf is read by the test shell script and used to provide login
-# information to Python.
+# This file is read by the test shell script and used to provide login
+# information to Python. If you want to use the test script, just edit
+# the variables in this file accordingly
 #
-# if you want to use the test script, just edit this file and save it
-# as test.conf
+# If you're seeing this from running the test script for the first
+# time, press i to enter insert mode. When you've finished editing,
+# hit escape and type :wq and press enter to save your changes and
+# quit vi.
+#
+##############################################################################
 
 
-# User name
-export mw_user=MyTestUser
+# User name. This needs to be the 'short' ID, such as an email address
+# or an LDAP UID
+export mw_user=
 
-# Password
-export mw_pass=MyPassword
 
-# Host to connect to.
-export mw_host=server.domain.net
+# Password in plaintext
+export mw_pass=
 
-# Port to connect to. Default is normally 1533
+
+# Hostname or IP of the Sametime Community server to which the test
+# bot should connect.
+export mw_host=
+
+
+# Server's TCP port. Normally doesn't need to be changed from the
+# default of 1533
 export mw_port=1533
 
 
-# Allow IM messages to execute arbitrary Python code
+# Allow IM messages to execute arbitrary Python code? If this is set
+# to 1, then any user may execute Python code from within the test bot
+# by sending it the ~ (tilde) command as an instant message. The
+# default is 0, to disable the ~ command
 export allow_exec=0
 
+
+#
+# The End.

@@ -15,8 +15,10 @@ allow_exec = int(os.environ.get('allow_exec'))
 
 
 
+# global session and service instances
 tSession = None
 tSrvcAware = None
+tSrvcConf = None
 tSrvcIm = None
 tSrvcStore = None
     
@@ -266,21 +268,50 @@ help\n\tprints this information'''
 
 
 
+class ServiceConference(meanwhile.ServiceConference):
+    def onText(self, conf, who, text):
+        print '<text>%s, %s: %s' % (conf, who[0], text)
+
+
+    def onPeerJoin(self, conf, who):
+        print '<peer joined>%s, %s' % (conf, who[0])
+
+
+    def onPeerPart(self, conf, who):
+        print '<peer parted>%s, %s' % (conf, who[0])
+
+
+    def onTyping(self, conf, who, typing):
+        str = ("stopped typing", "typing")
+        print '<typing>%s, %s: %s' % (conf, who[0], str[typing])
+
+
+    def onInvited(self, conf, inviter, text):
+        print '<invited>%s, %s: %s' % (conf, inviter[0], text)
+
+
+    def onOpened(self, conf):
+        print '<joined>%s' % conf
+
+
 
 if __name__ == "__main__":
     tSession = Session((test_host, test_port), (test_user, test_pass))
 
     tSrvcAware = ServiceAware(tSession)
+    tSrvcConf = ServiceConference(tSession)
     tSrvcIm = ServiceIm(tSession)
     tSrvcStore = meanwhile.ServiceStorage(tSession)
 
     tSession.addService(tSrvcAware)
+    tSession.addService(tSrvcConf)
     tSession.addService(tSrvcIm)
     tSession.addService(tSrvcStore)
 
     tSession.start(background=False, daemon=False)
 
     tSession.removeService(tSrvcAware.type)
+    tSession.removeService(tSrvcConf.type)
     tSession.removeService(tSrvcIm.type)
     tSession.removeService(tSrvcStore.type)
 

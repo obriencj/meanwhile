@@ -6,12 +6,14 @@ m4_define(meanwhile_version,		0.4.0)
 # against 2.0.0 (which will use the compat.h hacks to function) will
 # create package requirements for only 2.0.0, while builds against
 # 2.2.0 or later will require 2.2.0
-
 m4_define(glib_required_version,	2.0.0)
 m4_define(glib_compat_version,		2.2.0)
 m4_define(glib_compat_major_version,	2)
 m4_define(glib_compat_minor_version,	2)
 
+# this is just to generate the requirement in the specfile. It would
+# be useful to make it check the available python version here as
+# well...
 m4_define(python_required_version,	2.3)
 
 
@@ -121,11 +123,11 @@ AM_PATH_GLIB_2_0(glib_required_version, ,
 if ((test $glib_config_major_version -ge glib_compat_major_version) &&
     (test $glib_config_minor_version -ge glib_compat_minor_version))
 then
-	GLIB_VERSION=glib_compat_version
+	GLIB_COMPAT=1
 else
-	GLIB_VERSION=glib_required_version
+	GLIB_COMPAT=0
 fi
-AC_SUBST(GLIB_VERSION)
+AC_SUBST(GLIB_COMPAT)
 AC_SUBST(GLIB_CFLAGS)
 AC_SUBST(GLIB_LIBS)
 

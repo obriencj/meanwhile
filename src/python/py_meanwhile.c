@@ -5,6 +5,7 @@
 #include "../mw_service.h"
 #include "../mw_session.h"
 #include "../mw_srvc_aware.h"
+#include "../mw_srvc_conf.h"
 #include "../mw_srvc_im.h"
 
 
@@ -13,15 +14,15 @@
 #endif
 
 
-static struct PyMethodDef _methods[] = {
-  {NULL}
+static struct PyMethodDef py_methods[] = {
+  { NULL }
 };
 
 
 PyMODINIT_FUNC init_meanwhile() {
   PyObject *m;
 
-  m = Py_InitModule3("_meanwhile", _methods, "Meanwhile client module");
+  m = Py_InitModule3("_meanwhile", py_methods, "Meanwhile client module");
 
   /* service state constants */
   PyModule_AddIntConstant(m, "SERVICE_STARTING", mwServiceState_STARTING);
@@ -66,11 +67,24 @@ PyMODINIT_FUNC init_meanwhile() {
   PyModule_AddIntConstant(m, "CONVERSATION_OPEN", mwConversation_OPEN);
   PyModule_AddIntConstant(m, "CONVERSATION_UNKNOWN", mwConversation_UNKNOWN);
 
+  /* conference states */
+  PyModule_AddIntConstant(m, "CONFERENCE_NEW", mwConference_NEW);
+  PyModule_AddIntConstant(m, "CONFERENCE_PENDING", mwConference_PENDING);
+  PyModule_AddIntConstant(m, "CONFERENCE_INVITED", mwConference_INVITED);
+  PyModule_AddIntConstant(m, "CONFERENCE_OPEN", mwConference_OPEN);
+  PyModule_AddIntConstant(m, "CONFERENCE_CLOSING", mwConference_CLOSING);
+  PyModule_AddIntConstant(m, "CONFERENCE_ERROR", mwConference_ERROR);
+  PyModule_AddIntConstant(m, "CONFERENCE_UNKNOWN", mwConference_UNKNOWN);
+
+  /* basic classes */
   PyModule_AddObject(m, "Channel", (PyObject *) mwPyChannel_type());
   PyModule_AddObject(m, "Service", (PyObject *) mwPyService_type());
   PyModule_AddObject(m, "Session", (PyObject *) mwPySession_type());
 
+  /* service classes */
   PyModule_AddObject(m, "ServiceAware", (PyObject *) mwPyServiceAware_type());
+  PyModule_AddObject(m, "ServiceConference",
+		     (PyObject *) mwPyServiceConference_type());
   PyModule_AddObject(m, "ServiceIm", (PyObject *) mwPyServiceIm_type());
   PyModule_AddObject(m, "ServiceStorage",
 		     (PyObject *) mwPyServiceStorage_type());

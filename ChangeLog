@@ -1,5 +1,5 @@
 
-version 0.4 (cvs)
+version 0.4.0 (cvs)
 
 	Packaging
 	- installed header names have changed to now have a mw_ prefix

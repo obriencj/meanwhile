@@ -4,16 +4,12 @@
 
 - Session
   - add support for privacy controls
-  - implement LoginRedirect and LoginContinue
+  - implement LoginContinue
 
 - Resolve requests
   - mwServiceResolve
   - submit the query with a call-back function
   - on receipt of a reponse, lookup id and call function with results
-
-- IM service
-  - NotesBuddy html formatting in IM
-  - how to determine if other side supports it?
 
 - Storage service
   - why does the server crash on some load requests??

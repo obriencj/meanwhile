@@ -18,7 +18,7 @@ struct mwSession;
 
 
 enum mwConferenceState {
-  mwConference_NEW,      /**< new conference */
+  mwConference_NEW,      /**< new outgoing conference */
   mwConference_PENDING,  /**< outgoing conference pending creation */
   mwConference_INVITED,  /**< invited to incoming conference */
   mwConference_OPEN,     /**< conference open and active */
@@ -91,6 +91,11 @@ struct mwConferenceHandler {
 struct mwServiceConference *
 mwServiceConference_new(struct mwSession *sess,
 			struct mwConferenceHandler *handler);
+
+
+/** @returns the conference handler for the service */
+struct mwConferenceHandler *
+mwServiceConference_getHandler(struct mwServiceConference *srvc);
 
 
 /** a mwConference list of the conferences in this service. The GList

@@ -801,6 +801,13 @@ int mwConference_sendTyping(struct mwConference *conf, gboolean typing) {
 }
 
 
+struct mwConferenceHandler *
+mwServiceConference_getHandler(struct mwServiceConference *srvc) {
+  g_return_val_if_fail(srvc != NULL, NULL);
+  return srvc->handler;
+}
+
+
 GList *mwServiceConference_conferences(struct mwServiceConference *srvc) {
   g_return_val_if_fail(srvc != NULL, NULL);
   return g_list_copy(srvc->confs);

@@ -223,14 +223,14 @@ static PyObject *py_send_text(mwPyService *self, PyObject *args) {
   conv = mwServiceIm_findConversation(srvc_im, &id);
   
   if(!conv || !MW_CONVO_IS_OPEN(conv)) {
-    mw_throw("conversation not currently open");
+    mw_raise("conversation not currently open");
   } else if(! mwConversation_supports(conv, mwImSend_PLAIN)) {
-    mw_throw("conversation does not support sending plain text");
+    mw_raise("conversation does not support sending plain text");
   }
 
   /* don't free text or clear id, those strings are borrowed */
   if(mwConversation_send(conv, mwImSend_PLAIN, text)) {
-    mw_throw("error sending text message over conversation");
+    mw_raise("error sending text message over conversation");
   } else {
     mw_return_none();
   }
@@ -256,14 +256,14 @@ static PyObject *py_send_html(mwPyService *self, PyObject *args) {
   conv = mwServiceIm_findConversation(srvc_im, &id);
 
   if(!conv || !MW_CONVO_IS_OPEN(conv)) {
-    mw_throw("conversation not currently open");
+    mw_raise("conversation not currently open");
   } else if(! mwConversation_supports(conv, mwImSend_HTML)) {
-    mw_throw("conversation does not support sending HTML");
+    mw_raise("conversation does not support sending HTML");
   }
 
   /* don't free text or clear id, those strings are borrowed */
   if(mwConversation_send(conv, mwImSend_HTML, text)) {
-    mw_throw("error sending HTML message over conversation");
+    mw_raise("error sending HTML message over conversation");
   } else {
     mw_return_none();
   }
@@ -288,13 +288,13 @@ static PyObject *py_send_mime(mwPyService *self, PyObject *args) {
   conv = mwServiceIm_findConversation(srvc_im, &id);
 
   if(!conv || !MW_CONVO_IS_OPEN(conv)) {
-    mw_throw("conversation not currently open");
+    mw_raise("conversation not currently open");
   } else if(! mwConversation_supports(conv, mwImSend_MIME)) {
-    mw_throw("conversation does not support sending MIME");
+    mw_raise("conversation does not support sending MIME");
   }
 
   if(mwConversation_send(conv, mwImSend_MIME, &data)) {
-    mw_throw("error sending MIME message over conversation");
+    mw_raise("error sending MIME message over conversation");
   } else {
     mw_return_none();
   }
@@ -320,14 +320,14 @@ static PyObject *py_send_subject(mwPyService *self, PyObject *args) {
   conv = mwServiceIm_findConversation(srvc_im, &id);
 
   if(!conv || !MW_CONVO_IS_OPEN(conv)) {
-    mw_throw("conversation not currently open");
+    mw_raise("conversation not currently open");
   } else if(! mwConversation_supports(conv, mwImSend_SUBJECT)) {
-    mw_throw("conversation does not support sending subjects");
+    mw_raise("conversation does not support sending subjects");
   }
 
   /* don't free text or clear id, those strings are borrowed */
   if(mwConversation_send(conv, mwImSend_SUBJECT, text)) {
-    mw_throw("error sending subject over conversation");
+    mw_raise("error sending subject over conversation");
   } else {
     mw_return_none();
   }
@@ -352,14 +352,14 @@ static PyObject *py_send_typing(mwPyService *self, PyObject *args) {
   conv = mwServiceIm_findConversation(srvc_im, &id);
 
   if(!conv || !MW_CONVO_IS_OPEN(conv)) {
-    mw_throw("conversation not currently open");
+    mw_raise("conversation not currently open");
   } else if(! mwConversation_supports(conv, mwImSend_TYPING)) {
-    mw_throw("conversation does not support sending typing notification");
+    mw_raise("conversation does not support sending typing notification");
   }
 
   /* don't clead id, it has borrowed strings */
   if(mwConversation_send(conv, mwImSend_TYPING, GINT_TO_POINTER(typing))) {
-    mw_throw("error sending typing over conversation");
+    mw_raise("error sending typing over conversation");
   } else {
     mw_return_none();
   }
@@ -383,7 +383,7 @@ static PyObject *py_convo_open(mwPyService *self, PyObject *args) {
   conv = mwServiceIm_getConversation(srvc_im, &id);
 
   if(! MW_CONVO_IS_CLOSED(conv)) {
-    mw_throw("conversation is already open or pending");
+    mw_raise("conversation is already open or pending");
   } else {
     mwConversation_open(conv);
     mw_return_none();
@@ -409,7 +409,7 @@ static PyObject *py_convo_close(mwPyService *self, PyObject *args) {
   conv = mwServiceIm_findConversation(srvc_im, &id);
 
   if(!conv || MW_CONVO_IS_CLOSED(conv)) {
-    mw_throw("conversation is not open or pending");
+    mw_raise("conversation is not open or pending");
   } else {
     /** @todo maybe want to free the conversation as well, unsure */
     mwConversation_close(conv, err);
@@ -468,55 +468,55 @@ static PyObject *py_convo_supports(mwPyService *self, PyObject *args) {
 
 
 static struct PyMethodDef tp_methods[] = {
-  { ON_TEXT, MW_METH_VARARGS_NONE,
-    METH_VARARGS, "override to receive text messages" },
+  { ON_TEXT, MW_METH_VARARGS_NONE, METH_VARARGS,
+    "override to receive text messages" },
 
-  { ON_HTML, MW_METH_VARARGS_NONE,
-    METH_VARARGS, "override to receive HTML formatted messages" },
+  { ON_HTML, MW_METH_VARARGS_NONE, METH_VARARGS,
+    "override to receive HTML formatted messages" },
 
-  { ON_MIME, MW_METH_VARARGS_NONE,
-    METH_VARARGS, "override to receive MIME encoded messages" },
+  { ON_MIME, MW_METH_VARARGS_NONE, METH_VARARGS,
+    "override to receive MIME encoded messages" },
 
-  { ON_SUBJECT, MW_METH_VARARGS_NONE,
-    METH_VARARGS, "override to handle conversation subjects" },
+  { ON_SUBJECT, MW_METH_VARARGS_NONE, METH_VARARGS,
+    "override to handle conversation subjects" },
 
-  { ON_TYPING, MW_METH_VARARGS_NONE,
-    METH_VARARGS, "override to receive typing notification" },
+  { ON_TYPING, MW_METH_VARARGS_NONE, METH_VARARGS,
+    "override to receive typing notification" },
 
-  { ON_OPENED, MW_METH_VARARGS_NONE,
-    METH_VARARGS, "override to handle conversation openings" },
+  { ON_OPENED, MW_METH_VARARGS_NONE, METH_VARARGS,
+    "override to handle conversation openings" },
 
-  { ON_CLOSED, MW_METH_VARARGS_NONE,
-    METH_VARARGS, "override to handle conversation closings" },
+  { ON_CLOSED, MW_METH_VARARGS_NONE, METH_VARARGS,
+    "override to handle conversation closings" },
 
-  { "sendText", (PyCFunction) py_send_text,
-    METH_VARARGS, "send a text message" },
+  { "sendText", (PyCFunction) py_send_text, METH_VARARGS,
+    "send a text message" },
 
-  { "sendHtml", (PyCFunction) py_send_html,
-    METH_VARARGS, "send an HTML formatted message" },
+  { "sendHtml", (PyCFunction) py_send_html, METH_VARARGS,
+    "send an HTML formatted message" },
 
-  { "sendMime", (PyCFunction) py_send_mime,
-    METH_VARARGS, "send a MIME encoded message" },
+  { "sendMime", (PyCFunction) py_send_mime, METH_VARARGS,
+    "send a MIME encoded message" },
 
-  { "sendSubject", (PyCFunction) py_send_subject,
-    METH_VARARGS, "send the conversation subject" },
+  { "sendSubject", (PyCFunction) py_send_subject, METH_VARARGS,
+    "send the conversation subject" },
 
-  { "sendTyping", (PyCFunction) py_send_typing,
-    METH_VARARGS, "send typing notification" },
+  { "sendTyping", (PyCFunction) py_send_typing, METH_VARARGS,
+    "send typing notification" },
 
-  { "openConversation", (PyCFunction) py_convo_open,
-    METH_VARARGS, "open a conversation to target" },
+  { "openConversation", (PyCFunction) py_convo_open, METH_VARARGS,
+    "open a conversation to target" },
 
-  { "closeConversation", (PyCFunction) py_convo_close,
-    METH_VARARGS, "close a conversation" },
+  { "closeConversation", (PyCFunction) py_convo_close, METH_VARARGS,
+    "close a conversation" },
 
-  { "conversationState", (PyCFunction) py_convo_get_state,
-    METH_VARARGS, "is conversation open?" },
+  { "conversationState", (PyCFunction) py_convo_get_state, METH_VARARGS,
+    "is conversation open?" },
 
-  { "conversationSupports", (PyCFunction) py_convo_supports,
-    METH_VARARGS, "does conversation support message type?" },
+  { "conversationSupports", (PyCFunction) py_convo_supports, METH_VARARGS,
+    "does conversation support message type?" },
 
-  {NULL}
+  { NULL }
 };
 
 
