@@ -22,6 +22,7 @@
 #include <structmember.h>
 
 #include <glib.h>
+#include <glib/ghash.h>
 #include <string.h>
 
 #include "py_meanwhile.h"
@@ -47,10 +48,22 @@
 */
 
 
+#define ADD_CONF(self, conf) \
+  g_hash_table_insert((self)->data, \
+                      (char *) mwConference_getName(conf), \
+                      (conf))
+
+#define REM_CONF(self, conf) \
+  g_hash_table_remove((self)->data, \
+                      (char *) mwConference_getName(conf))
+
+#define GET_CONF(self, name) \
+  g_hash_table_lookup((self)->data, (name))
+
+
 static void mw_on_invited(struct mwConference *conf,
 			  struct mwLoginInfo *inviter, const char *invite) {
-
-  struct pyObj_mwService *self;
+  mwPyService *self;
   PyObject *robj;
   PyObject *a, *b, *c, *d;
 
@@ -68,7 +81,7 @@ static void mw_on_invited(struct mwConference *conf,
 
 
 static void mw_conf_opened(struct mwConference *conf, GList *members) {
-  struct pyObj_mwService *self;
+  mwPyService *self;
   PyObject *robj;
   PyObject *a, *m;
 
@@ -91,11 +104,15 @@ static void mw_conf_opened(struct mwConference *conf, GList *members) {
   robj = PyObject_CallMethod((PyObject *) self, ON_OPENED,
 			     "NN", a, m);
   Py_XDECREF(robj);
+
+  /* if it's an outgoing conference, there will already be such an
+     entry */
+  ADD_CONF(self, conf);
 }
 
 
 static void mw_conf_closed(struct mwConference *conf, guint32 reason) {
-  struct pyObj_mwService *self;
+  mwPyService *self;
   PyObject *robj;
   PyObject *a, *b;
 
@@ -107,13 +124,14 @@ static void mw_conf_closed(struct mwConference *conf, guint32 reason) {
   robj = PyObject_CallMethod((PyObject *) self, ON_CLOSING,
 			     "NN", a, b);
   Py_XDECREF(robj);
+
+  REM_CONF(self, conf);
 }
 
 
 static void mw_on_peer_joined(struct mwConference *conf,
 			      struct mwLoginInfo *who) {
-
-  struct pyObj_mwService *self;
+  mwPyService *self;
   PyObject *robj;
   PyObject *a, *b, *c;
 
@@ -131,8 +149,7 @@ static void mw_on_peer_joined(struct mwConference *conf,
 
 static void mw_on_peer_parted(struct mwConference *conf,
 			      struct mwLoginInfo *who) {
-
-  struct pyObj_mwService *self;
+  mwPyService *self;
   PyObject *robj;
   PyObject *a, *b, *c;
 
@@ -150,8 +167,7 @@ static void mw_on_peer_parted(struct mwConference *conf,
 
 static void mw_on_text(struct mwConference *conf,
 		       struct mwLoginInfo *who, const char *what) {
-
-  struct pyObj_mwService *self;
+  mwPyService *self;
   PyObject *robj;
   PyObject *a, *b, *c, *d;
 
@@ -170,8 +186,7 @@ static void mw_on_text(struct mwConference *conf,
 
 static void mw_on_typing(struct mwConference *conf,
 			 struct mwLoginInfo *who, gboolean typing) {
-  
-  struct pyObj_mwService *self;
+  mwPyService *self;
   PyObject *robj;
   PyObject *a, *b, *c, *d;
 
@@ -194,34 +209,126 @@ static void mw_clear(struct mwServiceConference *srvc) {
 
 
 static PyObject *py_conf_new(mwPyService *self, PyObject *args) {
-  mw_return_none();
+  struct mwServiceConference *srvc;
+  struct mwConference *conf;
+  PyObject *title;
+
+  if(! PyArg_ParseTuple(args, "O", &title))
+    return NULL;
+
+  srvc = (struct mwServiceConference *) self->wrapped;
+  conf = mwConference_new(srvc, PyString_SafeAsString(title));
+
+  ADD_CONF(self, conf);
+
+  return PyString_SafeFromString(mwConference_getName(conf));
 }
 
 
 static PyObject *py_conf_open(mwPyService *self, PyObject *args) {
-  mw_return_none();
+  struct mwConference *conf;
+  PyObject *name;
+
+  if(! PyArg_ParseTuple(args, "O", &name))
+    return NULL;
+
+  conf = GET_CONF(self, PyString_SafeAsString(name));
+  if(! conf) {
+    mw_raise("no such conference to open");
+  }
+
+  return PyInt_FromLong(mwConference_open(conf));
 }
 
 
 static PyObject *py_conf_close(mwPyService *self, PyObject *args) {
-  mw_return_none();
+  struct mwConference *conf;
+  PyObject *name, *text = NULL;
+  guint32 reason = 0x00;
+  const char *t;
+
+  if(! PyArg_ParseTuple(args, "O|lO", &name, &reason, &text))
+    return NULL;
+
+  t = PyString_SafeAsString(text);
+
+  conf = GET_CONF(self, PyString_SafeAsString(name));
+  if(! conf) {
+    mw_raise("no such conference to close");
+  }
+
+  return PyInt_FromLong(mwConference_destroy(conf, reason, t));
 }
 
 
 static PyObject *py_send_text(mwPyService *self, PyObject *args) {
-  mw_return_none();
+  struct mwConference *conf;
+  PyObject *name, *text;
+  const char *n, *t;
+
+  if(! PyArg_ParseTuple(args, "OO", &name, &text))
+    return NULL;
+
+  n = PyString_SafeAsString(name);
+  t = PyString_SafeAsString(text);
+
+  conf = GET_CONF(self, n);
+  if(! conf) {
+    mw_raise("no such conference");
+  }
+
+  return PyInt_FromLong(mwConference_sendText(conf, t));
 }
 
 
 static PyObject *py_send_typing(mwPyService *self, PyObject *args) {
-  mw_return_none();
+  struct mwConference *conf;
+  PyObject *name;
+  const char *n;
+  gboolean typing;
+
+  if(! PyArg_ParseTuple(args, "Ol", &name, &typing))
+    return NULL;
+
+  n = PyString_SafeAsString(name);
+
+  conf = GET_CONF(self, n);
+  if(! conf) {
+    mw_raise("no such conference");
+  }
+
+  return PyInt_FromLong(mwConference_sendTyping(conf, typing));
+}
+
+
+static PyObject *py_send_invite(mwPyService *self, PyObject *args) {
+  /* @todo lookup conference, invite a single user */
+  struct mwConference *conf;
+  PyObject *name, *u, *c, *text;
+  const char *n, *t;
+  struct mwIdBlock idb;
+
+  if(! PyArg_ParseTuple(args, "O(OO)O", &name, &u, &c, &text))
+    return NULL;
+
+  n = PyString_SafeAsString(name);
+  idb.user = (char *) PyString_SafeAsString(u);
+  idb.community = (char *) PyString_SafeAsString(c);
+  t = PyString_SafeAsString(text);
+
+  conf = GET_CONF(self, n);
+  if(! conf) {
+    mw_raise("no such conference");
+  }
+
+  return PyInt_FromLong(mwConference_invite(conf, &idb, t));
 }
 
 
 static struct PyMethodDef tp_methods[] = {
   { ON_TEXT, MW_METH_VARARGS_NONE, METH_VARARGS,
     "override to receive text messages" },
-
+  
   { ON_PEER_JOIN, MW_METH_VARARGS_NONE, METH_VARARGS,
     "override to receive notification of peers joining" },
 
@@ -240,20 +347,23 @@ static struct PyMethodDef tp_methods[] = {
   { ON_CLOSING, MW_METH_VARARGS_NONE, METH_VARARGS,
     "override to receive notification of conference closing" },
 
-  { "createConference", (PyCFunction) py_conf_new, METH_VARARGS,
+  { "newConference", (PyCFunction) py_conf_new, METH_VARARGS,
     "create an outgoing conference" },
   
   { "openConference", (PyCFunction) py_conf_open, METH_VARARGS,
     "open an outgoing conference or accept an invitation to a conference" },
 
   { "closeConference", (PyCFunction) py_conf_close, METH_VARARGS,
-    "close a conference" },
+    "close or reject a conference" },
 
   { "sendText", (PyCFunction) py_send_text, METH_VARARGS,
     "send a text message" },
 
   { "sendTyping", (PyCFunction) py_send_typing, METH_VARARGS,
     "send typing notification" },
+
+  { "sendInvitation", (PyCFunction) py_send_invite, METH_VARARGS,
+    "send an invitation" },
 
   { NULL }
 };
@@ -279,6 +389,10 @@ static PyObject *tp_new(PyTypeObject *t, PyObject *args, PyObject *kwds) {
   Py_INCREF(sessobj);
   self->session = sessobj;
   session = sessobj->session;
+
+  /* map of mwConference_getName:mwConference */
+  self->data = g_hash_table_new(g_str_hash, g_str_equal);
+  self->cleanup = (GDestroyNotify) g_hash_table_destroy;
 
   /* handler with our call-backs */
   handler = g_new0(struct mwConferenceHandler, 1);

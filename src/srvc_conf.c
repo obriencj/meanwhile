@@ -131,7 +131,7 @@ static struct mwConference *conf_new(struct mwServiceConference *srvc) {
   conf = g_new0(struct mwConference, 1);
   conf->state = mwConference_NEW;
   conf->service = srvc;
-  conf->members = g_hash_table_new_full(g_int_hash, g_int_equal, NULL,
+  conf->members = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL,
 					(GDestroyNotify) login_free);
 
   session = mwService_getSession(MW_SERVICE(srvc));
@@ -250,8 +250,7 @@ static void recv_channelAccept(struct mwService *srvc,
 			       struct mwChannel *chan,
 			       struct mwMsgChannelAccept *msg) {
 
-  /* Since a conference should always send a welcome message immediately
-     after acceptance, we'll do nothing here. */
+  mwChannel_send(chan, msg_JOIN, NULL);
 }
 
 
@@ -732,7 +731,6 @@ int mwConference_accept(struct mwConference *conf) {
   */
 
   struct mwChannel *chan = conf->channel;
-  struct mwOpaque o = { .len = 0, .data = NULL };
   int ret;
 
   g_return_val_if_fail(conf->state == mwConference_INVITED, -1);
@@ -740,7 +738,7 @@ int mwConference_accept(struct mwConference *conf) {
   ret = mwChannel_accept(chan);
 
   if(! ret)
-    ret = mwChannel_send(chan, msg_JOIN, &o);
+    ret = mwChannel_send(chan, msg_JOIN, NULL);
 
   return ret;
 }
@@ -824,7 +822,7 @@ mwServiceConference_getHandler(struct mwServiceConference *srvc) {
 }
 
 
-GList *mwServiceConference_conferences(struct mwServiceConference *srvc) {
+GList *mwServiceConference_getConferences(struct mwServiceConference *srvc) {
   g_return_val_if_fail(srvc != NULL, NULL);
   return g_list_copy(srvc->confs);
 }

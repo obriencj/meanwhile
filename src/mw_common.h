@@ -224,6 +224,14 @@ struct mwGetBuffer *mwGetBuffer_new(struct mwOpaque *data);
 gsize mwGetBuffer_read(struct mwGetBuffer *b, gpointer mem, gsize len);
 
 
+/** skip len bytes in the get buffer. If len is greater than the count
+    of bytes remaining in the buffer, the buffer's error flag will NOT
+    be set.
+
+    @returns count of bytes successfully skipped */
+gsize mwGetBuffer_advance(struct mwGetBuffer *b, gsize len);
+
+
 /** allocate a new buffer backed by the given data. Calling
     mwGetBuffer_free will not result in the underlying data being
     freed */

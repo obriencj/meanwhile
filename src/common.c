@@ -77,24 +77,23 @@ struct mwGetBuffer {
   ((buffer)->len - (buffer)->rem)
 
 
-#define GROW_INCR 1024
-
-
+/** ensure that there's at least enough space remaining in the put
+    buffer to fit needed. */
 static void ensure_buffer(struct mwPutBuffer *b, gsize needed) {
   if(b->rem < needed) {
-    gsize grow, len, use = BUFFER_USED(b);
+    gsize len = b->len, use = BUFFER_USED(b);
     char *buf;
 
-    /* increment grow until it's enough to provide the needed
-       remaining space */
-    for(grow = 0; (b->rem + grow) < needed; grow += GROW_INCR);
+    /* newly created buffers are empty until written to, and then they
+       have 1024 available */
+    if(! len) len = 1024;
 
-    /* allocate the new, larger buffer */
-    len = b->len + grow;
-    buf = g_malloc0(len);
+    /* double len until it's large enough to fit needed */
+    while( (len - use) < needed ) len = len << 1;
 
-    /* if there was anything in the old buffer, copy it into the new
-       buffer and free the old copy */
+    /* create the new buffer. if there was anything in the old buffer,
+       copy it into the new buffer and free the old copy */
+    buf = g_malloc(len);
     if(b->buf) {
       memcpy(buf, b->buf, use);
       g_free(b->buf);
@@ -109,6 +108,11 @@ static void ensure_buffer(struct mwPutBuffer *b, gsize needed) {
 }
 
 
+/** determine if there are at least needed bytes available in the
+    buffer. sets the error flag if there's not at least needed bytes
+    left in the buffer
+
+    @returns true if there's enough data, false if not */
 static gboolean check_buffer(struct mwGetBuffer *b, gsize needed) {
   if(! b->error)  b->error = (b->rem < needed);
   return ! b->error;
@@ -153,21 +157,25 @@ void mwPutBuffer_finalize(struct mwOpaque *to, struct mwPutBuffer *from) {
 
 struct mwGetBuffer *mwGetBuffer_new(struct mwOpaque *o) {
   struct mwGetBuffer *b = g_new0(struct mwGetBuffer, 1);
-  if(o->len) {
+
+  if(o && o->len) {
     b->buf = b->ptr = g_memdup(o->data, o->len);
     b->len = b->rem = o->len;
   }
+
   return b;
 }
 
 
 struct mwGetBuffer *mwGetBuffer_wrap(struct mwOpaque *o) {
   struct mwGetBuffer *b = g_new0(struct mwGetBuffer, 1);
-  if(o->len) {
+
+  if(o && o->len) {
     b->buf = b->ptr = o->data;
     b->len = b->rem = o->len;
   }
   b->wrap = TRUE;
+
   return b;
 }
 
@@ -177,11 +185,28 @@ gsize mwGetBuffer_read(struct mwGetBuffer *b, gpointer data, gsize len) {
   g_return_val_if_fail(data != NULL, 0);
 
   if(b->error) return 0;
+  if(! len) return 0;
 
   if(b->rem < len)
     len = b->rem;
 
   memcpy(data, b->ptr, len);
+  b->ptr += len;
+  b->rem -= len;
+
+  return len;
+}
+
+
+gsize mwGetBuffer_advance(struct mwGetBuffer *b, gsize len) {
+  g_return_val_if_fail(b != NULL, 0);
+
+  if(b->error) return 0;
+  if(! len) return 0;
+
+  if(b->rem < len)
+    len = b->rem;
+
   b->ptr += len;
   b->rem -= len;
 
@@ -423,13 +448,15 @@ void mwOpaque_clear(struct mwOpaque *o) {
 
 void mwOpaque_clone(struct mwOpaque *to, struct mwOpaque *from) {
   g_return_if_fail(to != NULL);
-  g_return_if_fail(from != NULL);
 
-  to->len = from->len;
+  to->len = 0;
   to->data = NULL;
 
-  if(to->len)
-    to->data = (char *) g_memdup(from->data, to->len);
+  if(from) {
+    to->len = from->len;
+    if(to->len)
+      to->data = g_memdup(from->data, to->len);
+  }
 }
 
 

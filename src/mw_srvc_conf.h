@@ -118,7 +118,7 @@ mwServiceConference_getHandler(struct mwServiceConference *srvc);
 
 /** a mwConference list of the conferences in this service. The GList
     will need to be destroyed with g_list_free after use */
-GList *mwServiceConference_conferences(struct mwServiceConference *srvc);
+GList *mwServiceConference_getConferences(struct mwServiceConference *srvc);
 
 
 /** Allocate a new conference, in state NEW with the given title.

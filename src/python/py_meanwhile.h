@@ -67,6 +67,7 @@ struct pyObj_mwService {
   struct mwServicePyWrap *wrapper;  /**< python wrapper service */
   struct mwService *wrapped;        /**< optional underlying service */
   gpointer data;                    /**< optional additional data */
+  GDestroyNotify cleanup;           /**< optional cleanup for data */
 };
 
 

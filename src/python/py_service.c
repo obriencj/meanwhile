@@ -212,9 +212,7 @@ mwPyService *mwServicePyWrap_getSelf(struct mwServicePyWrap *s) {
 static PyObject *py_start(mwPyService *self) {
   if(self->wrapped) {
     mwService_start(self->wrapped);
-
-    Py_INCREF(Py_None);
-    return Py_None;
+    mw_return_none();
 
   } else {  
     return PyObject_CallMethod((PyObject *) self, "started", NULL);
@@ -224,18 +222,14 @@ static PyObject *py_start(mwPyService *self) {
 
 static PyObject *py_started(mwPyService *self) {
   mwService_started(MW_SERVICE(self->wrapper));
-
-  Py_INCREF(Py_None);
-  return Py_None;
+  mw_return_none();
 }
 
 
 static PyObject *py_stop(mwPyService *self) {
   if(self->wrapped) {
     mwService_stop(self->wrapped);
-
-    Py_INCREF(Py_None);
-    return Py_None;
+    mw_return_none();
 
   } else {
     return PyObject_CallMethod((PyObject *) self, "stopped", NULL);
@@ -247,9 +241,7 @@ static PyObject *py_stop(mwPyService *self) {
    affect the wrapper's state */
 static PyObject *py_stopped(mwPyService *self) {
   mwService_stopped(MW_SERVICE(self->wrapper));
-
-  Py_INCREF(Py_None);
-  return Py_None;
+  mw_return_none();
 }
 
 
@@ -289,22 +281,22 @@ static int py_set_type(mwPyService *self, PyObject *val, gpointer data) {
 
 
 static PyObject *py_get_name(mwPyService *self) {
-  const char *c = "";
+  const char *c = NULL;
 
   if(self->wrapped)
     c = mwService_getName(self->wrapped);
 
-  return PyString_FromString(c);
+  return PyString_SafeFromString(c);
 }
 
 
 static PyObject *py_get_desc(mwPyService *self) {
-  const char *c = "";
+  const char *c = NULL;
 
   if(self->wrapped)
     c = mwService_getDesc(self->wrapped);
 
-  return PyString_FromString(c);    
+  return PyString_SafeFromString(c);    
 }
 
 
@@ -460,6 +452,12 @@ static void tp_dealloc(mwPyService *self) {
 
   Py_XDECREF(self->session);
   self->session = NULL;
+
+  if(self->cleanup) {
+    self->cleanup(self->data);
+    self->cleanup = NULL;
+  }
+  self->data = NULL;
 
   self->ob_type->tp_free((PyObject *) self);
 }

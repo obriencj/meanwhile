@@ -312,8 +312,9 @@ class TestServiceConference(meanwhile.ServiceConference):
         print '<invited>%s, %s: %s' % (conf, inviter[0], text)
 
 
-    def onOpened(self, conf):
-        print '<joined>%s' % conf
+    def onOpened(self, conf, members):
+        print '<opened>%s' % conf
+        print '<members> %s' % members
 
 
     def onClosing(self, conf):
