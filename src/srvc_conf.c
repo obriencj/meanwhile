@@ -226,6 +226,7 @@ static void recv_channelCreate(struct mwService *srvc,
   guint tmp;
 
   conf = conf_new(srvc_conf);
+  conf->channel = chan;
 
   b = mwGetBuffer_wrap(&msg->addtl);
 
@@ -737,11 +738,13 @@ int mwConference_accept(struct mwConference *conf) {
      - send an empty JOIN message
   */
 
-  struct mwChannel *chan = conf->channel;
+  struct mwChannel *chan;
   int ret;
 
+  g_return_val_if_fail(conf != NULL, -1);
   g_return_val_if_fail(conf->state == mwConference_INVITED, -1);
 
+  chan = conf->channel;
   ret = mwChannel_accept(chan);
 
   if(! ret)

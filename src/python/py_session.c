@@ -364,7 +364,7 @@ static PyObject *tp_new(PyTypeObject *t, PyObject *args, PyObject *kwds) {
 static void tp_dealloc(struct pyObj_mwSession *self) {
   g_hash_table_destroy(self->services);
 
-  g_free(mwSession_getCipher(self->session, mwCipher_RC2_40));
+  mwCipher_free(mwSession_getCipher(self->session, mwCipher_RC2_40));
 
   mwSession_free(self->session);
 
