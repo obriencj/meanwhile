@@ -8,10 +8,14 @@
 
 
 # values determined from options passed to ./configure
-PYTHON=@PYTHON@
-PYLIBDIR=@PYTHON_LIBP@
+PYTHON="@PYTHON@"
+PYLIBDIR="@PYTHON_LIBP@"
 
-CONFIG=test.conf
+
+dir=`dirname $0`
+[ -z "${dir}" ] && dir=.
+
+CONFIG="${dir}/test.conf"
 
 
 # if not configured with python support, than this script can't run
@@ -21,20 +25,22 @@ if test "$PYTHON" = "" ; then
 fi
 
 
+# Verify a setting for $EDITOR
+if test -z "${EDITOR}" ; then
+    if sh -c "vim --version" 1>&2 2>/dev/null; then
+       EDITOR=vim
+    else
+       # Should we check for vi?  At least provide a message if we
+       # don't find/see it?
+       EDITOR=vi
+    fi
+fi
+
+
 # set up blank configuration data if necessary
-if test ! -e $CONFIG ; then
+if test ! -f $CONFIG ; then
     cp $CONFIG.in $CONFIG
-
-    if test -z "$EDITOR" ; then
-	EDITOR=`which vim` 2> /dev/null
-    fi
-    if test -z "$EDITOR" ; then
-	EDITOR=`which vi` 2> /dev/null
-    fi
-
-    if test -n "$EDITOR" ; then
-	$EDITOR $CONFIG
-    fi
+    $EDITOR $CONFIG
 fi
 
 
@@ -73,7 +79,9 @@ fi
 # but that means we'll need to put ourselves into a position to find
 # the library and module
 cd src/python
-export LD_LIBRARY_PATH=$PYLIBDIR/../:../.libs/
+
+LD_LIBRARY_PATH=$PYLIBDIR/../:../.libs/
+export LD_LIBRARY_PATH
 
 
 # debug
@@ -83,7 +91,7 @@ if test "$1" = "debug" ; then
 # valgrind
 elif test "$1" = "valgrind" ; then
     shift
-    if test -n `which valgrind` ; then
+    if sh -c "valgrind --version" 1>&2 2> /dev/null ; then
 	valgrind $* $PYTHON test.py
     else
 	echo "valgrind not found in \$PATH"
