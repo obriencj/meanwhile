@@ -39,7 +39,9 @@ def _cbExec_none(text):
 
 
 # determine which _cbExec to use based on the allow_exec environment
-# variable
+# variable. TODO: would be better if this was a user name or
+# something, wherein the bot would only exec code from the designated
+# user.
 _cbExec = None
 if os.environ.get('allow_exec'):
     _cbExec = _cbExec_real
@@ -49,6 +51,10 @@ else:
 
 
 def _cbLoadStr(who, key, result, value):
+
+    ''' callback triggered from the storage service on successful load
+    of a string value '''
+
     if not result:
         t = "load key 0x%x success:\n%s" % (key, value)
         print t
@@ -62,6 +68,10 @@ def _cbLoadStr(who, key, result, value):
 
 
 def _cbLoad(who, kstr):
+
+    ''' instructs the storage service to load a value by key. Service
+    will trigger _cbLoadStr as a callback on completion '''
+    
     if not tSrvcStore:
         tSrvcIm.sendText(who, "storage service not initialized")
         return
@@ -70,7 +80,7 @@ def _cbLoad(who, kstr):
         key = int(kstr)
         l = lambda k,r,v,w=who: _cbLoadStr(w, k, r, v)
         tSrvcStore.loadString(key, l)
-        tSrvcIm.sendText(who, "requesting load of key %s" % kstr)
+        tSrvcIm.sendText(who, "requesting load of key 0x%x" % key)
 
     except:
         tSrvcIm.sendText(who, 'key "%s" is invalid' % kstr)
@@ -78,8 +88,11 @@ def _cbLoad(who, kstr):
 
 
 def _cbStore(who, kstr):
-    if not tSrvcStore:
-        return
+
+    ''' instructs the storage service to store a value to a key. Not
+    actually implemented in this test bot '''
+
+    pass
 
 
 
@@ -143,10 +156,10 @@ help\n\tprints this information'''
         
         q = self._send_queue
         t = (cb, data)
-        if not q.has_key(who):
-            q[who] = [t]
-        else:
+        if q.has_key(who):
             q[who].append(t)
+        else:
+            q[who] = [t]
 
 
     def _delqueue(self, who):
@@ -165,7 +178,11 @@ help\n\tprints this information'''
         q = self._send_queue
         if q.has_key(who):
             for act in q[who]:
-                act[0](self,who,act[1])
+                # don't let an exception invalidate the rest of the queue
+                try:
+                    act[0](self, who, act[1])
+                except Exception, e:
+                    print e
             del q[who]
 
 
@@ -238,7 +255,7 @@ help\n\tprints this information'''
     def onMime(self, who, data):
         
         ''' Handles incoming MIME messages, such as those sent by
-        NotesBuddy containing images. '''
+        NotesBuddy containing embedded image data '''
 
         from email.Parser import Parser
         from StringIO import StringIO
@@ -299,11 +316,18 @@ class ServiceConference(meanwhile.ServiceConference):
         print '<joined>%s' % conf
 
 
+    def onClosing(self, conf):
+        print '<closing>%s' % conf
+        
 
-if __name__ == "__main__":
+
+def main():
 
     ''' Run the test bot '''
-
+    
+    global tSession
+    global tSrvcAware, tSrvcConf, tSrvcIm, tSrvcStore
+    
     test_user = os.environ.get('mw_user')
     test_pass = os.environ.get('mw_pass')
     test_host = os.environ.get('mw_host')
@@ -336,7 +360,12 @@ if __name__ == "__main__":
     tSession.removeService(tSrvcStore.type)
 
     print "Done"
-    
+
+
+
+if __name__ == "__main__":
+    main()
+
 
 
 # The End.
