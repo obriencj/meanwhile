@@ -1,0 +1,25 @@
+#
+# Makefile.mingw
+#
+# Description: Makefile for win32 (mingw) version of meanwhile
+#
+
+
+##
+## INCLUDE  MAKEFILES
+##
+
+include $(GAIM_TOP)/src/win32/global.mak
+
+
+
+all:
+	make -C src all
+
+
+install:
+	make -C src install
+
+
+clean:
+	make -C src clean

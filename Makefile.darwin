@@ -1,0 +1,18 @@
+
+# Assumes Fink
+
+all: gaim
+
+lib: src/libmeanwhile.la
+	make -C src LT=glibtool LIB_DIR=/sw/lib INCLUDE_DIR=/sw/include
+
+gaim: lib
+	make -C src/gaim gaimsrcdir=$(gaimsrcdir) \
+		LT=glibtool LIB_DIR=/sw/lib INCLUDE_DIR=/sw/include \
+		LDFLAGS="-flat_namespace -undefined suppress -bundle" \
+		all
+install:
+	make -C src/gaim \
+		libdir=$(libdir) gaimsrcdir=$(gaimsrcdir) \
+		$@
+
