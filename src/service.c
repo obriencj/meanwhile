@@ -72,6 +72,11 @@ void mwService_recv(struct mwService *s, struct mwChannel *chan,
   g_return_if_fail(n > 0);
   g_return_if_fail(s->session == chan->session);
 
+  /*
+  g_message(" mwService_recv: session = %p, service = %p, b = %p, n = %u",
+	    mwService_getSession(s), s, buf, n);
+  */
+
   if(s->recv)
     s->recv(s, chan, msg_type, buf, n);
 }

@@ -34,26 +34,32 @@
 
 
 int guint16_put(char **b, gsize *n, guint val) {
-  if((*n -= 2) < 0)
-    return *n;
+  if(2 > *n)
+    return 2 - *n;
 
   MW16_PUT(*b, val);
+  *n -= 2;
   return 0;
 }
 
 
 int guint16_get(char **b, gsize *n, guint *val) {
-  if((*n -= 2) < 0)
-    return *n;
+  if(2 > *n)
+    return 2 - *n;
   
   MW16_GET(*b, *val);
+  *n -= 2;
   return 0;
 }
 
 
 guint guint16_peek(const char *b, gsize n) {
+  char *buf = (char *) b;
+  gsize len = n;
   guint r = 0;
-  guint16_get((char **) &b, &n, &r);
+
+  guint16_get(&buf, &len, &r);
+
   return r;
 }
 
@@ -62,26 +68,32 @@ guint guint16_peek(const char *b, gsize n) {
 
 
 int guint32_put(char **b, gsize *n, guint val) {
-  if((*n -= 4) < 0)
-    return *n;
+  if(4 > *n)
+    return 4 - *n;
 
   MW32_PUT(*b, val);
+  *n -= 4;
   return 0;
 }
 
 
 int guint32_get(char **b, gsize *n, guint *val) {
-  if((*n -= 4) < 0)
-    return *n;
+  if(4 > *n)
+    return 4 - *n;
 
   MW32_GET(*b, *val);
+  *n -= 4;
   return 0;
 }
 
 
 guint guint32_peek(const char *b, gsize n) {
+  char *buf = (char *) b;
+  gsize len = n;
   guint r = 0;
-  guint32_get((char **) &b, &n, &r);
+
+  guint32_get(&buf, &len, &r);
+
   return r;
 }
 
@@ -90,19 +102,21 @@ guint guint32_peek(const char *b, gsize n) {
 
 
 int gboolean_put(char **b, gsize *n, gboolean val) {
-  if((*n -= 1) < 0)
-    return *n;
+  if(*n < 1)
+    return 1;
 
   *(*b)++ = !! val;
+  *n--;
   return 0;
 }
 
 
 int gboolean_get(char **b, gsize *n, gboolean *val) {
-  if((*n -= 1) < 0)
-    return *n;
+  if(*n < 1)
+    return 1;
 
   *val = !! *(*b)++;
+  *n--;
   return 0;
 }
 
@@ -130,11 +144,12 @@ int mwString_put(char **b, gsize *n, const char *val) {
     return *n;
 
   if(len > 0) {
-    if((*n -= len) < 0)
-      return *n;
-		
+    if(len > *n)
+      return len - *n;
+    
     memcpy(*b, val, len);
     *b += len;
+    *n -= len;
   }
   
   return 0;
@@ -155,11 +170,12 @@ int mwString_get(char **b, gsize *n, char **val) {
   *val = NULL;
 
   if(len > 0) {
-    if((*n -= len) < 0)
-      return *n;
-
+    if(len > *n)
+      return len - *n;
+    
     *val = g_strndup(*b, len);
     *b += len;
+    *n -= len;
   }
 
   return 0;
@@ -176,11 +192,12 @@ int mwOpaque_put(char **b, gsize *n, struct mwOpaque *o) {
     return *n - o->len;
 
   if(o->len > 0) {
-    if((*n -= o->len) < 0)
-      return *n;
+    if(o->len > *n)
+      return o->len - *n;
     
     memcpy(*b, o->data, o->len);
     *b += o->len;
+    *n -= o->len;
   }
 
   return 0;
@@ -194,11 +211,12 @@ int mwOpaque_get(char **b, gsize *n, struct mwOpaque *o) {
   o->data = NULL;
 
   if(o->len > 0) {
-    if((*n -= o->len) < 0)
-      return *n;
+    if(o->len > *n)
+      return o->len - *n;
 
     o->data = (char *) g_memdup(*b, o->len);
     *b += o->len;
+    *n -= o->len;
   }
 
   return 0;

@@ -4,6 +4,10 @@ version 0.3  Chris O'Brien  <siege@preoccupied.net>
 	2004-06-23: Sametime blist format parser/generator seems to be
 	working.
 
+	* common.c: fixed a nasty crash/bug discovered by nosnilmot. Base
+	type serialization wasn't correctly checking available buffer
+	lengths, leading to unhealthy overruns. Won't happen anymore.
+	
 	* srvc_aware.c: fixed nasty bug in removing entries from a list
 	which made the whole service unstable.
 

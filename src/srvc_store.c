@@ -63,11 +63,15 @@ static int request_get(char **b, gsize *n, struct mwStorageReq *req) {
     return *n;
 
   if(req->action == action_loaded) {
-    if( guint32_get(b, n, &count) ||
-	guint32_get(b, n, &junk) ||
-	guint32_get(b, n, &req->item->key) ||
-	mwOpaque_get(b, n, &req->item->data) )
+    if( guint32_get(b, n, &count) )
       return *n;
+
+    if(count > 0) {
+      if( guint32_get(b, n, &junk) ||
+	  guint32_get(b, n, &req->item->key) ||
+	  mwOpaque_get(b, n, &req->item->data) )
+	return *n;
+    }
   }
   
   return 0;
@@ -143,8 +147,15 @@ static struct mwStorageReq *request_find(struct mwServiceStorage *srvc,
 
 static void request_trigger(struct mwServiceStorage *srvc,
 			    struct mwStorageReq *req) {
+
+  struct mwStorageUnit *item = req->item;
+
+  g_message(" storage request completed:"
+	    " key = 0x%08x, result = 0x%08x, length = 0x%08x",
+	    item->key, req->result_code, item->data.len);
+  
   if(req->cb)
-    req->cb(srvc, req->result_code, req->item, req->data);
+    req->cb(srvc, req->result_code, item, req->data);
 }
 
 

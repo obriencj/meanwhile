@@ -343,6 +343,11 @@ static void session_process(struct mwSession *s,
 
   g_assert(s != NULL);
 
+  /*
+  g_message(" session_process: session = %p, b = %p, n = %u",
+	    s, b, n);
+  */
+
   /* attempt to parse the message. */
   msg = mwMessage_get(b, n);
   g_return_if_fail(msg != NULL);
@@ -377,6 +382,11 @@ static void session_process(struct mwSession *s,
 
 /* handle input to complete an existing buffer */
 static gsize session_recv_cont(struct mwSession *s, const char *b, gsize n) {
+
+  /*
+  g_message(" session_recv_cont: session = %p, b = %p, n = %u",
+	    s, b, n);
+  */
 
   /* determine how many bytes still required */
   gsize x = s->buf_len - s->buf_used;
@@ -440,6 +450,11 @@ static gsize session_recv_cont(struct mwSession *s, const char *b, gsize n) {
 static gsize session_recv_empty(struct mwSession *s, const char *b, gsize n) {
   gsize x;
 
+  /*
+  g_message(" session_recv_empty: session = %p, b = %p, n = %u",
+	    s, b, n);
+  */
+
   if(n < 4) {
     /* uh oh. less than four bytes means we've got an incomplete length
        indicator. Have to buffer to get the rest of it. */
@@ -453,7 +468,7 @@ static gsize session_recv_empty(struct mwSession *s, const char *b, gsize n) {
   /* peek at the length indicator. if it's a zero length message,
      forget it */
   x = guint32_peek(b, n);
-  if(! x) return 0;
+  if(! x) return n - 4;
 
   if(n < (x + 4)) {
     /* if the total amount of data isn't enough to cover the length
@@ -502,12 +517,17 @@ static gsize session_recv(struct mwSession *s, const char *b, gsize n) {
      before it's safe to start processing the rest as a new
      message. */
   
+  /*
+  g_message(" session_recv: session = %p, b = %p, n = %u",
+	    s, b, n);
+  */
+  
   if(n && (s->buf_len == 0) && (*b & 0x80)) {
     /* keep-alive and series bytes are ignored */
     ADVANCE(b, n, 1);
   }
 
-  if(n <= 0) {
+  if(n == 0) {
     return 0;
 
   } else if(s->buf_len > 0) {
@@ -525,6 +545,11 @@ static gsize session_recv(struct mwSession *s, const char *b, gsize n) {
 void mwSession_recv(struct mwSession *s, const char *buf, gsize n) {
   char *b = (char *) buf;
   gsize remain = 0;
+
+  /*
+  g_message(" mwSession_recv: session = %p, b = %p, n = %u",
+	    s, b, n);
+  */
 
   while(n > 0) {
     remain = session_recv(s, b, n);
