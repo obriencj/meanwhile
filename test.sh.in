@@ -24,14 +24,19 @@ fi
 # set up blank configuration data if necessary
 if test ! -e $CONFIG ; then
     cp $CONFIG.in $CONFIG
-    if test -z "$EDITOR" ;
-	if test -n `which vim` 2> /dev/null ; then
-	    vim $CONFIG
-	fi
-    else
+
+    if test -z "$EDITOR" ; then
+	EDITOR=`which vim` 2> /dev/null
+    fi
+    if test -z "$EDITOR" ; then
+	EDITOR=`which vi` 2> /dev/null
+    fi
+
+    if test -n "$EDITOR" ; then
 	$EDITOR $CONFIG
     fi
 fi
+
 
 # obtain configuration data
 . $CONFIG

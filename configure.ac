@@ -115,21 +115,21 @@ fi
 
 
 dnl Glib-2.0 option with some version detection for compat.h
-PKG_CHECK_MODULES(GLIB, glib-2.0,
-[
-	AC_DEFINE(HAVE_GLIB, 1, [Define if we've found glib-2.0.])
-])
-
-# AM_PATH_GLIB_2_0(glib_required_version, ,
-# 	AC_MSG_ERROR([*** GLib glib_required_version is required.])
-# )
+AM_PATH_GLIB_2_0(glib_required_version, ,
+	AC_MSG_ERROR([*** GLib glib_required_version is required.])
+ )
 GLIB_VERSION=glib_required_version
 AC_SUBST(GLIB_VERSION)
 AC_SUBST(GLIB_CFLAGS)
 AC_SUBST(GLIB_LIBS)
 
 
-AC_OUTPUT([Makefile src/Makefile src/python/Makefile meanwhile.spec meanwhile.pc doc/Doxyfile test.sh])
+AC_CONFIG_FILES(
+	[Makefile src/Makefile src/python/Makefile]
+	[doc/Doxyfile]
+	[meanwhile.spec meanwhile.pc]
+)
 
-chmod +x test.sh
+AC_CONFIG_FILES([test.sh], [chmod +x test.sh])
 
+AC_OUTPUT()
