@@ -40,6 +40,10 @@ from _meanwhile import \
 from _meanwhile import \
      AWARE_SERVER, AWARE_USER, AWARE_GROUP
 
+# IM client types/features
+from _meanwhile import \
+     IM_CLIENT_PLAIN, IM_CLIENT_NOTESBUDDY
+
 # IM conversation message types/features
 from _meanwhile import \
      IM_PLAIN, IM_TYPING, IM_HTML, IM_SUBJECT, IM_MIME
@@ -166,8 +170,7 @@ class SocketSession(Session):
 
     def getThread(self):
 
-        ''' the thread that the read loop is being executed in
-        '''
+        ''' the thread that the read loop is being executed in '''
         
         return self._thread
 

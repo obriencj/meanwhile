@@ -183,7 +183,7 @@ help\n\tprints this information'''
                 try:
                     act[0](self, who, act[1])
                 except Exception, e:
-                    print e
+                    print "exception clearing IM queue: %s" % e
             del q[who]
 
 
@@ -242,7 +242,7 @@ help\n\tprints this information'''
         try:
             self.processCmd(who, text)
         except Exception, e:
-            self.sendText(who, e)
+            self.sendText(who, "caught exception: %s" % e)
 
 
     def onHtml(self, who, text):
@@ -250,7 +250,7 @@ help\n\tprints this information'''
         try:
             self.processCmd(who, text)
         except Exception, e:
-            self.sendText(who, e)
+            self.sendText(who, "caught exception: %s" % e)
 
 
     def onMime(self, who, data):

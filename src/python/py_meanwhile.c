@@ -60,6 +60,10 @@ PyMODINIT_FUNC init_meanwhile() {
   INT_CONSTANT(m, "AWARE_USER", mwAware_USER);
   INT_CONSTANT(m, "AWARE_GROUP", mwAware_GROUP);
 
+  /* IM client types */
+  INT_CONSTANT(m, "IM_CLIENT_PLAIN", mwImClient_PLAIN);
+  INT_CONSTANT(m, "IM_CLIENT_NOTESBUDDY", mwImClient_NOTESBUDDY);
+
   /* IM message types */
   INT_CONSTANT(m, "IM_PLAIN", mwImSend_PLAIN);
   INT_CONSTANT(m, "IM_TYPING", mwImSend_TYPING);

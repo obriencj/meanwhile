@@ -52,8 +52,7 @@ enum mwImDataType {
 struct mwServiceIm {
   struct mwService service;
 
-  /** supports NotesBuddy features */
-  gboolean fancy;
+  enum mwImClientType features;
 
   struct mwServiceImHandler *handler;
   GList *convs;  /**< list of struct im_convo */
@@ -69,10 +68,7 @@ struct mwConversation {
       underlying channel */
   enum mwConversationState state;
 
-  /** supports NotesBuddy features?  later on we may want to expand
-      this to something more interesting, like a bitset of features,
-      but for now this works fine */
-  gboolean fancy;
+  enum mwImClientType features;
 
   gpointer data;
   GDestroyNotify clean;
@@ -168,7 +164,7 @@ struct mwConversation *mwServiceIm_getConversation(struct mwServiceIm *srvc,
     c->service = srvc;
     mwIdBlock_clone(&c->target, to);
     c->state = mwConversation_CLOSED;
-    c->fancy = srvc->fancy;
+    c->features = srvc->features;
 
     srvc->convs = g_list_prepend(srvc->convs, c);
   }
@@ -209,7 +205,7 @@ static void convo_create_chan(struct mwConversation *c) {
   /* compose the addtl create, with optional FANCY HTML! */
   b = mwPutBuffer_new();
   guint32_put(b, mwImAddtlA_NORMAL);
-  guint32_put(b, c->fancy? mwImAddtlB_NOTESBUDDY: mwImAddtlB_NORMAL);
+  guint32_put(b, c->features);
   mwPutBuffer_finalize(mwChannel_getAddtlCreate(chan), b);
 
   c->channel = mwChannel_create(chan)? NULL: chan;
@@ -264,7 +260,7 @@ static int send_accept(struct mwConversation *c) {
 
   b = mwPutBuffer_new();
   guint32_put(b, mwImAddtlA_NORMAL);
-  guint32_put(b, c->fancy? mwImAddtlB_NOTESBUDDY: mwImAddtlB_NORMAL);
+  guint32_put(b, c->features);
   guint32_put(b, mwImAddtlC_NORMAL);
 
   o = mwChannel_getAddtlAccept(chan);
@@ -332,7 +328,7 @@ static void recv_channelCreate(struct mwService *srvc,
     mwChannel_destroy(chan, ERR_IM_NOT_REGISTERED, NULL);
     return;
 
-  } else if(y == mwImAddtlB_NOTESBUDDY && !srvc_im->fancy) {
+  } else if(y != mwImClient_PLAIN && y != srvc_im->features) {
     mwChannel_destroy(chan, ERR_IM_NOT_REGISTERED, NULL);
     return;
 
@@ -368,7 +364,7 @@ static void recv_channelCreate(struct mwService *srvc,
      if the other side requested it */
   c->channel = chan;
   mwIdBlock_clone(&c->target, &idb);
-  c->fancy = (y == mwImAddtlB_NOTESBUDDY);
+  c->features = y;
   convo_set_state(c, mwConversation_PENDING);
 
   if(send_accept(c)) {
@@ -411,13 +407,14 @@ static void recv_channelDestroy(struct mwService *srvc, struct mwChannel *chan,
 
   if(MW_CHANNEL_IS_STATE(chan, mwChannel_ERROR)) {
 
-    if(c->fancy && msg->reason == ERR_IM_NOT_REGISTERED) {
-      /* checking for failure on the receiving end to accept html
-	 messages. Fail-over to a non-html format on a new channel for
-	 the convo */
+    /* checking for failure on the receiving end to accept html
+       messages. Fail-over to a non-html format on a new channel for
+       the convo */
+    if(c->features != mwImClient_PLAIN
+       && msg->reason == ERR_IM_NOT_REGISTERED) {
 
       g_debug("falling back on a plaintext conversation");
-      c->fancy = FALSE;
+      c->features = mwImClient_PLAIN;
       convo_create_chan(c);
       return;
     }
@@ -621,7 +618,7 @@ struct mwServiceIm *mwServiceIm_new(struct mwSession *session,
   srvc->start = start;
   srvc->stop = (mwService_funcStop) stop;
 
-  srvc_im->fancy = FALSE;
+  srvc_im->features = mwImClient_PLAIN;
   srvc_im->handler = hndl;
   srvc_im->convs = NULL;
 
@@ -648,7 +645,7 @@ gboolean mwServiceIm_supports(struct mwServiceIm *srvc,
   case mwImSend_SUBJECT:
   case mwImSend_HTML:
   case mwImSend_MIME:
-    return srvc->fancy;
+    return srvc->features == mwImClient_NOTESBUDDY;
 
   default:
     return FALSE;
@@ -656,24 +653,17 @@ gboolean mwServiceIm_supports(struct mwServiceIm *srvc,
 }
 
 
-void mwServiceIm_setSupported(struct mwServiceIm *srvc,
-			      enum mwImSendType type, gboolean supported) {
+void mwServiceIm_setClientType(struct mwServiceIm *srvc,
+			       enum mwImClientType type) {
 
   g_return_if_fail(srvc != NULL);
+  srvc->features = type;
+}
 
-  switch(type) {
-  case mwImSend_PLAIN:
-  case mwImSend_TYPING:
-    return;
-    
-  case mwImSend_SUBJECT:
-  case mwImSend_HTML:
-  case mwImSend_MIME:
-    srvc->fancy = supported;
 
-  default:
-    return;
-  }
+enum mwImClientType mwServiceIm_getClientType(struct mwServiceIm *srvc) {
+  g_return_val_if_fail(srvc != NULL, mwImClient_UNKNOWN);
+  return srvc->features;
 }
 
 
@@ -840,11 +830,18 @@ gboolean mwConversation_supports(struct mwConversation *conv,
   case mwImSend_SUBJECT:
   case mwImSend_HTML:
   case mwImSend_MIME:
-    return conv->fancy;
+    return conv->features == mwImClient_NOTESBUDDY;
 
   default:
     return FALSE;
   }
+}
+
+
+enum mwImClientType
+mwConversation_getClientType(struct mwConversation *conv) {
+  g_return_val_if_fail(conv != NULL, mwImClient_UNKNOWN);
+  return conv->features;
 }
 
 

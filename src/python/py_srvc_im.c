@@ -480,19 +480,31 @@ static PyObject *py_supports(mwPyService *self, PyObject *args) {
 }
 
 
-static PyObject *py_set_supported(mwPyService *self, PyObject *args) {
+static PyObject *py_get_client_type(mwPyService *self, gpointer data) {
   struct mwServiceIm *srvc;
-  enum mwImSendType feature;
-  int supported;
-
-  if(! PyArg_ParseTuple(args, "ll", &feature, &supported))
-    return NULL;
+  enum mwImClientType type;
 
   srvc = (struct mwServiceIm *) self->wrapped;
+  type = mwServiceIm_getClientType(srvc);
 
-  mwServiceIm_setSupported(srvc, feature, !!supported);
+  return PyInt_FromLong(type);
+}
 
-  mw_return_none();
+
+static int py_set_client_type(mwPyService *self, PyObject *val,
+			      gpointer data) {
+
+  struct mwServiceIm *srvc;
+  enum mwImClientType type;
+
+  if(! PyInt_Check(val))
+    return -1;
+
+  srvc = (struct mwServiceIm *) self->wrapped;
+  type = PyInt_AsLong(val);
+
+  mwServiceIm_setClientType(srvc, type);
+  return 0;
 }
 
 
@@ -548,11 +560,18 @@ static struct PyMethodDef tp_methods[] = {
   { "supports", (PyCFunction) py_supports, METH_VARARGS,
     "does service support message type?" },
 
-  { "setSupported", (PyCFunction) py_set_supported, METH_VARARGS,
-    "set service support for message type" },
+  { NULL }
+};
+
+
+static PyGetSetDef tp_getset[] = {
+  { "clientType", (getter) py_get_client_type, (setter) py_set_client_type,
+    "the client type identifier. Used to determine supported features"
+    "in newly created conversations", NULL },
 
   { NULL }
 };
+
 
 
 static PyObject *tp_new(PyTypeObject *t, PyObject *args, PyObject *kwds) {
@@ -628,7 +647,7 @@ static PyTypeObject pyType_mwServiceIm = {
   0, /* tp_iternext */
   tp_methods,
   0, /* tp_members */
-  0, /* tp_getset */
+  tp_getset,
   0, /* tp_base */
   0, /* tp_dict */
   0, /* tp_descr_get */

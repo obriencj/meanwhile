@@ -34,6 +34,13 @@ struct mwServiceIm;
 struct mwConversation;
 
 
+enum mwImClientType {
+  mwImClient_PLAIN       = 0x00000001,  /**< text, typing */
+  mwImClient_NOTESBUDDY  = 0x00033453,  /**< adds html, subject, mime */
+  mwImClient_UNKNOWN     = 0xffffffff,  /**< trouble determining type */
+};
+
+
 /**
    Types of supported messages. When a conversation is created, the
    least common denominator of features between either side of the
@@ -49,8 +56,8 @@ struct mwConversation;
    @relates mwServiceImHandler::conversation_recv
  */
 enum mwImSendType {
-  mwImSend_PLAIN,   /**< char *, plain-text message (STANDARD) */
-  mwImSend_TYPING,  /**< gboolean, typing status (STANDARD) */
+  mwImSend_PLAIN,   /**< char *, plain-text message */
+  mwImSend_TYPING,  /**< gboolean, typing status */
   mwImSend_HTML,    /**< char *, HTML formatted message (NOTESBUDDY) */
   mwImSend_SUBJECT, /**< char *, conversation subject (NOTESBUDDY) */
   mwImSend_MIME,    /**< mwOpaque *, MIME-encoded message (NOTESBUDDY) */
@@ -127,20 +134,18 @@ gboolean mwServiceIm_supports(struct mwServiceIm *srvc,
 			      enum mwImSendType type);
 
 
-/** turn support for a specific send type on or off. This does not
-    effect existing conversations, only those which will be opened
-    afterwards. Note that some send types are grouped, such that
-    supporting one send type will result in others also being
-    supported, and vise verse. This is really a hack to turn
-    NotesBuddy support on or off, but it may work with other
-    client-specific features at some point later.
+/** Set the default client type for the service. Newly created
+    conversations will attempt to meet this level of functionality
+    first.
 
     @param srvc       the IM service
     @param type       the send type to enable/disable
-    @param supported  TRUE to enable, FALSE to disable
 */
-void mwServiceIm_setSupported(struct mwServiceIm *srvc,
-			      enum mwImSendType type, gboolean supported);
+void mwServiceIm_setClientType(struct mwServiceIm *srvc,
+			       enum mwImClientType type);
+
+
+enum mwImClientType mwServiceIm_getClientType(struct mwServiceIm *srvc);
 
 
 /** attempt to open a conversation. If the conversation was not
@@ -159,6 +164,9 @@ void mwConversation_close(struct mwConversation *conv, guint32 err);
 /** determine whether a conversation supports the given message type */
 gboolean mwConversation_supports(struct mwConversation *conv,
 				 enum mwImSendType type);
+
+
+enum mwImClientType mwConversation_getClientType(struct mwConversation *conv);
 
 
 /** get the state of a conversation

@@ -404,7 +404,7 @@ static PyGetSetDef tp_getset[] = {
     "read-only. Textual indicator of the service's internal state", NULL },
 
   { "session", (getter) py_get_session, (setter) py_set_session,
-    "read-only. The service's owning Session" },
+    "read-only. The service's owning Session", NULL },
 
   {NULL},
 };
