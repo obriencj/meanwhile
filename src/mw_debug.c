@@ -19,6 +19,7 @@
 */
 
 #include <stdio.h>
+#include <glib/gprintf.h>
 
 #include "mw_debug.h"
 
@@ -30,7 +31,9 @@
 
 
 static char *t_pretty_print(const char *buf, gsize len) {
-  char *ret = "\n";
+  char *ret, *tmp;
+
+  ret = g_strdup("\n");
 
   while(len) {
     if(len >= 16) {
@@ -43,23 +46,25 @@ static char *t_pretty_print(const char *buf, gsize len) {
 	      BUF(8),  BUF(9),  BUF(10), BUF(11),
 	      BUF(12), BUF(13), BUF(14), BUF(15));
       ADVANCE(buf, len, 16);
-      ret = g_strconcat(ret, part, NULL);
-      continue;
+      tmp = g_strconcat(ret, part, NULL);
       
     } else if(len > 1) {
       char part[6]; part[5] = '\0';
 
       sprintf(part, FRMT, BUF(0), BUF(1));
       ADVANCE(buf, len, 2);
-      ret = g_strconcat(ret, part, NULL);
+      tmp = g_strconcat(ret, part, NULL);
       
     } else {
       char part[4]; part[3] = '\0';
 
       sprintf(part, FRM "\n", BUF(0));
       ADVANCE(buf, len, 1);
-      ret = g_strconcat(ret, part, NULL);
+      tmp = g_strconcat(ret, part, NULL);
     }
+
+    g_free(ret);
+    ret = tmp;
   }
 
   return ret;
@@ -82,28 +87,34 @@ void mw_debug_mailme_v(struct mwOpaque *block,
   /*
     MW_MAILME_MESSAGE
     begin here
+    info % args
     pretty_print
     end here
   */
 
-  char *msg = MW_MAILME_MESSAGE;
-  char *dat;
+#ifdef DEBUG
+  char *txt, *msg;
+
+  txt = g_strdup_vprintf(info, args);
 
   if(block) {
+    char *dat;
+
     dat = t_pretty_print(block->data, block->len);
+    msg = g_strconcat(MW_MAILME_MESSAGE MW_MAILME_CUT_START,
+		      txt, dat, MW_MAILME_CUT_STOP, NULL);
+    g_free(dat);
+
   } else {
-    dat = "";
+    msg = g_strconcat(MW_MAILME_MESSAGE MW_MAILME_CUT_START,
+		      txt, MW_MAILME_CUT_STOP, NULL);
   }
 
-  msg = g_strconcat(msg,
-		    MW_MAILME_CUT_START,
-		    dat,
-		    MW_MAILME_CUT_STOP,
-		    NULL);
   g_debug(msg);
-
-  g_free(dat);
+  g_free(txt);
   g_free(msg);
+#endif
+  ;
 }
 
 

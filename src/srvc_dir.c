@@ -22,6 +22,7 @@
 
 #include "mw_channel.h"
 #include "mw_common.h"
+#include "mw_debug.h"
 #include "mw_error.h"
 #include "mw_message.h"
 #include "mw_service.h"
@@ -143,12 +144,12 @@ static struct mwAddressBook *book_new(struct mwServiceDirectory *srvc) {
 }
 
 
-static const char *get_name(struct mwService *srvc) {
+static const char *getName(struct mwService *srvc) {
   return "Address Book and Directory";
 }
 
 
-static const char *get_desc(struct mwService *srvc) {
+static const char *getDesc(struct mwService *srvc) {
   return "Address book directory service for user and group lookups";
 }
 
@@ -209,6 +210,79 @@ static void clear(struct mwServiceDirectory *srvc) {
 }
 
 
+static void recvCreate(struct mwServiceDirectory *srvc,
+		       struct mwChannel *chan,
+		       struct mwMsgChannelCreate *msg) {
+
+  /* no way man, we call the shots around here */
+  mwChannel_destroy(chan, ERR_FAILURE, NULL);
+}
+
+
+static void recvAccept(struct mwServiceDirectory *srvc,
+		       struct mwChannel *chan,
+		       struct mwMsgChannelAccept *msg) {
+  
+}
+
+
+static void recvDestroy(struct mwServiceDirectory *srvc,
+			struct mwChannel *chan,
+			struct mwMsgChannelDestroy *msg) {
+  
+}
+
+
+static void recv_list(struct mwServiceDirectory *srvc,
+		      struct mwOpaque *data) {
+  
+}
+
+
+static void recv_open(struct mwServiceDirectory *srvc,
+		      struct mwOpaque *data) {
+
+}
+
+
+static void recv_search(struct mwServiceDirectory *srvc,
+			struct mwOpaque *data) {
+
+}
+
+
+static void recv(struct mwServiceDirectory *srvc,
+		 struct mwChannel *chan,
+		 guint16 msg_type, struct mwOpaque *data) {
+  
+  g_return_if_fail(srvc != NULL);
+  g_return_if_fail(chan != NULL);
+  g_return_if_fail(chan == srvc->channel);
+  g_return_if_fail(data != NULL);
+
+  switch(msg_type) {
+  case action_list:
+    recv_list(srvc, data);
+    break;
+
+  case action_open:
+    recv_open(srvc, data);
+    break;
+
+  case action_close:
+    ; /* I don't think we should receive these */
+    break;
+
+  case action_search:
+    recv_search(srvc, data);
+    break;
+
+  default:
+    mw_debug_mailme(data, "msg type 0x%04x in directory service", msg_type);
+  }
+}
+
+
 struct mwServiceDirectory *
 mwServiceDirectory_new(struct mwSession *session,
 		       struct mwDirectoryHandler *handler) {
@@ -223,11 +297,15 @@ mwServiceDirectory_new(struct mwSession *session,
   service = MW_SERVICE(srvc);
 
   mwService_init(service, session, SERVICE_DIRECTORY);
-  service->get_name = get_name;
-  service->get_desc = get_desc;
+  service->get_name = getName;
+  service->get_desc = getDesc;
   service->start = (mwService_funcStart) start;
   service->stop = (mwService_funcStop) stop;
   service->clear = (mwService_funcClear) clear;
+  service->recv_create = (mwService_funcRecvCreate) recvCreate;
+  service->recv_accept = (mwService_funcRecvAccept) recvAccept;
+  service->recv_destroy = (mwService_funcRecvDestroy) recvDestroy;
+  service->recv = (mwService_funcRecv) recv;
 
   srvc->handler = handler;
   srvc->requests = map_guint_new();
