@@ -120,6 +120,19 @@ struct mwPutBuffer *mwPutBuffer_new() {
 }
 
 
+void mwPutBuffer_write(struct mwPutBuffer *b, gpointer data, gsize len) {
+  g_return_if_fail(b != NULL);
+  g_return_if_fail(data != NULL);
+
+  if(! len) return;
+
+  ensure_buffer(b, len);
+  memcpy(b->ptr, data, len);
+  b->ptr += len;
+  b->rem -= len;
+}
+
+
 void mwPutBuffer_free(struct mwPutBuffer *b) {
   if(! b) return;
   g_free(b->buf);
@@ -156,6 +169,23 @@ struct mwGetBuffer *mwGetBuffer_wrap(struct mwOpaque *o) {
   }
   b->wrap = TRUE;
   return b;
+}
+
+
+gsize mwGetBuffer_read(struct mwGetBuffer *b, gpointer data, gsize len) {
+  g_return_val_if_fail(b != NULL, 0);
+  g_return_val_if_fail(data != NULL, 0);
+
+  if(b->error) return 0;
+
+  if(b->rem < len)
+    len = b->rem;
+
+  memcpy(data, b->ptr, len);
+  b->ptr += len;
+  b->rem -= len;
+
+  return len;
 }
 
 
@@ -346,6 +376,9 @@ void mwOpaque_put(struct mwPutBuffer *b, struct mwOpaque *o) {
   }
 
   len = o->len;
+  if(len)
+    g_return_if_fail(o->data != NULL);
+  
   guint32_put(b, (guint32) len);
 
   if(len) {
@@ -659,6 +692,11 @@ void mwIdBlock_clone(struct mwIdBlock *to, struct mwIdBlock *from) {
 }
 
 
+guint mwIdBlock_hash(struct mwIdBlock *idb) {
+  return (idb)? g_str_hash(idb->user): 0;
+}
+
+
 gboolean mwIdBlock_equal(struct mwIdBlock *a, struct mwIdBlock *b) {
   g_return_val_if_fail(a != NULL, FALSE);
   g_return_val_if_fail(b != NULL, FALSE);
@@ -743,6 +781,11 @@ void mwAwareIdBlock_clear(struct mwAwareIdBlock *idb) {
   g_free(idb->user);
   g_free(idb->community);
   memset(idb, 0x00, sizeof(struct mwAwareIdBlock));
+}
+
+
+guint mwAwareIdBlock_hash(struct mwAwareIdBlock *a) {
+  return (a)? g_str_hash(a->user): 0;
 }
 
 

@@ -33,13 +33,13 @@
 
 
 enum mwSametimeGroupType {
-  mwGroupType_NORMAL =   0x0002,
-  mwGroupType_DYNAMIC =  0x0003,
+  mwGroup_NORMAL   = 0x0002,
+  mwGroup_DYNAMIC  = 0x0003,
 };
 
 
 enum mwSametimeUserType {
-  mwUserType_NORMAL =  0x0001,
+  mwUser_NORMAL  = 0x0001,
 };
 
 
@@ -139,6 +139,7 @@ GList *mwSametimeGroup_getUsers(struct mwSametimeGroup *g);
 /** Create a user in a group */
 struct mwSametimeUser *mwSametimeUser_new(struct mwSametimeGroup *g,
 					  struct mwIdBlock *user,
+					  enum mwSametimeUserType type,
 					  const char *name,
 					  const char *alias);
 

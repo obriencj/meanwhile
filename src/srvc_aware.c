@@ -435,17 +435,6 @@ static const char *desc(struct mwService *srvc) {
 }
 
 
-static guint id_hash(gconstpointer v) {
-  return g_str_hash( ((struct mwAwareIdBlock *)v)->user );
-}
-
-
-static gboolean id_equal(gconstpointer a, gconstpointer b) {
-  return mwAwareIdBlock_equal((struct mwAwareIdBlock *) a,
-			      (struct mwAwareIdBlock *) b);
-}
-
-
 static struct mwChannel *make_blist(struct mwServiceAware *srvc,
 				    struct mwChannelSet *cs) {
 
@@ -484,49 +473,49 @@ static void stop(struct mwService *srvc) {
 
 
 struct mwServiceAware *mwServiceAware_new(struct mwSession *session) {
-  struct mwServiceAware *srvc_aware;
-  struct mwService *srvc;
+  struct mwService *service;
+  struct mwServiceAware *srvc;
 
   g_assert(session);
 
-  srvc_aware = g_new0(struct mwServiceAware, 1);
-  srvc = &srvc_aware->service;
+  srvc = g_new0(struct mwServiceAware, 1);
+  srvc->entries = g_hash_table_new_full((GHashFunc) mwAwareIdBlock_hash,
+					(GEqualFunc) mwAwareIdBlock_equal,
+					NULL,
+					(GDestroyNotify) aware_entry_free);
 
-  mwService_init(srvc, session, SERVICE_AWARE);
+  service = MW_SERVICE(srvc);
+  mwService_init(service, session, SERVICE_AWARE);
 
-  srvc->recv_create = (mwService_funcRecvCreate) recv_create;
-  srvc->recv_accept = (mwService_funcRecvAccept) recv_accept;
-  srvc->recv_destroy = (mwService_funcRecvDestroy) recv_destroy;
-  srvc->recv = recv;
-  srvc->start = start;
-  srvc->stop = stop;
-  srvc->clear = clear;
-  srvc->get_name = name;
-  srvc->get_desc = desc;
+  service->recv_create = (mwService_funcRecvCreate) recv_create;
+  service->recv_accept = (mwService_funcRecvAccept) recv_accept;
+  service->recv_destroy = (mwService_funcRecvDestroy) recv_destroy;
+  service->recv = recv;
+  service->start = start;
+  service->stop = stop;
+  service->clear = clear;
+  service->get_name = name;
+  service->get_desc = desc;
 
-  srvc_aware->entries = g_hash_table_new_full(id_hash, id_equal,
-					      NULL, aware_entry_free);
-
-  return srvc_aware;
+  return srvc;
 }
 
 
 struct mwAwareList *mwAwareList_new(struct mwServiceAware *srvc) {
-  struct mwAwareList *a_list;
+  struct mwAwareList *al;
 
   g_return_val_if_fail(srvc, NULL);
 
-  a_list = g_new0(struct mwAwareList, 1);
-  a_list->service = srvc;
-
-  a_list->entries = g_hash_table_new_full(id_hash, id_equal, NULL, NULL);
-  return a_list;
+  al = g_new0(struct mwAwareList, 1);
+  al->service = srvc;
+  al->entries = g_hash_table_new((GHashFunc) mwAwareIdBlock_hash,
+				 (GEqualFunc) mwAwareIdBlock_equal);
+  return al;
 }
 
 
-static void dismember_aware(gpointer key, gpointer val, gpointer data) {
-  struct aware_entry *aware = (struct aware_entry *) val;
-  struct mwAwareList *list = (struct mwAwareList *) data;
+static void dismember_aware(gpointer k, struct aware_entry *aware,
+			    struct mwAwareList *list) {
 
   aware->membership = g_list_remove(aware->membership, list);
 }
@@ -547,7 +536,7 @@ void mwAwareList_free(struct mwAwareList *list) {
 
   /* for each entry, remove the aware list from the service entry's
      membership collection */
-  g_hash_table_foreach(list->entries, dismember_aware, list);
+  g_hash_table_foreach(list->entries, (GHFunc) dismember_aware, list);
   g_hash_table_destroy(list->entries);
   g_free(list);
 
@@ -675,6 +664,5 @@ const char *mwServiceAware_getText(struct mwServiceAware *srvc,
 
   return aware->aware.status.desc;
 }
-
 
 

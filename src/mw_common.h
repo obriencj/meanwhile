@@ -200,6 +200,10 @@ struct mwEncryptItem {
 struct mwPutBuffer *mwPutBuffer_new();
 
 
+/** write raw data to the put buffer */
+void mwPutBuffer_write(struct mwPutBuffer *b, gpointer data, gsize len);
+
+
 /** destroy the buffer */
 void mwPutBuffer_free(struct mwPutBuffer *b);
 
@@ -210,6 +214,14 @@ void mwPutBuffer_finalize(struct mwOpaque *to, struct mwPutBuffer *from);
 
 /** allocate a new buffer with a copy of the given data */
 struct mwGetBuffer *mwGetBuffer_new(struct mwOpaque *data);
+
+
+/** read len bytes of raw data from the get buffer into mem. If len is
+    greater than the count of bytes remaining in the buffer, the
+    buffer's error flag will NOT be set.
+
+    @returns count of bytes successfully copied to mem */
+gsize mwGetBuffer_read(struct mwGetBuffer *b, gpointer mem, gsize len);
 
 
 /** allocate a new buffer backed by the given data. Calling
@@ -327,6 +339,8 @@ void mwIdBlock_clear(struct mwIdBlock *id);
 
 void mwIdBlock_clone(struct mwIdBlock *to, struct mwIdBlock *from);
 
+guint mwIdBlock_hash(struct mwIdBlock *idb);
+
 gboolean mwIdBlock_equal(struct mwIdBlock *a, struct mwIdBlock *b);
 
 
@@ -338,6 +352,8 @@ void mwAwareIdBlock_clear(struct mwAwareIdBlock *idb);
 
 void mwAwareIdBlock_clone(struct mwAwareIdBlock *to,
 			  struct mwAwareIdBlock *from);
+
+guint mwAwareIdBlock_hash(struct mwAwareIdBlock *a);
 
 gboolean mwAwareIdBlock_equal(struct mwAwareIdBlock *a,
 			      struct mwAwareIdBlock *b);

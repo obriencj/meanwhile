@@ -23,6 +23,7 @@
 #include <string.h>
 
 #include "mw_debug.h"
+#include "mw_util.h"
 #include "mw_st_list.h"
 
 
@@ -54,18 +55,7 @@ struct mwSametimeUser {
 };
 
 
-#define MW_ST_USER_KEY(stuser) (&stuser->id)
-
-
-static guint id_hash(gconstpointer v) {
-  return g_str_hash( ((struct mwIdBlock *)v)->user );
-}
-
-
-static gboolean id_equal(gconstpointer a, gconstpointer b) {
-  return mwIdBlock_equal((struct mwIdBlock *) a,
-			 (struct mwIdBlock *) b);
-}
+#define USER_KEY(stuser) (&stuser->id)
 
 
 static void str_replace(char *str, char from, char to) {
@@ -73,11 +63,8 @@ static void str_replace(char *str, char from, char to) {
 }
 
 
-static void user_free(gpointer u) {
-  struct mwSametimeUser *user;
-
-  if(! u) return;
-  user = (struct mwSametimeUser *) u;
+static void user_free(struct mwSametimeUser *user) {
+  if(! user) return;
 
   g_free(user->name);
   g_free(user->alias);
@@ -113,19 +100,9 @@ void mwSametimeList_free(struct mwSametimeList *l) {
 }
 
 
-static void collect(gpointer key, gpointer val, gpointer data) {
-  GList **list = (GList **) data;
-  *list = g_list_append(*list, val);
-}
-
-
 GList *mwSametimeList_getGroups(struct mwSametimeList *l) {
-  GList *list = NULL;
-
   g_return_val_if_fail(l != NULL, NULL);
-
-  g_hash_table_foreach(l->groups, collect, &list);
-  return list;
+  return map_collect_values(l->groups);
 }
 
 
@@ -135,7 +112,7 @@ struct mwSametimeGroup *mwSametimeList_getGroup(struct mwSametimeList *l,
   g_return_val_if_fail(name != NULL, NULL);
   g_return_val_if_fail(strlen(name) > 0, NULL);
 
-  return (struct mwSametimeGroup *) g_hash_table_lookup(l->groups, name);
+  return g_hash_table_lookup(l->groups, name);
 }
 
 
@@ -185,9 +162,12 @@ struct mwSametimeGroup *mwSametimeGroup_new(struct mwSametimeList *l,
 
   grp->name = g_strdup(name);
   grp->open = TRUE;
-  grp->users = g_hash_table_new_full(id_hash, id_equal, NULL, user_free);
-
+  grp->users = g_hash_table_new_full((GHashFunc) mwIdBlock_hash,
+				     (GEqualFunc) mwIdBlock_equal,
+				     NULL,
+				     (GDestroyNotify) user_free);
   grp->list = l;
+
   g_hash_table_insert(l->groups, grp->name, grp);
 
   return grp;
@@ -245,14 +225,14 @@ struct mwSametimeList *mwSametimeGroup_getList(struct mwSametimeGroup *g) {
 
 
 GList *mwSametimeGroup_getUsers(struct mwSametimeGroup *g) {
-  GList *list = NULL;
-  g_hash_table_foreach(g->users, collect, &list);
-  return list;
+  g_return_val_if_fail(g != NULL, NULL);
+  return map_collect_values(g->users);
 }
 
 
 struct mwSametimeUser *mwSametimeUser_new(struct mwSametimeGroup *g,
 					  struct mwIdBlock *user,
+					  enum mwSametimeUserType type,
 					  const char *name,
 					  const char *alias) {
   struct mwSametimeUser *usr;
@@ -262,12 +242,13 @@ struct mwSametimeUser *mwSametimeUser_new(struct mwSametimeGroup *g,
 
   usr = g_new0(struct mwSametimeUser, 1);
 
-  mwIdBlock_clone(MW_ST_USER_KEY(usr), user);
+  mwIdBlock_clone(USER_KEY(usr), user);
+  usr->type = type;
   usr->name = g_strdup(name);
   usr->alias = g_strdup(alias);
   usr->group = g;
 
-  g_hash_table_insert(g->users, MW_ST_USER_KEY(usr), usr);
+  g_hash_table_insert(g->users, USER_KEY(usr), usr);
 
   return usr;
 }
@@ -275,7 +256,7 @@ struct mwSametimeUser *mwSametimeUser_new(struct mwSametimeGroup *g,
 
 void mwSametimeUser_free(struct mwSametimeUser *u) {
   if(! u) return;
-  g_hash_table_remove(u->group->users, MW_ST_USER_KEY(u));
+  g_hash_table_remove(u->group->users, USER_KEY(u));
   user_free(u);
 }
 
@@ -453,7 +434,7 @@ static int get_user(char *b, struct mwSametimeList *l,
   }
   
   idb.user = id;
-  user = mwSametimeUser_new(g, &idb, name, alias);
+  user = mwSametimeUser_new(g, &idb, mwUser_NORMAL, name, alias);
 
   return 0;
 }

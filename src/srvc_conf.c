@@ -34,6 +34,7 @@
 #include "mw_service.h"
 #include "mw_session.h"
 #include "mw_srvc_conf.h"
+#include "mw_util.h"
 
 
 /* This thing needs a re-write. More than anything else, I need to
@@ -92,12 +93,6 @@ struct mwConference {
 
 #define MEMBER_REM(conf, id) \
   g_hash_table_remove(conf->members, GUINT_TO_POINTER((guint) id));
-
-
-static void hash_collect(gpointer key, gpointer val, gpointer data) {
-  GList **l = data;
-  *l = g_list_append(*l, val);
-}
 
 
 /** clear and free a login info block */
@@ -649,14 +644,10 @@ const char *mwConference_getTitle(struct mwConference *conf) {
 
 
 GList *mwConference_memebers(struct mwConference *conf) {
-  GList *members = NULL;
-
   g_return_val_if_fail(conf != NULL, NULL);
   g_return_val_if_fail(conf->members != NULL, NULL);
 
-  g_hash_table_foreach(conf->members, hash_collect, &members);
-  
-  return members;
+  return map_collect_values(conf->members);
 }
 
 

@@ -20,7 +20,8 @@ mwinclude_HEADERS = \
 
 noinst_HEADERS = \
 	mw_compat.h \
-	mw_debug.h
+	mw_debug.h \
+	mw_util.h
 
 mwincludedir = $(includedir)/meanwhile
 
@@ -37,6 +38,7 @@ libmeanwhile_la_SOURCES = \
 	error.c \
 	message.c \
 	mw_debug.c \
+	mw_util.c \
 	service.c \
 	session.c \
 	srvc_aware.c \

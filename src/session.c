@@ -28,16 +28,18 @@
 #include "mw_message.h"
 #include "mw_service.h"
 #include "mw_session.h"
+#include "mw_util.h"
 
 
 /** the hash table key for a service, for mwSession::services */
-#define SERVICE_KEY(srvc) GUINT_TO_POINTER(mwService_getType(srvc))
+#define SERVICE_KEY(srvc) mwService_getType(srvc)
 
 /** the hash table key for a cipher, for mwSession::ciphers */
-#define CIPHER_KEY(ciph)  GUINT_TO_POINTER(mwCipher_getType(ciph))
+#define CIPHER_KEY(ciph)  mwCipher_getType(ciph)
 
 
-#define GPOINTER(val)  GUINT_TO_POINTER((guint) val)
+#define GPOINTER(val)  (GUINT_TO_POINTER((guint) (val)))
+#define GUINT(val)     (GPOINTER_TO_UINT((val)))
 
 
 struct mwSession {
@@ -143,8 +145,8 @@ struct mwSession *mwSession_new(struct mwSessionHandler *handler) {
   s->handler = handler;
 
   s->channels = mwChannelSet_new(s);
-  s->services = g_hash_table_new(g_direct_hash, g_direct_equal);
-  s->ciphers = g_hash_table_new(g_direct_hash, g_direct_equal);
+  s->services = map_guint_new();
+  s->ciphers = map_guint_new();
 
   s->attributes = g_hash_table_new_full(g_str_hash, g_str_equal, g_free,
 					(GDestroyNotify) property_free);
@@ -281,9 +283,9 @@ void mwSession_start(struct mwSession *s) {
   state(s, mwSession_STARTING, 0);
 
   msg = (struct mwMsgHandshake *) mwMessage_new(mwMessage_HANDSHAKE);
-  msg->major = GPOINTER_TO_UINT(property_get(s, PROPERTY_CLIENT_VER_MAJOR));
-  msg->minor = GPOINTER_TO_UINT(property_get(s, PROPERTY_CLIENT_VER_MINOR));
-  msg->login_type = GPOINTER_TO_UINT(property_get(s, PROPERTY_CLIENT_TYPE_ID));
+  msg->major = GUINT(property_get(s, PROPERTY_CLIENT_VER_MAJOR));
+  msg->minor = GUINT(property_get(s, PROPERTY_CLIENT_VER_MINOR));
+  msg->login_type = GUINT(property_get(s, PROPERTY_CLIENT_TYPE_ID));
 
   ret = mwSession_send(s, MW_MESSAGE(msg));
   mwMessage_free(MW_MESSAGE(msg));
@@ -861,11 +863,11 @@ gboolean mwSession_addService(struct mwSession *s, struct mwService *srv) {
   g_return_val_if_fail(srv != NULL, FALSE);
   g_return_val_if_fail(s->services != NULL, FALSE);
 
-  if(g_hash_table_lookup(s->services, SERVICE_KEY(srv))) {
+  if(map_guint_lookup(s->services, SERVICE_KEY(srv))) {
     return FALSE;
 
   } else {
-    g_hash_table_insert(s->services, SERVICE_KEY(srv), srv);
+    map_guint_insert(s->services, SERVICE_KEY(srv), srv);
     if(SESSION_IS_STATE(s, mwSession_STARTED))
       mwSession_senseService(s, mwService_getType(srv));
     return TRUE;
@@ -877,7 +879,7 @@ struct mwService *mwSession_getService(struct mwSession *s, guint32 srv) {
   g_return_val_if_fail(s != NULL, NULL);
   g_return_val_if_fail(s->services != NULL, NULL);
 
-  return g_hash_table_lookup(s->services, GUINT_TO_POINTER(srv));
+  return map_guint_lookup(s->services, srv);
 }
 
 
@@ -887,27 +889,17 @@ struct mwService *mwSession_removeService(struct mwSession *s, guint32 srv) {
   g_return_val_if_fail(s != NULL, NULL);
   g_return_val_if_fail(s->services != NULL, NULL);
 
-  svc = g_hash_table_lookup(s->services, GUINT_TO_POINTER(srv));
-  if(svc) g_hash_table_remove(s->services, GUINT_TO_POINTER(srv));
+  svc = map_guint_lookup(s->services, srv);
+  if(svc) map_guint_remove(s->services, srv);
   return svc;
 }
 
 
-static void collecteach(gpointer key, gpointer val, gpointer l) {
-  GList **list = l;
-  *list = g_list_append(*list, val);
-}
-
-
 GList *mwSession_getServices(struct mwSession *s) {
-  GList *l = NULL;
-
   g_return_val_if_fail(s != NULL, NULL);
   g_return_val_if_fail(s->services != NULL, NULL);
 
-  g_hash_table_foreach(s->services, collecteach, &l);
-
-  return l;
+  return map_collect_values(s->services);
 }
 
 
@@ -927,37 +919,19 @@ void mwSession_senseService(struct mwSession *s, guint32 srvc) {
 }
 
 
-static struct mwCipher *get_cipher(struct mwSession *s, guint16 id) {
-  guint cid = (guint) id;
-  return g_hash_table_lookup(s->ciphers, GUINT_TO_POINTER(cid));
-}
-
-
-static void add_cipher(struct mwSession *s, struct mwCipher *c) {
-  guint cid = (guint) mwCipher_getType(c);
-  g_hash_table_insert(s->ciphers, GUINT_TO_POINTER(cid), c);
-}
-
-
-static void remove_cipher(struct mwSession *s, guint16 id) {
-  guint cid = (guint) id;
-  g_hash_table_remove(s->ciphers, GUINT_TO_POINTER(cid));
-}
-
-
 gboolean mwSession_addCipher(struct mwSession *s, struct mwCipher *c) {
   g_return_val_if_fail(s != NULL, FALSE);
   g_return_val_if_fail(c != NULL, FALSE);
   g_return_val_if_fail(s->ciphers != NULL, FALSE);
 
-  if(get_cipher(s, mwCipher_getType(c))) {
+  if(map_guint_lookup(s->ciphers, mwCipher_getType(c))) {
     g_message("cipher %s is already added, apparently",
 	      NSTR(mwCipher_getName(c)));
     return FALSE;
 
   } else {
     g_message("adding cipher %s", NSTR(mwCipher_getName(c)));
-    add_cipher(s, c);
+    map_guint_insert(s->ciphers, mwCipher_getType(c), c);
     return TRUE;
   }
 }
@@ -967,7 +941,7 @@ struct mwCipher *mwSession_getCipher(struct mwSession *s, guint16 c) {
   g_return_val_if_fail(s != NULL, NULL);
   g_return_val_if_fail(s->ciphers != NULL, NULL);
 
-  return get_cipher(s, c);
+  return map_guint_lookup(s->ciphers, c);
 }
 
 
@@ -977,21 +951,17 @@ struct mwCipher *mwSession_removeCipher(struct mwSession *s, guint16 c) {
   g_return_val_if_fail(s != NULL, NULL);
   g_return_val_if_fail(s->ciphers != NULL, NULL);
 
-  ciph = get_cipher(s, c);
-  if(ciph) remove_cipher(s, c);
+  ciph = map_guint_lookup(s->ciphers, c);
+  if(ciph) map_guint_remove(s->ciphers, c);
   return ciph;
 }
 
 
 GList *mwSession_getCiphers(struct mwSession *s) {
-  GList *l = NULL;
-
   g_return_val_if_fail(s != NULL, NULL);
   g_return_val_if_fail(s->ciphers != NULL, NULL);
 
-  g_hash_table_foreach(s->ciphers, collecteach, &l);
-
-  return l;
+  return map_collect_values(s->ciphers);
 }
 
 
