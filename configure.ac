@@ -2,6 +2,9 @@
 # version of meanwhile
 m4_define(meanwhile_version,		0.4.0)
 
+# release of meanwhile
+m4_define(meanwhile_release,		0)
+
 # required and compat version of glib2.
 m4_define(glib_required_version,	2.0.0)
 
@@ -9,7 +12,7 @@ m4_define(glib_required_version,	2.0.0)
 AC_INIT
 AM_INIT_AUTOMAKE(meanwhile, meanwhile_version)
 
-RELEASE=0
+RELEASE=meanwhile_release
 AC_SUBST(RELEASE)
 
 AC_PREREQ([2.50])
