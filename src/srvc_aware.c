@@ -85,8 +85,6 @@ static void compose_list(GList *id_list, char **buf, gsize *len) {
   char *b;
   gsize n = 4;
 
-  g_message(" compose_list");
-
   for(l = id_list; l; l = l->next)
     n += mwAwareIdBlock_buflen((struct mwAwareIdBlock *) l->data);
 
@@ -103,8 +101,6 @@ static int send_add(struct mwChannel *chan, GList *id_list) {
   char *buf;
   gsize len;
   int ret;
-
-  g_message(" send_add");
 
   compose_list(id_list, &buf, &len);  
   ret = mwChannel_send(chan, mwChannelSend_AWARE_ADD, buf, len);
@@ -210,8 +206,6 @@ static void status_recv(struct mwServiceAware *srvc,
   struct aware_entry *aware;
   GList *l;
 
-  g_message(" status_recv");
-
   for(; count--; idb_array++) {
 
     aware = (struct aware_entry *)
@@ -247,8 +241,6 @@ static int SNAPSHOT_recv(struct mwServiceAware *srvc,
   unsigned int count, c;
   struct mwSnapshotAwareIdBlock *idb;
 
-  g_message(" SNAPSHOT_recv");
-
   ret = guint32_get((char **) &b, &n, &count);
 
   if(ret == 0) {
@@ -273,8 +265,6 @@ static int UPDATE_recv(struct mwServiceAware *srvc,
 		       const char *b, gsize n) {
   int ret = 0;
   struct mwSnapshotAwareIdBlock *idb;
-
-  g_message(" UPDATE_recv");
 
   idb = g_new0(struct mwSnapshotAwareIdBlock, 1);
   ret = mwSnapshotAwareIdBlock_get((char **) &b, &n, idb);
@@ -336,13 +326,11 @@ static const char *desc() {
 
 
 static guint id_hash(gconstpointer v) {
-  g_message(" id_hash");
   return g_str_hash( ((struct mwAwareIdBlock *)v)->user );
 }
 
 
 static gboolean id_equal(gconstpointer a, gconstpointer b) {
-  g_message(" id_equal");
   return mwAwareIdBlock_equal((struct mwAwareIdBlock *) a,
 			      (struct mwAwareIdBlock *) b);
 }
