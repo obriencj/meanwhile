@@ -234,7 +234,7 @@ gpointer mwService_getClientData(struct mwService *srvc) {
 
 
 void mwService_removeClientData(struct mwService *srvc) {
-  g_return_val_if_fail(srvc != NULL, NULL);
+  g_return_if_fail(srvc != NULL);
 
   if(srvc->client_cleanup) {
     srvc->client_cleanup(srvc->client_data);

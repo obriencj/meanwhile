@@ -3,12 +3,13 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "mw_compat.h"
 #include "mw_error.h"
 
 
 static char *err_to_str(guint32 code) {
   static char b[11]; /* 0x12345678 + NULL terminator */
-  sprintf((char *) b, "0x%08x", code);
+  g_sprintf((char *) b, "0x%08x", code);
   b[10] = '\0';
   return b;
 }
@@ -30,6 +31,7 @@ char* mwError(guint32 code) {
     CASE(ERR_FAILURE, "General failure");
     CASE(ERR_REQUEST_DELAY, "Request delayed");
     CASE(ERR_REQUEST_INVALID, "Request is invalid");
+    CASE(ERR_NOT_AUTHORIZED, "Not authorized");
     CASE(ERR_NO_USER, "User is not online");
     CASE(ERR_CHANNEL_NO_SUPPORT, "Requested channel is not supported");
     CASE(ERR_CHANNEL_EXISTS, "Requested channel already exists");

@@ -165,16 +165,16 @@ static PyObject *py_on_redirect(mwPySession *self, PyObject *args) {
 
 static PyObject *py_start(mwPySession *self, PyObject *args) {
   PyObject *uo, *po;
-  const char *user, *pass;
+  char *user, *pass;
 
   if(! PyArg_ParseTuple(args, "(OO)", &uo, &po))
     return NULL;
 
-  user = PyString_SafeAsString(uo);
-  pass = PyString_SafeAsString(po);
+  user = (char *) PyString_SafeAsString(uo);
+  pass = (char *) PyString_SafeAsString(po);
 
-  mwSession_setUserId(self->session, user);
-  mwSession_setPassword(self->session, pass);
+  mwSession_setProperty(self->session, PROPERTY_SESSION_USER_ID, user, NULL);
+  mwSession_setProperty(self->session, PROPERTY_SESSION_PASSWORD, pass, NULL);
 
   mwSession_start(self->session);
 
@@ -347,6 +347,11 @@ static struct PyMethodDef tp_methods[] = {
 };
 
 
+static void decref(PyObject *obj) {
+  Py_XDECREF(obj);
+}
+
+
 static PyObject *tp_new(PyTypeObject *t, PyObject *args, PyObject *kwds) {
   struct pyObj_mwSession *self;
 
@@ -366,8 +371,8 @@ static PyObject *tp_new(PyTypeObject *t, PyObject *args, PyObject *kwds) {
     h->on_loginRedirect = mw_on_redirect;
 
     self->session = mwSession_new(h);
-    self->services = g_hash_table_new(g_direct_hash, g_direct_equal,
-				      NULL, (GDestroyNotify) Py_DECREF);
+    self->services = g_hash_table_new_full(g_direct_hash, g_direct_equal,
+					   NULL, (GDestroyNotify) decref);
   }
 
   return (PyObject *) self;

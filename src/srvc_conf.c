@@ -23,6 +23,10 @@
    clients */
 
 
+#define PROTOCOL_TYPE  0x00000010
+#define PROTOCOL_VER   0x00000002
+
+
 /** @see mwMsgChannelSend::type
     @see recv */
 enum msg_type {
@@ -35,11 +39,11 @@ enum msg_type {
 
 
 /** the conferencing service */
-struct mwServiceConf {
+struct mwServiceConference {
   struct mwService service;
 
   /** call-back handler for this service */
-  struct mwServiceConfHandler *handler;
+  struct mwConferenceHandler *handler;
 
   /** collection of conferences in this service */
   GList *confs;
@@ -49,43 +53,91 @@ struct mwServiceConf {
 /** a conference and its members */
 struct mwConference {
   enum mwConferenceState state;   /**< state of the conference */
-  struct mwServiceConf *service;  /**< owning service */
+  struct mwServiceConference *service;  /**< owning service */
   struct mwChannel *channel;      /**< conference's channel */
 
   char *name;   /**< server identifier for the conference */
-  char *topic;  /**< topic for the conference */
+  char *title;  /**< topic for the conference */
 
   struct mwLoginInfo owner;  /**< person who created this conference */
   GHashTable *members;       /**< mapping guint16:mwLoginInfo */
 };
 
 
-#define MEMBER_KEY(cm)  GUINT_TO_POINTER((guint) (cm)->id)
-
-
 #define MEMBER_FIND(conf, id) \
   g_hash_table_lookup(conf->members, GUINT_TO_POINTER((guint) id))
 
 
-/** free a conference structure */
-static void conference_free(gpointer c) {
-  struct mwConference *conf = c;
+/** clear and free a login info block */
+static void login_free(struct mwLoginInfo *li) {
+  mwLoginInfo_clear(li);
+  g_free(li);
+}
 
+
+/** generates a random conference name built around a user name */
+static char *conf_generate_name(const char *user) {
+  guint a, b;
+  char c[16]; /* limited space. Used only to hold sprintf output */
+  char *ret;
+  
+  user = user? user: "";
+
+  srand(clock());
+  a = ((rand() & 0xff) << 8) | (rand() & 0xff);
+  b = time(NULL);
+  g_sprintf(c, "(%08x,%04x)", b, a);
+
+  ret = g_strconcat(user, c, NULL);
+
+  g_debug("generated random conference name: '%s'", ret);
+  return ret;
+}
+
+
+static struct mwConference *conf_new(struct mwServiceConference *srvc) {
+
+  struct mwConference *conf;
+  struct mwSession *session;
+  const char *user;
+
+  conf = g_new0(struct mwConference, 1);
+  conf->state = mwConference_NEW;
+  conf->service = srvc;
+  conf->members = g_hash_table_new_full(g_int_hash, g_int_equal, NULL,
+					(GDestroyNotify) login_free);
+
+  session = mwService_getSession(MW_SERVICE(srvc));
+  user = mwSession_getProperty(session, PROPERTY_SESSION_USER_ID);
+  if(user) conf->name = conf_generate_name(user);
+
+  srvc->confs = g_list_prepend(srvc->confs, conf);
+
+  return conf;
+}
+
+
+/** clean and free a conference structure */
+static void conf_free(struct mwConference *conf) {
   /* this shouldn't ever happen, but just to be sure */
   g_return_if_fail(conf != NULL);
-
+  
   if(conf->members)
     g_hash_table_destroy(conf->members);
-
+  
   g_free(conf->name);
-  g_free(conf->topic);
+  g_free(conf->title);
   g_free(conf);
 }
 
 
-static struct mwConference *conference_find(struct mwServiceConf *srvc,
-					    struct mwChannel *chan) {
+static struct mwConference *conf_find(struct mwServiceConference *srvc,
+				      struct mwChannel *chan) {
   GList *l;
+
+  g_return_val_if_fail(srvc != NULL, NULL);
+  g_return_val_if_fail(chan != NULL, NULL);
+  
   for(l = srvc->confs; l; l = l->next) {
     struct mwConference *conf = l->data;
     if(conf->channel == chan) return conf;
@@ -95,10 +147,28 @@ static struct mwConference *conference_find(struct mwServiceConf *srvc,
 }
 
 
-/** free a conference member structure */
-static void member_free(struct mwConfMember *member) {
-  mwLoginInfo_clear(&member->user);
-  g_free(member);
+static const char *conf_state_str(enum mwConferenceState state) {
+  switch(state) {
+  case mwConference_NEW:      return "new";
+  case mwConference_PENDING:  return "pending";
+  case mwConference_INVITED:  return "invited";
+  case mwConference_OPEN:     return "open";
+
+  case mwConference_UNKNOWN:  /* fall through */
+  default:                    return "UNKNOWN";
+  }
+}
+
+
+static void conf_state(struct mwConference *conf,
+		       enum mwConferenceState state) {
+  g_return_if_fail(conf != NULL);
+
+  if(conf->state == state) return;
+
+  conf->state = state;
+  g_message("conference %s state: %s",
+	    NSTR(conf->name), conf_state_str(state));
 }
 
 
@@ -113,17 +183,21 @@ static void recv_channelCreate(struct mwService *srvc,
      - trigger the got_invite event
   */
 
-  struct mwServiceConf *srvc_conf = (struct mwServiceConf *) srvc;
-  struct mwConference *conf = mwConference_new(srvc_conf);
+  struct mwServiceConference *srvc_conf = (struct mwServiceConference *) srvc;
+  struct mwConference *conf;
 
-  struct mwGetBuffer *b = mwGetBuffer_wrap(&msg->addtl);
+  struct mwGetBuffer *b;
 
   char *invite = NULL;
   guint tmp;
 
+  conf = conf_new(srvc_conf);
+
+  b = mwGetBuffer_wrap(&msg->addtl);
+
   guint32_get(b, &tmp);
   mwString_get(b, &conf->name);
-  mwString_get(b, &conf->topic);
+  mwString_get(b, &conf->title);
   guint32_get(b, &tmp);
   mwLoginInfo_get(b, &conf->owner);
   guint32_get(b, &tmp);
@@ -134,12 +208,10 @@ static void recv_channelCreate(struct mwService *srvc,
     mwConference_destroy(conf, ERR_FAILURE, NULL);
 
   } else {
-    struct mwServiceConfHandler *h = srvc_conf->handler;
-
-    conf->state = mwConference_INVITED;
-
-    if(h->got_invite)
-      h->got_invite(conf, &conf->owner, invite);
+    struct mwConferenceHandler *h = srvc_conf->handler;
+    conf_state(conf, mwConference_INVITED);
+    if(h->on_invited)
+      h->on_invited(conf, &conf->owner, invite);
   }
 
   mwGetBuffer_free(b);
@@ -165,28 +237,31 @@ static void recv_channelDestroy(struct mwService *srvc,
      - remove conference, dealloc
   */
 
-  struct mwServiceConf *srvc_conf = (struct mwServiceConf *) srvc;
-  struct mwConference *conf = conference_find(srvc_conf, chan);
-  struct mwServiceConfHandler *h = srvc_conf->handler;
+  struct mwServiceConference *srvc_conf = (struct mwServiceConference *) srvc;
+  struct mwConference *conf = conf_find(srvc_conf, chan);
+  struct mwConferenceHandler *h = srvc_conf->handler;
 
   /* if there's no such conference, then I guess there's nothing to worry
      about. Except of course for the fact that we should never receive a
      channel destroy for a conference that doesn't exist. */
   if(! conf) return;
 
-  if(h->got_closed)
-    h->got_closed(conf);
-
   conf->channel = NULL;
+
+  conf_state(conf, msg->reason? mwConference_ERROR: mwConference_CLOSING);
+
+  if(h->conf_closed)
+    h->conf_closed(conf, msg->reason);
+
   mwConference_destroy(conf, ERR_SUCCESS, NULL);
 }
 
 
-static void WELCOME_recv(struct mwServiceConf *srvc,
+static void WELCOME_recv(struct mwServiceConference *srvc,
 			 struct mwConference *conf,
 			 struct mwGetBuffer *b) {
 
-  struct mwServiceConfHandler *h;
+  struct mwConferenceHandler *h;
   guint16 tmp16;
   guint32 tmp32;
   guint32 count;
@@ -194,9 +269,11 @@ static void WELCOME_recv(struct mwServiceConf *srvc,
 
   /* re-read name and title */
   g_free(conf->name);
-  g_free(conf->topic);
+  g_free(conf->title);
+  conf->name = NULL;
+  conf->title = NULL;
   mwString_get(b, &conf->name);
-  mwString_get(b, &conf->topic);
+  mwString_get(b, &conf->title);
 
   /* some numbers we don't care about, then a count of members */
   guint16_get(b, &tmp16);
@@ -210,60 +287,69 @@ static void WELCOME_recv(struct mwServiceConf *srvc,
   }
   
   while(count--) {
-    struct mwConfMember *cm = g_new0(struct mwConfMember, 1);
-    cm->conf = conf;
+    guint16 member_id;
+    struct mwLoginInfo *member = g_new0(struct mwLoginInfo, 1);
 
-    guint16_get(b, &cm->id);
-    mwLoginInfo_get(b, &cm->user);
+    guint16_get(b, &member_id);
+    mwLoginInfo_get(b, member);
 
     if(mwGetBuffer_error(b)) {
-      member_free(cm);
+      login_free(member);
       break;
     }
 
-    /* this list is for triggering the event */
-    l = g_list_append(l, &cm->user);
-  
-    /* populate the conference */
-    g_hash_table_insert(conf->members, MEMBER_KEY(cm), cm);
+    g_hash_table_insert(conf->members, GUINT_TO_POINTER((guint) member_id),
+			member);
+    l = g_list_append(l, member);
   }
 
-  conf->state = mwConference_ACTIVE;
+  conf_state(conf, mwConference_OPEN);
 
   h = srvc->handler;
-  if(h->got_welcome)
-    h->got_welcome(conf, l);
+  if(h->conf_opened)
+    h->conf_opened(conf, l);
+
+  /* get rid of the GList, but not its contents */
+  g_list_free(l);
 }
 
 
-static void JOIN_recv(struct mwServiceConf *srvc,
+static void JOIN_recv(struct mwServiceConference *srvc,
 		      struct mwConference *conf,
 		      struct mwGetBuffer *b) {
 
-  struct mwServiceConfHandler *h;
-  struct mwConfMember *m;
+  struct mwConferenceHandler *h;
+  guint16 m_id;
+  struct mwLoginInfo *m;
   
-  m = g_new0(struct mwConfMember, 1);
-  m->conf = conf;
+  /* for some inane reason, conferences we create will send a join
+     message for ourselves before the welcome message. Since the
+     welcome message will list our ID among those in the channel,
+     we're going to just pretend that these join messages don't
+     exist */
+  if(conf->state == mwConference_PENDING)
+    return;
 
-  guint16_get(b, &m->id);
-  mwLoginInfo_get(b, &m->user);
+  m = g_new0(struct mwLoginInfo, 1);
+
+  guint16_get(b, &m_id);
+  mwLoginInfo_get(b, m);
 
   if(mwGetBuffer_error(b)) {
     g_warning("failed parsing JOIN message in conference");
-    member_free(m);
+    login_free(m);
     return;
   }
 
-  g_hash_table_insert(conf->members, MEMBER_KEY(m), m);
+  g_hash_table_insert(conf->members, GUINT_TO_POINTER((guint) m_id), m);
 
   h = srvc->handler;
-  if(h->got_join)
-    h->got_join(conf, &m->user);
+  if(h->on_peer_joined)
+    h->on_peer_joined(conf, m);
 }
 
 
-static void PART_recv(struct mwServiceConf *srvc,
+static void PART_recv(struct mwServiceConference *srvc,
 		      struct mwConference *conf,
 		      struct mwGetBuffer *b) {
 
@@ -273,9 +359,9 @@ static void PART_recv(struct mwServiceConf *srvc,
      - trigger the event
   */
 
-  struct mwServiceConfHandler *h;
+  struct mwConferenceHandler *h;
   guint16 id = 0;
-  struct mwConfMember *m;
+  struct mwLoginInfo *m;
 
   guint16_get(b, &id);
 
@@ -287,40 +373,44 @@ static void PART_recv(struct mwServiceConf *srvc,
   g_hash_table_remove(conf->members, GUINT_TO_POINTER((guint) id));
 
   h = srvc->handler;
-  if(h->got_part)
-    h->got_part(conf, &m->user);
+  if(h->on_peer_parted)
+    h->on_peer_parted(conf, m);
 
-  member_free(m);
+  login_free(m);
 }
 
 
-static void text_recv(struct mwServiceConf *srvc,
-		      struct mwConfMember *who,
+static void text_recv(struct mwServiceConference *srvc,
+		      struct mwConference *conf,
+		      struct mwLoginInfo *m,
 		      struct mwGetBuffer *b) {
 
   /* this function acts a lot like receiving an IM Text message. The text
      message contains only a string */
 
   char *text = NULL;
-  struct mwServiceConfHandler *h;
-
+  struct mwConferenceHandler *h;
+  
   mwString_get(b, &text);
 
   if(mwGetBuffer_error(b)) {
     g_warning("failed to parse text message in conference");
+    g_free(text);
     return;
   }
 
   h = srvc->handler;
-  if(h->got_text)
-    h->got_text(who->conf, &who->user, text);
+  if(h->on_text) {
+    h->on_text(conf, m, text);
+  }
 
   g_free(text);
 }
 
 
-static void data_recv(struct mwServiceConf *srvc,
-		      struct mwConfMember *who,
+static void data_recv(struct mwServiceConference *srvc,
+		      struct mwConference *conf,
+		      struct mwLoginInfo *m,
 		      struct mwGetBuffer *b) {
 
   /* this function acts a lot like receiving an IM Data message. The
@@ -332,21 +422,27 @@ static void data_recv(struct mwServiceConf *srvc,
       support for that here */
 
   guint32 type, subtype;
-  struct mwServiceConfHandler *h;
+  struct mwConferenceHandler *h;
 
   guint32_get(b, &type);
   guint32_get(b, &subtype);
 
+  if(mwGetBuffer_error(b)) return;
+
   /* don't know how to deal with any others yet */
-  if(type != 0x01) return;
+  if(type != 0x01) {
+    g_message("unknown data message type (0x%08x, 0x%08x)", type, subtype);
+    return;
+  }
 
   h = srvc->handler;
-  if(h->got_typing)
-    h->got_typing(who->conf, &who->user, !subtype);
+  if(h->on_typing) {
+    h->on_typing(conf, m, !subtype);
+  }
 }
 
 
-static void MESSAGE_recv(struct mwServiceConf *srvc,
+static void MESSAGE_recv(struct mwServiceConference *srvc,
 			 struct mwConference *conf,
 			 struct mwGetBuffer *b) {
 
@@ -356,7 +452,7 @@ static void MESSAGE_recv(struct mwServiceConf *srvc,
 
   guint16 id;
   guint32 type;
-  struct mwConfMember *m;
+  struct mwLoginInfo *m;
 
   /* an empty buffer isn't an error, just ignored */
   if(! mwGetBuffer_remaining(b)) return;
@@ -369,18 +465,18 @@ static void MESSAGE_recv(struct mwServiceConf *srvc,
 
   m = MEMBER_FIND(conf, id);
   if(! m) {
-    g_warning("received message type 0x%04x for"
+    g_warning("received message type 0x%04x from"
 	      " unknown conference member %u", type, id);
     return;
   }
   
   switch(type) {
   case 0x01:  /* type is text */
-    text_recv(srvc, m, b);
+    text_recv(srvc, conf, m, b);
     break;
 
   case 0x02:  /* type is data */
-    data_recv(srvc, m, b);
+    data_recv(srvc, conf, m, b);
     break;
 
   default:
@@ -392,8 +488,8 @@ static void MESSAGE_recv(struct mwServiceConf *srvc,
 static void recv(struct mwService *srvc, struct mwChannel *chan,
 		 guint16 type, struct mwOpaque *data) {
 
-  struct mwServiceConf *srvc_conf = (struct mwServiceConf *) srvc;
-  struct mwConference *conf = conference_find(srvc_conf, chan);
+  struct mwServiceConference *srvc_conf = (struct mwServiceConference *) srvc;
+  struct mwConference *conf = conf_find(srvc_conf, chan);
   struct mwGetBuffer *b;
 
   g_return_if_fail(conf != NULL);
@@ -424,11 +520,14 @@ static void recv(struct mwService *srvc, struct mwChannel *chan,
 
 
 static void clear(struct mwService *srvc) {
-  struct mwServiceConf *srvc_conf = (struct mwServiceConf *) srvc;
+  struct mwServiceConference *srvc_conf;
   GList *l;
 
-  for(l = srvc_conf->confs; l; l = l->next)
-    conference_free(l->data);
+  srvc_conf = (struct mwServiceConference *) srvc;
+  l = mwServiceConference_conferences(srvc_conf);
+
+  for(; l; l = l->next)
+    mwConference_destroy(l->data, ERR_SUCCESS, NULL);
 
   g_list_free(srvc_conf->confs);
   srvc_conf->confs = NULL;
@@ -445,13 +544,33 @@ static const char *desc(struct mwService *srvc) {
 }
 
 
-struct mwServiceConf *mwServiceConf_new(struct mwSession *session,
-					struct mwServiceConfHandler *handler) {
+static void start(struct mwService *srvc) {
+  mwService_started(srvc);
+}
 
-  struct mwServiceConf *srvc_conf = g_new0(struct mwServiceConf, 1);
-  struct mwService *srvc = &srvc_conf->service;
 
-  mwService_init(srvc, session, SERVICE_CONF);
+static void stop(struct mwService *srvc) {
+  /** @todo stop and destroy all conferences */
+  mwService_stopped(srvc);
+}
+
+
+struct mwServiceConference *
+mwServiceConference_new(struct mwSession *session,
+			struct mwConferenceHandler *handler) {
+
+  struct mwServiceConference *srvc_conf;
+  struct mwService *srvc;
+
+  g_return_val_if_fail(session != NULL, NULL);
+  g_return_val_if_fail(handler != NULL, NULL);
+
+  srvc_conf = g_new0(struct mwServiceConference, 1);
+  srvc = &srvc_conf->service;
+
+  mwService_init(srvc, session, SERVICE_CONFERENCE);
+  srvc->start = start;
+  srvc->stop = stop;
   srvc->recv_channelCreate = recv_channelCreate;
   srvc->recv_channelAccept = recv_channelAccept;
   srvc->recv_channelDestroy = recv_channelDestroy;
@@ -466,83 +585,98 @@ struct mwServiceConf *mwServiceConf_new(struct mwSession *session,
 }
 
 
-struct mwConference *mwConference_new(struct mwServiceConf *srvc) {
+struct mwConference *mwConference_new(struct mwServiceConference *srvc,
+				      const char *title) {
   struct mwConference *conf;
 
-  conf = g_new0(struct mwConference, 1);
-  conf->service = srvc;
-  conf->state = mwConference_NEW;
+  g_return_val_if_fail(srvc != NULL, NULL);
 
-  srvc->confs = g_list_prepend(srvc->confs, conf);
+  conf = conf_new(srvc);
+  conf->title = g_strdup(title);
 
   return conf;
 }
 
 
-static char *make_conf_name(const char *user_id) {
-  char c[16]; /* limited space. Used only to hold sprintf output */
-
-  guint a = time(NULL);
-  guint b;
-
-  srand(clock());
-  b = ((rand() & 0xff) << 8) | (rand() & 0xff);
-  g_sprintf(c, "(%08x,%04x)", a, b);
-
-  return g_strconcat(user_id, c, NULL);
+const char *mwConference_getName(struct mwConference *conf) {
+  g_return_val_if_fail(conf != NULL, NULL);
+  return conf->name;
 }
 
 
-int mwConference_create(struct mwConference *conf) {
+const char *mwConference_getTitle(struct mwConference *conf) {
+  g_return_val_if_fail(conf != NULL, NULL);
+  return conf->title;
+}
+
+
+GList *mwConference_getMemebers(struct mwConference *conf) {
+  GList *members = NULL;
+  
+  return members;
+}
+
+
+int mwConference_open(struct mwConference *conf) {
   struct mwSession *session;
   struct mwChannel *chan;
   struct mwPutBuffer *b;
-
+  int ret;
+  
   g_return_val_if_fail(conf != NULL, -1);
   g_return_val_if_fail(conf->service != NULL, -1);
   g_return_val_if_fail(conf->state == mwConference_NEW, -1);
+  g_return_val_if_fail(conf->channel == NULL, -1);
 
   session = mwService_getSession(MW_SERVICE(conf->service));
   g_assert(session != NULL);
 
   if(! conf->name) {
-    struct mwLoginInfo *login = mwSession_getLoginInfo(session);
-    conf->name = make_conf_name(login->user_id);
-    g_debug("generated random conference name: '%s'", NSTR(conf->name));
+    char *user = mwSession_getProperty(session, PROPERTY_SESSION_USER_ID);
+    conf->name = conf_generate_name(user? user: "meanwhile");
   }
 
   chan = mwChannel_newOutgoing(mwSession_getChannels(session));
   mwChannel_setService(chan, MW_SERVICE(conf->service));
-  mwChannel_setProtoType(chan, 0x00000010);
-  mwChannel_setProtoVer(chan, 0x00000002);
+  mwChannel_setProtoType(chan, PROTOCOL_TYPE);
+  mwChannel_setProtoVer(chan, PROTOCOL_VER);
 
-  /* this is wrong, I think */
   b = mwPutBuffer_new();
   mwString_put(b, conf->name);
-  mwString_put(b, conf->topic);
+  mwString_put(b, conf->title);
   guint32_put(b, 0x00);
-  guint32_put(b, 0x00);
+  mwPutBuffer_finalize(mwChannel_getAddtlCreate(chan), b);
 
-  return mwChannel_create(chan);
+  ret = mwChannel_create(chan);
+  if(ret) {
+    conf_state(conf, mwConference_ERROR);
+  } else {
+    conf_state(conf, mwConference_PENDING);
+    conf->channel = chan;
+  }
+
+  return ret;
 }
 
 
 int mwConference_destroy(struct mwConference *conf,
 			 guint32 reason, const char *text) {
 
-  struct mwServiceConf *srvc;
-  struct mwOpaque info = { .len = 0, .data = NULL };
+  struct mwServiceConference *srvc;
+  struct mwOpaque info = { 0, 0 };
   int ret = 0;
 
   g_return_val_if_fail(conf != NULL, -1);
 
   srvc = conf->service;
-  g_assert(srvc != NULL);
+  g_return_val_if_fail(srvc != NULL, -1);
 
+  /* remove conference from the service */
   srvc->confs = g_list_remove_all(srvc->confs, conf);
 
+  /* close the channel if applicable */
   if(conf->channel) {
-    if(text) {
+    if(text && *text) {
       info.len = strlen(text);
       info.data = (char *) text;
     }
@@ -550,7 +684,9 @@ int mwConference_destroy(struct mwConference *conf,
     ret = mwChannel_destroy(conf->channel, reason, &info);
   }
   
-  conference_free(conf);
+  /* free the conference */
+  conf_free(conf);
+
   return ret;
 }
 
@@ -584,7 +720,7 @@ int mwConference_invite(struct mwConference *conf,
   struct mwOpaque o;
   int ret;
 
-  g_return_val_if_fail(conf->state != mwConference_ACTIVE, -1);
+  g_return_val_if_fail(conf->state == mwConference_OPEN, -1);
 
   b = mwPutBuffer_new();
 
@@ -630,8 +766,7 @@ int mwConference_sendTyping(struct mwConference *conf, gboolean typing) {
 
   g_return_val_if_fail(conf != NULL, -1);
   g_return_val_if_fail(conf->channel != NULL, -1);
-
-  if(conf->state != mwConference_ACTIVE) return 0;
+  g_return_val_if_fail(conf->state == mwConference_OPEN, -1);
 
   b = mwPutBuffer_new();
 

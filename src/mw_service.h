@@ -152,6 +152,7 @@ struct mwService {
       @relates mwService_setClientData */
   gpointer client_data;
 
+
   /** Optional client data cleanup function. Called with client_data
       from mwService_free
 

@@ -14,15 +14,17 @@ struct mwSession;
 
 
 /** Type identifier for the conference service */
-#define SERVICE_CONFERENCE  0x80000010
+#define SERVICE_CONFERENCE  0x00000010
 
 
 enum mwConferenceState {
-  mwConference_NEW      = 0x00,  /**< new conference */
-  mwConference_PENDING  = 0x01,  /**< conference pending creation */
-  mwConference_INVITED  = 0x02,  /**< invited to conference */
-  mwConference_ACTIVE   = 0x08,  /**< conference active */
-  mwConference_ERROR    = 0x80,  /**< conference error, needs to be closed */
+  mwConference_NEW,      /**< new conference */
+  mwConference_PENDING,  /**< outgoing conference pending creation */
+  mwConference_INVITED,  /**< invited to incoming conference */
+  mwConference_OPEN,     /**< conference open and active */
+  mwConference_CLOSING,  /**< conference is closing */
+  mwConference_ERROR,    /**< conference is closing due to error */
+  mwConference_UNKNOWN,  /**< unable to determine conference state */
 };
 
 
@@ -38,7 +40,7 @@ struct mwConference;
 
 /** Handler structure used to provide callbacks for an instance of the
     conferencing service */
-struct mwServiceConfHandler {
+struct mwConferenceHandler {
 
   /** triggered when we receive a conference invitation. Call
       mwConference_accept to accept the invitation and join the
@@ -61,7 +63,7 @@ struct mwServiceConfHandler {
 
   /** triggered when a conference is closed. This is typically when
       we've left it */
-  void (*conf_closed)(struct mwConference *);
+  void (*conf_closed)(struct mwConference *, guint32 reason);
 
   /** triggered when someone joins the conference */
   void (*on_peer_joined)(struct mwConference *, struct mwLoginInfo *);
@@ -82,26 +84,31 @@ struct mwServiceConfHandler {
 };
 
 
-/** Allocate a new conferencing service, attaching the given handler */
-struct mwServiceConference
-*mwServiceConference_new(struct mwSession *,
-			 struct mwServiceConfHandler *);
+/** Allocate a new conferencing service, attaching the given handler
+    @param sess     owning session
+    @param handler  handler providing call-back functions for the service
+ */
+struct mwServiceConference *
+mwServiceConference_new(struct mwSession *sess,
+			struct mwConferenceHandler *handler);
 
 
 /** a mwConference list of the conferences in this service. The GList
-    will need to be free'd after use */
+    will need to be destroyed with g_list_free after use */
 GList *mwServiceConference_conferences(struct mwServiceConference *srvc);
 
 
-/** Allocate a new conference. Conference will be in state NEW.
+/** Allocate a new conference, in state NEW with the given title.
     @see mwConference_create */
 struct mwConference *mwConference_new(struct mwServiceConference *srvc,
-				      const char *name, const char *title);
+				      const char *title);
 
 
+/** @returns unique conference name */
 const char *mwConference_getName(struct mwConference *conf);
 
 
+/** @returns conference title */
 const char *mwConference_getTitle(struct mwConference *conf);
 
 
@@ -120,8 +127,12 @@ int mwConference_open(struct mwConference *conf);
     Triggers mwServiceConfHandler::conf_closed and free's the
     conference.
  */
-int mwConference_close(struct mwConference *conf,
-		       guint32 reason, const char *text);
+int mwConference_destroy(struct mwConference *conf,
+			 guint32 reason, const char *text);
+
+
+#define mwConference_reject(c,r,t) \
+  mwConference_destroy((c),(r),(t))
 
 
 /** accept a conference invitation. Conference must be in the state
@@ -137,11 +148,29 @@ int mwConference_invite(struct mwConference *conf,
 			struct mwIdBlock *who, const char *text);
 
 
+/** send a text message over an open conference */
 int mwConference_sendText(struct mwConference *conf, const char *text);
 
 
+/** send typing notification over an open conference */
 int mwConference_sendTyping(struct mwConference *conf, gboolean typing);
 
+
+/** associate arbitrary client data and an optional cleanup function
+    with a conference. If there is already client data with a clear
+    function, it will not be called. */
+void mwConference_setClientData(struct mwConference *conf,
+				gpointer data, GDestroyNotify clear);
+
+
+/** reference associated client data */
+gpointer mwConference_getClientData(struct mwConference *conf);
+
+
+/** remove associated client data if any, and call the cleanup
+    function on the data as necessary */
+void mwConference_removeClientData(struct mwConference *conf);
+				    
 
 #endif
 
