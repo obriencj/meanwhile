@@ -87,6 +87,8 @@ PyMODINIT_FUNC init_meanwhile() {
   PyModule_AddObject(m, "ServiceConference",
 		     (PyObject *) mwPyServiceConference_type());
   PyModule_AddObject(m, "ServiceIm", (PyObject *) mwPyServiceIm_type());
+  PyModule_AddObject(m, "ServiceResolve",
+		     (PyObject *) mwPyServiceResolve_type());
   PyModule_AddObject(m, "ServiceStorage",
 		     (PyObject *) mwPyServiceStorage_type());
 }

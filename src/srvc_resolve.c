@@ -3,6 +3,7 @@
 
 #include "mw_channel.h"
 #include "mw_common.h"
+#include "mw_debug.h"
 #include "mw_error.h"
 #include "mw_service.h"
 #include "mw_session.h"
@@ -38,11 +39,13 @@ struct mw_search {
 
 
 static struct mw_search *search_new(struct mwServiceResolve *srvc,
+				    mwResolveHandler handler,
 				    gpointer data, GDestroyNotify cleanup) {
 
   struct mw_search *search = g_new0(struct mw_search, 1);
 
   search->service = srvc;
+  search->handler = handler;
 
   /* we want search IDs that aren't SEARCH_ERROR */
   do {
@@ -242,22 +245,23 @@ static void recv(struct mwServiceResolve *srvc,
 		 guint16 type, struct mwOpaque *data) {
 
   struct mwGetBuffer *b;
-  guint32 id, code, count;
+  guint32 junk, id, code, count;
   struct mw_search *search;
 
   g_return_if_fail(srvc != NULL);
   g_return_if_fail(chan != NULL);
   g_return_if_fail(chan == srvc->channel);
-  g_return_if_fail(type != RESOLVE_ACTION);
+  g_return_if_fail(type == RESOLVE_ACTION);
   g_return_if_fail(data != NULL);
 
   b = mwGetBuffer_wrap(data);
+  guint32_get(b, &junk);
   guint32_get(b, &id);
   guint32_get(b, &code);
   guint32_get(b, &count);
 
   if(mwGetBuffer_error(b)) {
-    g_warning("error parsing search results");
+    g_warning("error parsing search result");
     mwGetBuffer_free(b);
     return;
   }
@@ -266,9 +270,17 @@ static void recv(struct mwServiceResolve *srvc,
 
   if(search) {
     GList *results = load_results(b, count);
-    search->handler(srvc, id, code, results, search->data);
+    if(mwGetBuffer_error(b)) {
+      g_warning("error parsing search results");
+    } else {
+      g_debug("triggering handler");
+      search->handler(srvc, id, code, results, search->data);
+    }
     free_results(results);
     g_hash_table_remove(srvc->searches, GUINT_TO_POINTER(id));
+
+  } else {
+    g_debug("no search found: 0x%x", id);
   }
 
   mwGetBuffer_free(b);
@@ -316,7 +328,7 @@ guint32 mwServiceResolve_search(struct mwServiceResolve *srvc,
   count = g_list_length(queries);
   g_return_val_if_fail(count > 0, SEARCH_ERROR);
 
-  search = search_new(srvc, data, cleanup);
+  search = search_new(srvc, handler, data, cleanup);
 
   b = mwPutBuffer_new();
   guint32_put(b, 0x00); /* to be overwritten */

@@ -17,6 +17,7 @@ from _meanwhile import Service
 from _meanwhile import ServiceAware
 from _meanwhile import ServiceConference
 from _meanwhile import ServiceIm
+from _meanwhile import ServiceResolve
 from _meanwhile import ServiceStorage
 from _meanwhile import Session
 

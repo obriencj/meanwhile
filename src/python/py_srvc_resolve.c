@@ -6,6 +6,7 @@
 
 #include "py_meanwhile.h"
 #include "../mw_common.h"
+#include "../mw_debug.h"
 #include "../mw_service.h"
 #include "../mw_srvc_resolve.h"
 
@@ -60,6 +61,8 @@ static PyObject *wrap_results(GList *results) {
   PyObject *t;
   int count = 0;
 
+  g_return_val_if_fail(results != NULL, NULL);
+
   t = PyTuple_New(g_list_length(results));
 
   for(; results; results = results->next) {
@@ -77,12 +80,15 @@ static void mw_search_cb(struct mwServiceResolve *srvc,
   PyObject *cb = data;
   PyObject *args, *robj;
 
+  g_debug("in python bridging callback");
+
   args = PyTuple_New(3);
   PyTuple_SetItem(args, 0, PyInt_FromLong(id));
   PyTuple_SetItem(args, 1, PyInt_FromLong(code));
   PyTuple_SetItem(args, 2, wrap_results(results));
 
   robj = PyObject_CallObject(cb, args);
+  if(! robj) PyErr_Print();
 
   Py_DECREF(cb);
   Py_DECREF(args);
@@ -123,7 +129,7 @@ static PyObject *py_search(mwPyService *self, PyObject *args) {
 
   queries = str_list(query);
   id = mwServiceResolve_search(srvc, queries, flags,
-			       mw_search_cb, self, NULL);
+			       mw_search_cb, cb, NULL);
   g_list_free(queries);
 
   if(id != SEARCH_ERROR) {

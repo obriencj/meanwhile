@@ -15,6 +15,7 @@ tSession = None
 tSrvcAware = None
 tSrvcConf = None
 tSrvcIm = None
+tSrvcResolve = None
 tSrvcStore = None
     
 
@@ -326,7 +327,7 @@ def main():
     ''' Run the test bot '''
     
     global tSession
-    global tSrvcAware, tSrvcConf, tSrvcIm, tSrvcStore
+    global tSrvcAware, tSrvcConf, tSrvcIm, tSrvcResolve, tSrvcStore
     
     test_user = os.environ.get('mw_user')
     test_pass = os.environ.get('mw_pass')
@@ -340,11 +341,13 @@ def main():
     tSrvcAware = ServiceAware(tSession)
     tSrvcConf = ServiceConference(tSession)
     tSrvcIm = ServiceIm(tSession)
+    tSrvcResolve = meanwhile.ServiceResolve(tSession)
     tSrvcStore = meanwhile.ServiceStorage(tSession)
 
     tSession.addService(tSrvcAware)
     tSession.addService(tSrvcConf)
     tSession.addService(tSrvcIm)
+    tSession.addService(tSrvcResolve)
     tSession.addService(tSrvcStore)
 
     print "Starting session"
@@ -357,6 +360,7 @@ def main():
     tSession.removeService(tSrvcAware.type)
     tSession.removeService(tSrvcConf.type)
     tSession.removeService(tSrvcIm.type)
+    tSession.removeService(tSrvcResolve.type)
     tSession.removeService(tSrvcStore.type)
 
     print "Done"
