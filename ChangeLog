@@ -1,0 +1,33 @@
+
+version 0.2  Chris O'Brien  <siege@preoccupied.net>
+
+	2004-05-17: Refactoring service and channel related code out of
+	session.[ch], started using g_return_* functions. Moved
+	meanwhile-gaim plugin into its own module, for my own sanity.
+
+version 0.1  Chris O'Brien  <siege@preoccupied.net>
+	
+	2004-04-23: Release against Gaim 0.77, tagged v0_77
+
+	2004-04-20: Changed buddy list status text to be their message
+	rather than the name of their state. If there's no status message,
+	it still falls back to the state name.  Updates to match Gaim
+	0.77cvs. Chat rejection should be working now; Admin messages
+	might work. Difficult to test as only admins can send those
+	messages.
+
+	2004-04-14: Added meanwhile-gaim.spec, tagged it into v0_76. first
+	rpm released
+	
+	2004-04-05: Release against Gaim 0.76, tagged v0_76
+
+	2004-02-25: Added Features: create a conference with another
+	user. This seems to work with pretty much any client on the
+	receiving end; accept a conference from another user. This seems
+	to work with only some clients. eg: Sanity works, ICT doesn't.
+	
+	2004-02-23: First import to IIOSB CVS.
+
+	Features: working buddy list; status and away messages; idle
+	timer; send/receive im; encryption support; lovable icon
+

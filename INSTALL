@@ -1,0 +1,17 @@
+
+just...
+	download the most recent gaim source, extract it into $gaim_dir,
+	build it, install it.
+
+then...
+
+	download the most recent meanwhile source and
+
+		./autogen.sh
+		./configure --with-gaim-source=$gaim_dir/src
+		make all
+		su -c "make install"
+
+and...
+	(re)start gaim. hopefully it works!
+

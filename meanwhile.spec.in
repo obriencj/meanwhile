@@ -1,0 +1,82 @@
+Summary: Meanwhile
+Name: @PACKAGE@
+Version: @VERSION@
+Epoch: 0
+Release: 0
+License: LGPL
+Group: Applications/Internet
+URL: http://w3.opensource.ibm.com/~meanwhile/
+Source0: %{name}-%{version}.tar.gz
+BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-buildroot
+
+
+%description
+Lotus Sametime Community Client library
+
+
+%prep
+%setup -q
+
+
+%build
+rm -rf %{buildroot}
+%configure
+make prefix=%{buildroot}%{_prefix} bindir=%{buildroot}%{_bindir} \
+     datadir=%{buildroot}%{_datadir} includedir=%{buildroot}%{_includedir} \
+     libdir=%{buildroot}%{_libdir} mandir=%{buildroot}%{_mandir} \
+     sysconfdir=%{buildroot}%{_sysconfdir} \
+     all
+
+
+%install
+make prefix=%{buildroot}%{_prefix} bindir=%{buildroot}%{_bindir} \
+     datadir=%{buildroot}%{_datadir} includedir=%{buildroot}%{_includedir} \
+     libdir=%{buildroot}%{_libdir} mandir=%{buildroot}%{_mandir} \
+     sysconfdir=%{buildroot}%{_sysconfdir} \
+     install
+
+
+%clean
+rm -rf %{buildroot}
+
+
+%files
+%defattr(-,root,root,-)
+%{_libdir}/libmeanwhile.*
+
+
+%package devel
+Group: Applications/Internet
+Summary: Development packages for the Meanwhile library
+License: LGPL
+Requires: meanwhile = 1:%{version}-%{release}
+
+
+%description devel
+Development packages for the Meanwhile library
+
+
+%files devel
+%defattr(-,root,root,-)
+%{_includedir}/meanwhile/*.h
+
+
+%post -n meanwhile
+/sbin/ldconfig
+
+
+%postun -n meanwhile
+if [ "$1" -ge "1" ]; then
+  /sbin/ldconfig
+fi
+
+
+%changelog
+* Mon May 10 2004  <siege@preoccupied.net>
+- Separated meanwhile from meanwhile-gaim
+- First distribution with autoconf/automake/libtool
+
+* Tue Apr 13 2004  <siege@preoccupied.net> 
+- Initial rpm build.
+
+
