@@ -30,8 +30,7 @@ UNDERSCORE_meanwhile_la_CFLAGS = \
 
 UNDERSCORE_meanwhile_la_LDFLAGS = \
 	-module -avoid-version \
-	-Wl,-rpath,${libdir} \
-	@os_ld_flags@
+	@os_ld_flags_python@
 
 UNDERSCORE_meanwhile_la_LIBADD = \
 	$(GLIB_LIBS) $(PYTHON_LIBS) \

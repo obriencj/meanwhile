@@ -43,12 +43,15 @@ dnl Darwin...
 if test `uname` = "Darwin" ; then
 	os_so_ext=".dylib"
 	os_ld_flags="-dynamic-lib"
+	os_ld_flags_python=os_ld_flags
 else	
 	os_so_ext=".so"
 	os_ld_flags="-shared -no-undefined"
+	os_ld_flags_python="-Wl,-rpath,${libdir}"
 fi
 AC_SUBST(os_so_ext)
 AC_SUBST(os_ld_flags)
+AC_SUBST(os_ld_flags_python)
 
 
 dnl Python wrapper option

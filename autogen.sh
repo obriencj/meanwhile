@@ -26,8 +26,8 @@ fi
 if test -z "${LTIZE}" ; then
     ECHO "Couldn't figure out a libtoolize to use. Specify one with LTIZE"
 else
-    ECHO "Running $LTIZE"
-    $LTIZE || exit $?
+    ECHO "Running $LTIZE --force"
+    $LTIZE --force || exit $?
 fi
 
 
@@ -38,6 +38,7 @@ if test -d /usr/local/share/aclocal ; then
 fi
 
 ECHO "Running aclocal $ACLOCAL_FLAGS"
+ECHO "(please ignore any non-fatal errors)"
 aclocal $ACLOCAL_FLAGS || exit $?
 
 
