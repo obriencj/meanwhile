@@ -404,7 +404,7 @@ int mwChannel_accept(struct mwChannel *chan) {
     mwCipherInstance_accept(chan->cipher);
 
     msg->encrypt.item = mwCipherInstance_newItem(chan->cipher);
-    msg->encrypt.mode = 0x1000;
+    msg->encrypt.mode = 0x2000;
     msg->encrypt.extra = 0x1000;
   }
 
@@ -545,8 +545,9 @@ static int channel_send(struct mwChannel *chan,
 }
 
 
-int mwChannel_send(struct mwChannel *chan, guint32 type,
-		   struct mwOpaque *data) {
+int mwChannel_sendEncrypted(struct mwChannel *chan,
+			    guint32 type, struct mwOpaque *data,
+			    gboolean encrypt) {
 
   struct mwMsgChannelSend *msg;
 
@@ -558,12 +559,19 @@ int mwChannel_send(struct mwChannel *chan, guint32 type,
 
   mwOpaque_clone(&msg->data, data);
 
-  if(chan->cipher) {
+  if(encrypt && chan->cipher) {
     msg->head.options = mwMessageOption_ENCRYPT;
     mwCipherInstance_encrypt(chan->cipher, &msg->data);
   }
 
-  return channel_send(chan, msg);
+  return channel_send(chan, msg);  
+}
+
+
+int mwChannel_send(struct mwChannel *chan, guint32 type,
+		   struct mwOpaque *data) {
+
+  return mwChannel_sendEncrypted(chan, type, data, TRUE);
 }
 
 

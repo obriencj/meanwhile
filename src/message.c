@@ -177,34 +177,40 @@ static void LOGIN_REDIRECT_clear(struct mwMsgLoginRedirect *msg) {
 static void enc_offer_put(struct mwPutBuffer *b, struct mwEncryptOffer *enc) {
   char tail = 0x07;
 
-  guint16_put(b, enc->mode);
-  
   if(enc->items) {
+    guint32 count;
+    struct mwPutBuffer *p;
+    struct mwOpaque o;
+    GList *list;
+
     /* write the count, items, extra, and flag into a tmp buffer,
        render that buffer into an opaque, and write it into b */
 
-    guint32 count = g_list_length(enc->items);
-    struct mwPutBuffer *p = mwPutBuffer_new();
-    struct mwOpaque o;
-    GList *list;
+    count = g_list_length(enc->items);
+    p = mwPutBuffer_new();
+
+    /* guint16_put(b, enc->mode); */
+    guint16_put(b, 0x1000);
 
     guint32_put(p, count);
     for(list = enc->items; list; list = list->next) {
       mwEncryptItem_put(p, list->data);
     }
 
-    guint16_put(b, enc->extra);
-    gboolean_put(b, enc->flag);
+    guint16_put(p, enc->extra);
+    gboolean_put(p, enc->flag);
 
     mwPutBuffer_finalize(&o, p);
     mwOpaque_put(b, &o);
     mwOpaque_clear(&o);
 
   } else {
-    guint32_put(b, 0x00);
-    guint32_put(b, 0x00);
+    guint16_put(b, 0x00);
   }
 
+  guint32_put(b, 0x00);
+  guint32_put(b, 0x00);
+  gboolean_put(b, FALSE);
   mwPutBuffer_write(b, &tail, 1);
 }
 
@@ -297,13 +303,17 @@ static void CHANNEL_CREATE_clear(struct mwMsgChannelCreate *msg) {
 
 static void enc_accept_put(struct mwPutBuffer *b,
 			   struct mwEncryptAccept *enc) {
+
   char tail = 0x07;
 
-  guint16_put(b, enc->mode);
-
   if(enc->item) {
-    struct mwPutBuffer *p = mwPutBuffer_new();
+    struct mwPutBuffer *p;
     struct mwOpaque o;
+
+    /* guint16_put(b, enc->mode); */
+    guint16_put(b, 0x1000);
+
+    p = mwPutBuffer_new();
 
     mwEncryptItem_put(p, enc->item);
     guint16_put(p, enc->extra);
@@ -314,10 +324,12 @@ static void enc_accept_put(struct mwPutBuffer *b,
     mwOpaque_clear(&o);
 
   } else {
-    guint32_put(b, 0x00);
-    guint32_put(b,enc->extra);
-    gboolean_put(b, enc->flag);
+    guint16_put(b, 0x00);
   }
+
+  guint32_put(b, 0x00);
+  guint32_put(b, 0x00);
+  gboolean_put(b, FALSE);
 
   mwPutBuffer_write(b, &tail, 1);
 }

@@ -306,6 +306,13 @@ int mwChannel_send(struct mwChannel *chan, guint32 msg_type,
 		   struct mwOpaque *msg);
 
 
+/** Compose a send-on-channel message, and if encrypt is TRUE, encrypt
+    it as per the channel's specification, and send it */
+int mwChannel_sendEncrypted(struct mwChannel *chan,
+			    guint32 msg_type, struct mwOpaque *msg,
+			    gboolean encrypt);
+
+
 /**  */
 void mwChannel_recvCreate(struct mwChannel *chan,
 			  struct mwMsgChannelCreate *msg);

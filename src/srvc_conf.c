@@ -260,7 +260,7 @@ static void recv_channelAccept(struct mwService *srvc,
 			       struct mwChannel *chan,
 			       struct mwMsgChannelAccept *msg) {
 
-  mwChannel_send(chan, msg_JOIN, NULL);
+  ;
 }
 
 
@@ -405,13 +405,11 @@ static void PART_recv(struct mwServiceConference *srvc,
   m = MEMBER_FIND(conf, id);
   if(! m) return;
 
-  MEMBER_REM(conf, id);
-
   h = srvc->handler;
   if(h->on_peer_parted)
     h->on_peer_parted(conf, m);
 
-  login_free(m);
+  MEMBER_REM(conf, id);
 }
 
 
@@ -683,6 +681,9 @@ int mwConference_open(struct mwConference *conf) {
   mwChannel_setService(chan, MW_SERVICE(conf->service));
   mwChannel_setProtoType(chan, PROTOCOL_TYPE);
   mwChannel_setProtoVer(chan, PROTOCOL_VER);
+  
+  /* offer all known ciphers */
+  mwChannel_populateSupportedCipherInstances(chan);
 
   b = mwPutBuffer_new();
   mwString_put(b, conf->name);
@@ -750,7 +751,7 @@ int mwConference_accept(struct mwConference *conf) {
   ret = mwChannel_accept(chan);
 
   if(! ret)
-    ret = mwChannel_send(chan, msg_JOIN, NULL);
+    ret = mwChannel_sendEncrypted(chan, msg_JOIN, NULL, FALSE);
 
   return ret;
 }
@@ -769,13 +770,13 @@ int mwConference_invite(struct mwConference *conf,
   b = mwPutBuffer_new();
 
   mwIdBlock_put(b, who);
-  mwString_put(b, who->user);
-  mwString_put(b, who->user); /* yes. TWICE! */
+  guint16_put(b, 0x00);
+  guint32_put(b, 0x00);
   mwString_put(b, text);
-  gboolean_put(b, FALSE);
+  mwString_put(b, who->user);
 
   mwPutBuffer_finalize(&o, b);
-  ret = mwChannel_send(conf->channel, msg_INVITE, &o);
+  ret = mwChannel_sendEncrypted(conf->channel, msg_INVITE, &o, FALSE);
   mwOpaque_clear(&o);
 
   return ret;
@@ -796,7 +797,7 @@ int mwConference_sendText(struct mwConference *conf, const char *text) {
   mwString_put(b, text);
 
   mwPutBuffer_finalize(&o, b);
-  ret = mwChannel_send(conf->channel, msg_MESSAGE, &o);
+  ret = mwChannel_sendEncrypted(conf->channel, msg_MESSAGE, &o, FALSE);
   mwOpaque_clear(&o);
 
   return ret;
@@ -820,7 +821,7 @@ int mwConference_sendTyping(struct mwConference *conf, gboolean typing) {
   mwOpaque_put(b, NULL);
 
   mwPutBuffer_finalize(&o, b);
-  ret = mwChannel_send(conf->channel, msg_MESSAGE, &o);
+  ret = mwChannel_sendEncrypted(conf->channel, msg_MESSAGE, &o, FALSE);
   mwOpaque_clear(&o);
 
   return ret;
