@@ -300,7 +300,7 @@ class ServiceConference(meanwhile.ServiceConference):
 
 
 
-def main():
+if __name__ == "__main__":
 
     ''' Run the test bot '''
 
@@ -337,10 +337,6 @@ def main():
 
     print "Done"
     
-
-
-if __name__ == "__main__":
-    main()
 
 
 
