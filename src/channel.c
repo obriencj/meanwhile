@@ -776,7 +776,7 @@ void mwChannel_recvAccept(struct mwChannel *chan,
     return;
   }
 
-  if(! msg->encrypt.mode) {
+  if(! msg->encrypt.mode || ! msg->encrypt.item) {
     mwChannel_selectCipherInstance(chan, NULL);
 
   } else {

@@ -501,7 +501,6 @@ static void LOGIN_REDIRECT_recv(struct mwSession *s,
 }
 
 
-
 #define CASE(var, type) \
 case mwMessage_ ## var: \
   var ## _recv(s, (struct type *) msg); \
@@ -723,6 +722,8 @@ static gsize session_recv(struct mwSession *s, const char *b, gsize n) {
 void mwSession_recv(struct mwSession *s, const char *buf, gsize n) {
   char *b = (char *) buf;
   gsize remain = 0;
+
+  g_return_if_fail(s != NULL);
 
   /* g_message(" mwSession_recv: session = %p, b = %p, n = %u",
 	    s, b, n); */
