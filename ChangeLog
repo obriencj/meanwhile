@@ -1,6 +1,11 @@
 
 version 0.3  Chris O'Brien  <siege@preoccupied.net>
 	
+	2004-06-27: Fixed bug #980572. Thanks a lot to Joe Marcus Clarke
+	for all the debugging help!
+
+	* common.c: privacy list has a name in it
+	
 	2004-06-23: Sametime blist format parser/generator seems to be
 	working.
 

@@ -343,8 +343,10 @@ static void session_process(struct mwSession *s,
 
   g_assert(s != NULL);
 
+  /*
   g_message(" session_process: session = %p, b = %p, n = %u",
 	    s, b, n);
+  */
 
   /* attempt to parse the message. */
   msg = mwMessage_get(b, n);
@@ -384,8 +386,10 @@ static gsize session_recv_cont(struct mwSession *s, const char *b, gsize n) {
   /* determine how many bytes still required */
   gsize x = s->buf_len - s->buf_used;
 
+  /*
   g_message(" session_recv_cont: session = %p, b = %p, n = %u",
 	    s, b, n);
+  */
   
   if(n < x) {
     /* not quite enough; still need some more */
@@ -446,8 +450,10 @@ static gsize session_recv_cont(struct mwSession *s, const char *b, gsize n) {
 static gsize session_recv_empty(struct mwSession *s, const char *b, gsize n) {
   gsize x;
 
+  /*
   g_message(" session_recv_empty: session = %p, b = %p, n = %u",
 	    s, b, n);
+  */
 
   if(n < 4) {
     /* uh oh. less than four bytes means we've got an incomplete length
