@@ -50,9 +50,12 @@ AC_SUBST(os_ld_flags)
 
 
 # Glib-2.0 option with some version detection for compat.h
-AM_PATH_GLIB_2_0(glib_required_version, ,
-	AC_MSG_ERROR([*** GLib glib_required_version is required.])
- )
+PKG_CHECK_MODULES(GLIB,
+[glib-2.0 >= glib_required_version],
+[
+	AC_DEFINE(HAVE_GLIB, 1, [Define if we've found glib.])
+])
+
 GLIB_VERSION=glib_required_version
 AC_SUBST(GLIB_VERSION)
 AC_SUBST(GLIB_CFLAGS)
