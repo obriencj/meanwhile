@@ -17,6 +17,9 @@ mwinclude_HEADERS = \
 	srvc_store.h \
 	st_list.h
 
+noinst_HEADERS = \
+	compat.h \
+	mw_debug.h
 
 mwincludedir = $(includedir)/meanwhile
 
@@ -30,11 +33,9 @@ libmeanwhile_la_SOURCES = \
 	channel.c \
 	cipher.c \
 	common.c \
-	compat.h \
 	error.c \
 	message.c \
 	mw_debug.c \
-	mw_debug.h \
 	service.c \
 	session.c \
 	srvc_aware.c \

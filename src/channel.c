@@ -810,7 +810,7 @@ void mwChannel_addSupportedCipherInstance(struct mwChannel *chan,
 					  struct mwCipherInstance *ci) {
   g_return_if_fail(chan != NULL);
   g_message("channel 0x%08x added cipher %s", chan->id,
-	    mwCipher_getName(mwCipherInstance_getCipher(ci)));
+	    NSTR(mwCipher_getName(mwCipherInstance_getCipher(ci))));
   put_supported(chan, ci);
 }
 
@@ -848,7 +848,7 @@ void mwChannel_selectCipherInstance(struct mwChannel *chan,
     g_hash_table_steal(chan->supported, GUINT_TO_POINTER(cid));
 
     g_message("channel 0x%08x selected cipher %s",
-	      chan->id, mwCipher_getName(c));
+	      chan->id, NSTR(mwCipher_getName(c)));
   } else {
     g_message("channel 0x%08x selected no cipher", chan->id);
   }

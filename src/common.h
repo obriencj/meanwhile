@@ -1,7 +1,7 @@
 
 
-#ifndef _MW_COMMON_H_
-#define _MW_COMMON_H_
+#ifndef _MW_COMMON_H
+#define _MW_COMMON_H
 
 
 #include <glib.h>

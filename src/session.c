@@ -888,12 +888,12 @@ gboolean mwSession_addCipher(struct mwSession *s, struct mwCipher *c) {
 
   if(get_cipher(s, mwCipher_getType(c))) {
     g_message("cipher %s is already added, apparently",
-	      mwCipher_getName(c));
+	      NSTR(mwCipher_getName(c)));
     return FALSE;
 
   } else {
     g_message("adding cipher %s",
-	      mwCipher_getName(c));
+	      NSTR(mwCipher_getName(c)));
     add_cipher(s, c);
     return TRUE;
   }

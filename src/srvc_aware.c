@@ -148,7 +148,7 @@ static gboolean collect_dead(gpointer key, gpointer val, gpointer data) {
 
   if(aware->membership == NULL) {
     g_info(" removing %s, %s",
-	   aware->aware.id.user, aware->aware.id.community);
+	   NSTR(aware->aware.id.user), NSTR(aware->aware.id.community));
     *dead = g_list_append(*dead, aware);
     return TRUE;
 

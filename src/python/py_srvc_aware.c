@@ -81,7 +81,7 @@ static PyObject *py_aware_set(PyObject *self, PyObject *args) {
   struct mwUserStatus stat = { 0, 0 };
 
   /* id = (user, community, type)
-     stat = (status, time, desc) */
+     stat = None or (status, time, desc) */
 
   /* compose a mwAwareIdBlock and mwUserStatus from args */
   mwServiceAware_setStatus(srvc, &id, &stat);

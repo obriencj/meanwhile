@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "mw_debug.h"
 #include "st_list.h"
 
 
@@ -473,7 +474,7 @@ int mwSametimeList_get(char **b, gsize *n, struct mwSametimeList *l) {
 	ret = -1;
       }
 
-      if(ret) g_warning("unused sametime data line: %s", line);
+      if(ret) g_warning("unused sametime data line: %s", NSTR(line));
     }
     g_free(line);
   }

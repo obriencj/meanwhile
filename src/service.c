@@ -1,6 +1,7 @@
 
 #include "channel.h"
 #include "message.h"
+#include "mw_debug.h"
 #include "service.h"
 
 
@@ -138,7 +139,7 @@ void mwService_start(struct mwService *srvc) {
     return;
 
   srvc->state = mwServiceState_STARTING;
-  g_message("starting service %s", mwService_getName(srvc));
+  g_message("starting service %s", NSTR(mwService_getName(srvc)));
 
   if(srvc->start) {
     srvc->start(srvc);
@@ -152,7 +153,7 @@ void mwService_started(struct mwService *srvc) {
   g_return_if_fail(srvc != NULL);
 
   srvc->state = mwServiceState_STARTED;
-  g_message("started service %s", mwService_getName(srvc));
+  g_message("started service %s", NSTR(mwService_getName(srvc)));
 }
 
 
@@ -163,7 +164,7 @@ void mwService_error(struct mwService *srvc) {
     return;
 
   srvc->state = mwServiceState_ERROR;
-  g_message("error in service %s", mwService_getName(srvc));
+  g_message("error in service %s", NSTR(mwService_getName(srvc)));
 
   if(srvc->stop) {
     srvc->stop(srvc);
@@ -180,7 +181,7 @@ void mwService_stop(struct mwService *srvc) {
     return;
 
   srvc->state = mwServiceState_STOPPING;
-  g_message("stopping service %s", mwService_getName(srvc));
+  g_message("stopping service %s", NSTR(mwService_getName(srvc)));
 
   if(srvc->stop) {
     srvc->stop(srvc);
@@ -195,7 +196,7 @@ void mwService_stopped(struct mwService *srvc) {
 
   if(srvc->state != mwServiceState_STOPPED) {
     srvc->state = mwServiceState_STOPPED;
-    g_message("stopped service %s", mwService_getName(srvc));
+    g_message("stopped service %s", NSTR(mwService_getName(srvc)));
   }
 }
 
