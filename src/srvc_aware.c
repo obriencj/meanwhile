@@ -185,8 +185,10 @@ static int remove_unused(struct mwServiceAware *srvc) {
   int ret = 0;
   GList *dead = NULL, *l;
 
-  g_info("removing orphan aware entries");
-  g_hash_table_foreach_steal(srvc->entries, collect_dead, &dead);
+  if(srvc->entries) {
+    g_info("removing orphan aware entries");
+    g_hash_table_foreach_steal(srvc->entries, collect_dead, &dead);
+  }
  
   if(dead) {
     if(MW_SERVICE_IS_LIVE(srvc))

@@ -38,14 +38,14 @@ fi
 
 
 # set up blank configuration data if necessary
-if test ! -f $CONFIG ; then
-    cp $CONFIG.in $CONFIG
-    $EDITOR $CONFIG
+if test ! -f "$CONFIG" ; then
+    cp "$CONFIG.in" "$CONFIG"
+    "$EDITOR" "$CONFIG"
 fi
 
 
 # obtain configuration data
-. $CONFIG
+. "$CONFIG"
 
 if test -z "$mw_user" || test -z "$mw_host" ; then
     echo "Please modify $CONFIG to provide the correct server" \
@@ -68,7 +68,7 @@ compiled.
     test.sh help      prints this helpful message
     test.sh           run the python interpreter and test bot
     test.sh debug     run the python interpreter and test bot from gdb
-    test.sh pydoc     get pydoc information for m
+    test.sh pydoc     get pydoc information
     test.sh valgrind  run the python interpreter and test bot in valgrind
 "
 	exit 0
@@ -80,19 +80,19 @@ fi
 # the library and module
 cd src/python
 
-LD_LIBRARY_PATH=$PYLIBDIR/../:../.libs/
+LD_LIBRARY_PATH="$PYLIBDIR/../":"../.libs/"
 export LD_LIBRARY_PATH
 
 
 # debug
 if test "$1" = "debug" ; then
-    gdb --quiet --args $PYTHON -v test.py
+    gdb --quiet --args "$PYTHON" -v test.py
 
 # valgrind
 elif test "$1" = "valgrind" ; then
     shift
     if sh -c "valgrind --version" 1>&2 2> /dev/null ; then
-	valgrind $* $PYTHON test.py
+	valgrind $* "$PYTHON" test.py
     else
 	echo "valgrind not found in \$PATH"
 	exit 1
@@ -101,10 +101,10 @@ elif test "$1" = "valgrind" ; then
 # pydoc
 elif test "$1" = "pydoc" ; then
     shift
-    $PYTHON -c "import pydoc; pydoc.cli();" $*
+    "$PYTHON" -c "import pydoc; pydoc.cli();" $*
 
 # test bot
 else
-    $PYTHON test.py 
+    "$PYTHON" test.py 
 fi
 

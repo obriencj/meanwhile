@@ -264,8 +264,7 @@ static PyObject *py_rem_service(mwPySession *self, PyObject *args) {
 
   srvc = mwSession_removeService(self->session, id);
   if(! srvc) {
-    Py_INCREF(Py_None);
-    return Py_None;
+    mw_return_none();
   }
 
   srvcobj = g_hash_table_lookup(self->services, srvc);
@@ -362,14 +361,10 @@ static PyObject *tp_new(PyTypeObject *t, PyObject *args, PyObject *kwds) {
 
 
 static void tp_dealloc(struct pyObj_mwSession *self) {
-  GList *s = map_collect_values(self->services);
-
-  for(; s; s = g_list_delete_link(s, s))
-    Py_XDECREF((PyObject *) s->data);
-
   g_hash_table_destroy(self->services);
 
   g_free(mwSession_getCipher(self->session, mwCipher_RC2_40));
+
   mwSession_free(self->session);
 
   self->ob_type->tp_free((PyObject *) self);

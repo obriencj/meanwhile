@@ -167,7 +167,8 @@ text <str>\n\techos plain-text str back to you
 html <str>\n\techos html formatted str back to you
 subj <str>\n\tsets the conversation subject to str
 resolve <str>\n\tresolves a xuser ID
-help\n\tprints this information'''
+help\n\tprints this information
+shutdown\n\tshuts the bot down'''
             self.sendText(who, help)
 
 
