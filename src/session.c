@@ -99,13 +99,13 @@ static void property_del(struct mwSession *s, const char *key) {
    set up the default properties for a newly created session
 */
 static void session_defaults(struct mwSession *s) {
-  property_set(s, PROPERTY_CLIENT_VER_MAJOR,
-	       GPOINTER(PROTOCOL_VERSION_MAJOR), NULL);
+  property_set(s, mwSession_CLIENT_VER_MAJOR,
+	       GPOINTER(MW_PROTOCOL_VERSION_MAJOR), NULL);
 
-  property_set(s, PROPERTY_CLIENT_VER_MINOR, 
-	       GPOINTER(PROTOCOL_VERSION_MINOR), NULL);
+  property_set(s, mwSession_CLIENT_VER_MINOR, 
+	       GPOINTER(MW_PROTOCOL_VERSION_MINOR), NULL);
 
-  property_set(s, PROPERTY_CLIENT_TYPE_ID,
+  property_set(s, mwSession_CLIENT_TYPE_ID,
 	       GPOINTER(mwLogin_MEANWHILE), NULL);
 }
 
@@ -157,6 +157,7 @@ static const char *state_str(enum mwSessionState state) {
   case mwSession_HANDSHAKE_ACK: return "handshake acknowledged";
   case mwSession_LOGIN:         return "login sent";
   case mwSession_LOGIN_REDIR:   return "login redirected";
+  case mwSession_LOGIN_CONT:    return "forcing login";
   case mwSession_LOGIN_ACK:     return "login acknowledged";
   case mwSession_STARTED:       return "started";
   case mwSession_STOPPING:      return "stopping";
@@ -173,7 +174,7 @@ void mwSession_free(struct mwSession *s) {
 
   g_return_if_fail(s != NULL);
 
-  if(! SESSION_IS_STOPPED(s)) {
+  if(! mwSession_isStopped(s)) {
     g_debug("session is not stopped (state: %s), proceeding with free",
 	    state_str(s->state));
   }
@@ -233,7 +234,7 @@ static void state(struct mwSession *s, enum mwSessionState state,
   g_return_if_fail(s != NULL);
   g_return_if_fail(s->handler != NULL);
 
-  if(SESSION_IS_STATE(s, state)) return;
+  if(mwSession_isState(s, state)) return;
 
   s->state = state;
   s->state_info = info;
@@ -255,14 +256,14 @@ void mwSession_start(struct mwSession *s) {
   int ret;
 
   g_return_if_fail(s != NULL);
-  g_return_if_fail(SESSION_IS_STOPPED(s));
+  g_return_if_fail(mwSession_isStopped(s));
 
   state(s, mwSession_STARTING, 0);
 
   msg = (struct mwMsgHandshake *) mwMessage_new(mwMessage_HANDSHAKE);
-  msg->major = GUINT(property_get(s, PROPERTY_CLIENT_VER_MAJOR));
-  msg->minor = GUINT(property_get(s, PROPERTY_CLIENT_VER_MINOR));
-  msg->login_type = GUINT(property_get(s, PROPERTY_CLIENT_TYPE_ID));
+  msg->major = GUINT(property_get(s, mwSession_CLIENT_VER_MAJOR));
+  msg->minor = GUINT(property_get(s, mwSession_CLIENT_VER_MINOR));
+  msg->login_type = GUINT(property_get(s, mwSession_CLIENT_TYPE_ID));
 
   ret = mwSession_send(s, MW_MESSAGE(msg));
   mwMessage_free(MW_MESSAGE(msg));
@@ -280,8 +281,8 @@ void mwSession_stop(struct mwSession *s, guint32 reason) {
   struct mwMsgChannelDestroy *msg;
 
   g_return_if_fail(s != NULL);
-  g_return_if_fail(! SESSION_IS_STOPPING(s));
-  g_return_if_fail(! SESSION_IS_STOPPED(s));
+  g_return_if_fail(! mwSession_isStopping(s));
+  g_return_if_fail(! mwSession_isStopped(s));
 
   state(s, mwSession_STOPPING, reason);
 
@@ -354,23 +355,23 @@ static void HANDSHAKE_ACK_recv(struct mwSession *s,
 			       
   g_return_if_fail(s != NULL);
   g_return_if_fail(msg != NULL);
-  g_return_if_fail(SESSION_IS_STATE(s, mwSession_HANDSHAKE));
+  g_return_if_fail(mwSession_isState(s, mwSession_HANDSHAKE) ||
+		   mwSession_isState(s, mwSession_LOGIN_CONT));
 
   state(s, mwSession_HANDSHAKE_ACK, 0);
 
   /* record the major/minor versions from the server */
-  property_set(s, PROPERTY_SERVER_VER_MAJOR, GPOINTER(msg->major), NULL);
-  property_set(s, PROPERTY_SERVER_VER_MINOR, GPOINTER(msg->minor), NULL);
+  property_set(s, mwSession_SERVER_VER_MAJOR, GPOINTER(msg->major), NULL);
+  property_set(s, mwSession_SERVER_VER_MINOR, GPOINTER(msg->minor), NULL);
 
   /* compose the login message */
   log = (struct mwMsgLogin *) mwMessage_new(mwMessage_LOGIN);
-  log->login_type = GPOINTER_TO_UINT(property_get(s, PROPERTY_CLIENT_TYPE_ID));
-  log->name = g_strdup(property_get(s, PROPERTY_SESSION_USER_ID));
+  log->login_type = GUINT(property_get(s, mwSession_CLIENT_TYPE_ID));
+  log->name = g_strdup(property_get(s, mwSession_AUTH_USER_ID));
 
   /** @todo default to password for now. later use token optionally */
   log->auth_type = mwAuthType_ENCRYPT;
-  compose_auth(&log->auth_data,
-	       property_get(s, PROPERTY_SESSION_PASSWORD));
+  compose_auth(&log->auth_data, property_get(s, mwSession_AUTH_PASSWORD));
   
   /* send the login message */
   ret = mwSession_send(s, MW_MESSAGE(log));
@@ -387,7 +388,7 @@ static void LOGIN_ACK_recv(struct mwSession *s,
 
   g_return_if_fail(s != NULL);
   g_return_if_fail(msg != NULL);
-  g_return_if_fail(SESSION_IS_STATE(s, mwSession_LOGIN));
+  g_return_if_fail(mwSession_isState(s, mwSession_LOGIN));
 
   /* store the login information in the session */
   mwLoginInfo_clear(&s->login);
@@ -786,6 +787,23 @@ int mwSession_sendKeepalive(struct mwSession *s) {
 }
 
 
+int mwSession_forceLogin(struct mwSession *s) {
+  struct mwMsgLoginContinue *msg;
+  int ret;
+
+  g_return_val_if_fail(mwSession_isState(s, mwSession_LOGIN_REDIR), -1);
+  
+  state(s, mwSession_LOGIN_CONT, 0x00);
+
+  msg = (struct mwMsgLoginContinue *) mwMessage_new(mwMessage_LOGIN_CONTINUE);
+
+  ret = mwSession_send(s, MW_MESSAGE(msg));
+  mwMessage_free(MW_MESSAGE(msg));
+  
+  return ret;
+}
+
+
 struct mwSessionHandler *mwSession_getHandler(struct mwSession *s) {
   g_return_val_if_fail(s != NULL, NULL);
   return s->handler;
@@ -866,7 +884,7 @@ gboolean mwSession_addService(struct mwSession *s, struct mwService *srv) {
 
   } else {
     map_guint_insert(s->services, SERVICE_KEY(srv), srv);
-    if(SESSION_IS_STATE(s, mwSession_STARTED))
+    if(mwSession_isState(s, mwSession_STARTED))
       mwSession_senseService(s, mwService_getType(srv));
     return TRUE;
   }
@@ -906,7 +924,7 @@ void mwSession_senseService(struct mwSession *s, guint32 srvc) {
 
   g_return_if_fail(s != NULL);
   g_return_if_fail(srvc != 0x00);
-  g_return_if_fail(SESSION_IS_STARTED(s));
+  g_return_if_fail(mwSession_isStarted(s));
 
   msg = (struct mwMsgSenseService *)
     mwMessage_new(mwMessage_SENSE_SERVICE);

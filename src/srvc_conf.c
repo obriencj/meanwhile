@@ -136,7 +136,7 @@ static struct mwConference *conf_new(struct mwServiceConference *srvc) {
 					(GDestroyNotify) login_free);
 
   session = mwService_getSession(MW_SERVICE(srvc));
-  user = mwSession_getProperty(session, PROPERTY_SESSION_USER_ID);
+  user = mwSession_getProperty(session, mwSession_AUTH_USER_ID);
   if(user) conf->name = conf_generate_name(user);
 
   srvc->confs = g_list_prepend(srvc->confs, conf);
@@ -673,7 +673,7 @@ int mwConference_open(struct mwConference *conf) {
   g_assert(session != NULL);
 
   if(! conf->name) {
-    char *user = mwSession_getProperty(session, PROPERTY_SESSION_USER_ID);
+    char *user = mwSession_getProperty(session, mwSession_AUTH_USER_ID);
     conf->name = conf_generate_name(user? user: "meanwhile");
   }
 

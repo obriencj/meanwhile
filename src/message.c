@@ -119,7 +119,7 @@ static void LOGIN_put(struct mwPutBuffer *b, struct mwMsgLogin *msg) {
   guint16_put(b, msg->login_type);
   mwString_put(b, msg->name);
 
-  /* reversed from draft?? */
+  /* ordering reversed from draft?? */
   mwOpaque_put(b, &msg->auth_data);
   guint16_put(b, msg->auth_type);
 }
@@ -147,6 +147,21 @@ static void LOGIN_ACK_clear(struct mwMsgLoginAck *msg) {
   mwLoginInfo_clear(&msg->login);
   mwPrivacyInfo_clear(&msg->privacy);
   mwUserStatus_clear(&msg->status);
+}
+
+
+/* 8.4.1.5 LoginCont */
+
+
+static void LOGIN_CONTINUE_put(struct mwPutBuffer *b,
+			       struct mwMsgLoginContinue *msg) {
+
+  ; /* nothing but a message header */
+}
+
+
+static void LOGIN_CONTINUE_clear(struct mwMsgLoginContinue *msg) {
+  ; /* this is a very simple message */
 }
 
 
@@ -537,7 +552,7 @@ struct mwMessage *mwMessage_new(enum mwMessageType type) {
     CASE(HANDSHAKE_ACK, mwMsgHandshakeAck);
     CASE(LOGIN, mwMsgLogin);
     CASE(LOGIN_REDIRECT, mwMsgLoginRedirect);
-    /*  CASE(LOGIN_CONTINUE, mwMsgLoginContinue); */
+    CASE(LOGIN_CONTINUE, mwMsgLoginContinue);
     CASE(LOGIN_ACK, mwMsgLoginAck);
     CASE(CHANNEL_CREATE, mwMsgChannelCreate);
     CASE(CHANNEL_DESTROY, mwMsgChannelDestroy);
@@ -635,7 +650,7 @@ void mwMessage_put(struct mwPutBuffer *b, struct mwMessage *msg) {
   switch(msg->type) {
     CASE(HANDSHAKE, mwMsgHandshake);
     CASE(LOGIN, mwMsgLogin);
-    /* CASE(LOGIN_CONTINUE, mwMsgLoginContinue); */
+    CASE(LOGIN_CONTINUE, mwMsgLoginContinue);
     CASE(CHANNEL_CREATE, mwMsgChannelCreate);
     CASE(CHANNEL_DESTROY, mwMsgChannelDestroy);
     CASE(CHANNEL_SEND, mwMsgChannelSend);
@@ -669,7 +684,7 @@ void mwMessage_free(struct mwMessage *msg) {
     CASE(HANDSHAKE_ACK, mwMsgHandshakeAck);
     CASE(LOGIN, mwMsgLogin);
     CASE(LOGIN_REDIRECT, mwMsgLoginRedirect);
-    /* CASE(LOGIN_CONTINUE, mwMsgLoginContinue); */
+    CASE(LOGIN_CONTINUE, mwMsgLoginContinue);
     CASE(LOGIN_ACK, mwMsgLoginAck);
     CASE(CHANNEL_CREATE, mwMsgChannelCreate);
     CASE(CHANNEL_DESTROY, mwMsgChannelDestroy);

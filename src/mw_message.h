@@ -38,11 +38,7 @@ enum mwMessageType {
   mwMessage_LOGIN             = 0x0001,  /**< mwMsgLogin */
   mwMessage_LOGIN_ACK         = 0x8001,  /**< mwMsgLoginAck */
   mwMessage_LOGIN_REDIRECT    = 0x0018,  /**< mwMsgLoginRedirect */
-
-#if 0
-  /* is this message really 0x19 ? */
-  mwMessage_LOGIN_CONTINUE    = 0x0019,  /**< mwMsgLoginContinue */
-#endif
+  mwMessage_LOGIN_CONTINUE    = 0x0016,  /**< mwMsgLoginContinue */
 
   mwMessage_CHANNEL_CREATE    = 0x0002,  /**< mwMsgChannelCreate */
   mwMessage_CHANNEL_DESTROY   = 0x0003,  /**< mwMsgChannelDestroy */
@@ -143,6 +139,13 @@ struct mwMsgLoginAck {
   struct mwLoginInfo login;
   struct mwPrivacyInfo privacy;
   struct mwUserStatus status;
+};
+
+
+/* 8.4.1.5 LoginCont */
+
+struct mwMsgLoginContinue {
+  struct mwMessage head;
 };
 
 

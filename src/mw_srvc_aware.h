@@ -109,7 +109,7 @@ struct mwAwareListHandler {
   /** handle attribute updates */
   mwAwareIdAttributeHandler on_attrib;
 
-  /** optiona. Called from mwAwareList_free */
+  /** optional. Called from mwAwareList_free */
   void (*clear)(struct mwAwareList *list);
 };
 

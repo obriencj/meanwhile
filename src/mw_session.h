@@ -25,21 +25,21 @@
 #include "mw_common.h"
 
 
+struct mwCipher;
+struct mwMessage;
+
+
 /** @file mw_session.h
     ...
 */
 
 
+/** default protocol major version */
+#define MW_PROTOCOL_VERSION_MAJOR  0x001e
 
-#ifndef PROTOCOL_VERSION_MAJOR
-/** protocol versioning. */
-#define PROTOCOL_VERSION_MAJOR  0x001e
-#endif
 
-#ifndef PROTOCOL_VERSION_MINOR
-/** protocol versioning. */
-#define PROTOCOL_VERSION_MINOR  0x001d
-#endif
+/** default protocol minor version */
+#define MW_PROTOCOL_VERSION_MINOR  0x001d
 
 
 /** @section Session Properties
@@ -48,37 +48,30 @@
 /*@{*/
 
 /** char *, session user ID */
-#define PROPERTY_SESSION_USER_ID   "session.auth.user"
+#define mwSession_AUTH_USER_ID      "session.auth.user"
 
 /** char *, plaintext password */
-#define PROPERTY_SESSION_PASSWORD  "session.auth.password"
+#define mwSession_AUTH_PASSWORD     "session.auth.password"
 
 /** struct mwOpaque *, authentication token */
-#define PROPERTY_SESSION_TOKEN     "session.auth.token"
+#define mwSession_AUTH_TOKEN        "session.auth.token"
 
 /** guint16, major version of client protocol */
-#define PROPERTY_CLIENT_VER_MAJOR  "client.version.major"
+#define mwSession_CLIENT_VER_MAJOR  "client.version.major"
 
 /** guint16, minor version of client protocol */
-#define PROPERTY_CLIENT_VER_MINOR  "client.version.minor"
+#define mwSession_CLIENT_VER_MINOR  "client.version.minor"
 
 /** guint16, client type identifier */
-#define PROPERTY_CLIENT_TYPE_ID    "client.id"
+#define mwSession_CLIENT_TYPE_ID    "client.id"
 
 /** guint16, major version of server protocol */
-#define PROPERTY_SERVER_VER_MAJOR  "server.version.major"
+#define mwSession_SERVER_VER_MAJOR  "server.version.major"
 
 /** guint16, minor version of server protocol */
-#define PROPERTY_SERVER_VER_MINOR  "server.version.minor"
+#define mwSession_SERVER_VER_MINOR  "server.version.minor"
 
 /*@}*/
-
-
-/* place-holders */
-struct mwChannelSet;
-struct mwCipher;
-struct mwService;
-struct mwMessage;
 
 
 /** @file session.h
@@ -114,27 +107,30 @@ enum mwSessionState {
   mwSession_STOPPING,      /**< session is shutting down */
   mwSession_STOPPED,       /**< session is stopped */
   mwSession_UNKNOWN,       /**< indicates an error determining state */
+  mwSession_LOGIN_CONT,    /**< session has sent a login continue */
 };
 
 
-#define SESSION_IS_STATE(session, state) \
+#define mwSession_isState(session, state) \
   (mwSession_getState((session)) == (state))
 
-#define SESSION_IS_STARTING(s) \
-  (SESSION_IS_STATE((s), mwSession_STARTING)  || \
-   SESSION_IS_STATE((s), mwSession_HANDSHAKE) || \
-   SESSION_IS_STATE((s), mwSession_HANDSHAKE_ACK) || \
-   SESSION_IS_STATE((s), mwSession_LOGIN) || \
-   SESSION_IS_STATE((s), mwSession_LOGIN_ACK))
+#define mwSession_isStarting(s) \
+  (mwSession_isState((s), mwSession_STARTING)  || \
+   mwSession_isState((s), mwSession_HANDSHAKE) || \
+   mwSession_isState((s), mwSession_HANDSHAKE_ACK) || \
+   mwSession_isState((s), mwSession_LOGIN) || \
+   mwSession_isState((s), mwSession_LOGIN_ACK) || \
+   mwSession_isState((s), mwSession_LOGIN_REDIR) || \
+   mwSession_isState((s), mwSession_LOGIN_CONT))
 
-#define SESSION_IS_STARTED(s) \
-  (SESSION_IS_STATE((s), mwSession_STARTED))
+#define mwSession_isStarted(s) \
+  (mwSession_isState((s), mwSession_STARTED))
 
-#define SESSION_IS_STOPPING(s) \
-  (SESSION_IS_STATE((s), mwSession_STOPPING))
+#define mwSession_isStopping(s) \
+  (mwSession_isState((s), mwSession_STOPPING))
 
-#define SESSION_IS_STOPPED(s) \
-  (SESSION_IS_STATE((s), mwSession_STOPPED))
+#define mwSession_isStopped(s) \
+  (mwSession_isState((s), mwSession_STOPPED))
 
 
 /** @struct mwSession
@@ -153,7 +149,7 @@ struct mwSessionHandler {
   /** close the server connection. Required */
   void (*io_close)(struct mwSession *);
 
-  /** triggered by mwSession_free */
+  /** triggered by mwSession_free. Optional. Put cleanup code here */
   void (*clear)(struct mwSession *);
 
   /** Called when the session has changed status.
@@ -161,22 +157,32 @@ struct mwSessionHandler {
       Uses of the info param:
       - <code>STOPPING</code> error code causing the session to shut down
 
+      @todo change info to a gpointer
+
       @param s      the session
       @param state  the session's state
       @param info   additional state info. */
   void (*on_stateChange)(struct mwSession *s,
 			 enum mwSessionState state, guint32 info);
 
-  /** called when privacy information has been sent or received */
+  /** called when privacy information has been sent or received
+
+      @see mwSession_getPrivacyInfo
+  */
   void (*on_setPrivacyInfo)(struct mwSession *);
 
-  /** called when user status has changed */
+  /** called when user status has changed
+
+      @see mwSession_getUserStatus */
   void (*on_setUserStatus)(struct mwSession *);
 
   /** called when an admin messages has been received */
   void (*on_admin)(struct mwSession *, const char *text);
 
-  /** called when a login redirect message is received */
+  /** called when a login redirect message is received
+
+      @todo remove in favour of on_stateChange, passing host as a
+      gpointer in info */
   void (*on_loginRedirect)(struct mwSession *, const char *host);
 };
 
@@ -218,6 +224,11 @@ int mwSession_send(struct mwSession *s, struct mwMessage *msg);
 
 /** sends the keepalive byte */
 int mwSession_sendKeepalive(struct mwSession *s);
+
+
+/** respond to a login redirect message by forcing the login sequence
+    to continue through the immediate server. */
+int mwSession_forceLogin(struct mwSession *s);
 
 
 /** set the internal privacy information, and inform the server as
