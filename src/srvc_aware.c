@@ -238,7 +238,10 @@ static void status_recv(struct mwServiceAware *srvc,
 
   /* we don't deal with receiving status for something we're not
      monitoring */
-  if(! aware) return;
+  if(! aware) {
+    g_debug("received data for id we're not monitoring");
+    return;
+  }
   
   /* clear the existing status, then clone in the new status */
   mwAwareSnapshot_clear(&aware->aware);
@@ -266,9 +269,6 @@ gboolean list_add(struct mwAwareList *list, struct mwAwareIdBlock *id) {
 
   aware = entry_find(srvc, id);
   if(! aware) {
-    g_debug("adding buddy %s, %s to the aware service",
-	    NSTR(id->user), NSTR(id->community));
-    
     aware = g_new0(struct aware_entry, 1);
     mwAwareIdBlock_clone(ENTRY_KEY(aware), id);
 
@@ -307,44 +307,51 @@ static void SNAPSHOT_recv(struct mwServiceAware *srvc,
 			  struct mwGetBuffer *b) {
 
   guint32 count;
-  struct mwAwareSnapshot snap;
+
+  struct mwAwareSnapshot *snap;
+  snap = g_new0(struct mwAwareSnapshot, 1);
 
   guint32_get(b, &count);
 
   while(count--) {
-    mwAwareSnapshot_get(b, &snap);
+    mwAwareSnapshot_get(b, snap);
 
     if(mwGetBuffer_error(b)) {
-      mwAwareSnapshot_clear(&snap);
+      mwAwareSnapshot_clear(snap);
       break;
     }
 
-    if(snap.group) {
-      group_member_recv(srvc, &snap);
-    }
-    status_recv(srvc, &snap);
+    if(snap->group)
+      group_member_recv(srvc, snap);
+
+    status_recv(srvc, snap);
+    mwAwareSnapshot_clear(snap);
   }
+
+  g_free(snap);
 }
 
 
 static void UPDATE_recv(struct mwServiceAware *srvc,
 			struct mwGetBuffer *b) {
 
-  struct mwAwareSnapshot snap;
+  struct mwAwareSnapshot *snap;
 
-  mwAwareSnapshot_get(b, &snap);
+  snap = g_new0(struct mwAwareSnapshot, 1);
+  mwAwareSnapshot_get(b, snap);
 
   if(! mwGetBuffer_error(b))
-    status_recv(srvc, &snap);
+    status_recv(srvc, snap);
 
-  mwAwareSnapshot_clear(&snap);
+  mwAwareSnapshot_clear(snap);
+  g_free(snap);
 }
 
 
 static void GROUP_recv(struct mwServiceAware *srvc,
 		       struct mwGetBuffer *b) {
 
-  struct mwAwareIdBlock idb;
+  struct mwAwareIdBlock idb = { 0, 0, 0 };
 
   /* really nothing to be done with this. The group should have
      already been added to the list and service, and is now simply

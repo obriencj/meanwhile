@@ -751,7 +751,7 @@ void mwAwareSnapshot_get(struct mwGetBuffer *b, struct mwAwareSnapshot *idb) {
 
   guint32_get(b, &junk);
   mwAwareIdBlock_get(b, &idb->id);
-  mwString_get(b, &empty);
+  mwString_get(b, &idb->group);
   gboolean_get(b, &idb->online);
 
   g_free(empty);
@@ -775,6 +775,7 @@ void mwAwareSnapshot_clone(struct mwAwareSnapshot *to,
     to->alt_id = g_strdup(from->alt_id);
     mwUserStatus_clone(&to->status, &from->status);
     to->name = g_strdup(from->name);
+    to->group = g_strdup(from->group);
   }
 }
 
@@ -785,6 +786,7 @@ void mwAwareSnapshot_clear(struct mwAwareSnapshot *idb) {
   mwUserStatus_clear(&idb->status);
   g_free(idb->alt_id);
   g_free(idb->name);
+  g_free(idb->group);
   memset(idb, 0x00, sizeof(struct mwAwareSnapshot));
 }
 

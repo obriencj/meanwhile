@@ -19,6 +19,7 @@ allow_exec = int(os.environ.get('allow_exec'))
 
 
 tSession = None
+tSrvcAware = None
 tSrvcIm = None
 tSrvcStore = None
 
@@ -76,14 +77,20 @@ def _cbLoad(who, kstr):
 
 def _cbStore(who, kstr):
     if not tSrvcStore:
-        pass
+        return
 
 
 
-class Session(meanwhile.Session):
+class Session(meanwhile.SocketSession):
     def onAdmin(self, text):
         print "ADMIN: %s" % text
-        
+
+
+
+class ServiceAware(meanwhile.ServiceAware):
+    def onAware(self, id, stat):
+        print "STATUS: ", id, stat
+
 
 
 class ServiceIm(meanwhile.ServiceIm):
@@ -110,14 +117,18 @@ class ServiceIm(meanwhile.ServiceIm):
 
 if __name__ == "__main__":
     tSession = Session(WHERE, WHO)
+
+    tSrvcAware = ServiceAware(tSession)
     tSrvcIm = ServiceIm(tSession)
     tSrvcStore = meanwhile.ServiceStorage(tSession)
-    
+
+    tSession.addService(tSrvcAware)
     tSession.addService(tSrvcIm)
     tSession.addService(tSrvcStore)
 
     tSession.start(background=False, daemon=False)
 
+    tSession.removeService(tSrvcAware.type)
     tSession.removeService(tSrvcIm.type)
     tSession.removeService(tSrvcStore.type)
 

@@ -50,35 +50,100 @@ static void onAwareHandler(struct mwAwareList *l,
 }
 
 
-static PyObject *py_aware_add(PyObject *self, PyObject *args) {
+static PyObject *py_aware_add(mwPyService *self, PyObject *args) {
+  struct mwAwareIdBlock *idb, *id;
+  PyObject *pl;
+  int c;
+  GList *gl = NULL;
+
+  if(! PyArg_ParseTuple(args, "O", &pl))
+    return NULL;
+
+  if(! PyList_Check(pl)) {
+    g_warning("not a list");
+    return NULL;
+  }
+
+  c = PyList_Size(pl);
+  idb = id = g_new0(struct mwAwareIdBlock, c);
+
+  while(c--) {
+    PyObject *t = PyList_GetItem(pl, c);
+
+    if(!PyTuple_Check(t) || PyTuple_Size(t) < 3) continue;
+
+    id->user = (char *) PyString_SafeAsString(PyTuple_GetItem(t, 0));
+    id->community = (char *) PyString_SafeAsString(PyTuple_GetItem(t, 1));
+    id->type = PyInt_AsLong(PyTuple_GetItem(t, 2));
+
+    gl = g_list_prepend(gl, id++);
+  }
+
+  c = mwAwareList_addAware(self->data, gl);
+
+  g_list_free(gl);
+  g_free(idb);
+
+  return PyInt_FromLong(! c);
+}
+
+
+static PyObject *py_aware_remove(mwPyService *self, PyObject *args) {
+  struct mwAwareIdBlock *idb, *id;
+  PyObject *pl;
+  int c;
+  GList *gl = NULL;
+
+  if(! PyArg_ParseTuple(args, "O", &pl))
+    return NULL;
+
+  if(! PyList_Check(pl)) {
+    g_warning("not a list");
+    return NULL;
+  }
+
+  c = PyList_Size(pl);
+  idb = id = g_new0(struct mwAwareIdBlock, c);
+
+  while(c--) {
+    PyObject *t = PyList_GetItem(pl, c);
+
+    if(!PyTuple_Check(t) || PyTuple_Size(t) < 3) continue;
+
+    id->user = (char *) PyString_SafeAsString(PyTuple_GetItem(t, 0));
+    id->community = (char *) PyString_SafeAsString(PyTuple_GetItem(t, 1));
+    id->type = PyInt_AsLong(PyTuple_GetItem(t, 2));
+
+    gl = g_list_prepend(gl, id++);
+  }
+
+  c = mwAwareList_removeAware(self->data, gl);
+
+  g_list_free(gl);
+  g_free(idb);
+
+  return PyInt_FromLong(! c);
+}
+
+
+static PyObject *py_on_aware(mwPyService *self, PyObject *args) {
   Py_INCREF(Py_None);
   return Py_None;
 }
 
 
-static PyObject *py_aware_remove(PyObject *self, PyObject *args) {
+static PyObject *py_aware_get(mwPyService *self, PyObject *args) {
   Py_INCREF(Py_None);
   return Py_None;
 }
 
 
-static PyObject *py_on_aware(PyObject *self, PyObject *args) {
-  Py_INCREF(Py_None);
-  return Py_None;
-}
+static PyObject *py_aware_set(mwPyService *self, PyObject *args) {
+  struct mwAwareIdBlock id = { 0, 0, 0 };
+  struct mwUserStatus stat = { 0, 0, 0 };
+  struct mwServiceAware *srvc;
 
-
-static PyObject *py_aware_get(PyObject *self, PyObject *args) {
-  Py_INCREF(Py_None);
-  return Py_None;
-}
-
-
-static PyObject *py_aware_set(PyObject *self, PyObject *args) {
-  mwPyService *psrvc = (mwPyService *) self;
-  struct mwServiceAware *srvc = (struct mwServiceAware *) psrvc->wrapped;
-  struct mwAwareIdBlock id = { 0, 0 };
-  struct mwUserStatus stat = { 0, 0 };
+  srvc = (struct mwServiceAware *) self->wrapped;
 
   /* id = (user, community, type)
      stat = None or (status, time, desc) */
