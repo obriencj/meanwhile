@@ -60,6 +60,9 @@ if test "$withval" != "no" ; then
 	else
 		pythonpath="$withval"
 	fi
+
+	PYTHON="$pythonpath"
+	AC_SUBST(PYTHON)
 fi
 
 if test "$withval" != "no" ; then
@@ -127,5 +130,7 @@ AC_SUBST(GLIB_CFLAGS)
 AC_SUBST(GLIB_LIBS)
 
 
-AC_OUTPUT([Makefile src/Makefile src/python/Makefile meanwhile.spec meanwhile.pc])
+AC_OUTPUT([Makefile src/Makefile src/python/Makefile meanwhile.spec meanwhile.pc test.sh])
+
+chmod +x test.sh
 

@@ -42,6 +42,7 @@ enum mwServiceState {
   mwServiceState_STOPPING,  /**< the service is shutting down */
   mwServiceState_STARTED,   /**< the service is active */
   mwServiceState_STARTING,  /**< the service is starting up */
+  mwServiceState_ERROR,     /**< error in service, shutting down */
   mwServiceState_UNKNOWN,   /**< error determining state */
 };
 

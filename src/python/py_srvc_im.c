@@ -38,9 +38,6 @@ static void mw_got_text(struct mwServiceIm *srvc,
   h = mwServiceIm_getHandler(srvc);
   self = h->data;
 
-  g_message("mw_got_text (%s,%s)%s",
-	    from->user, from->community, text);
-
   /* getting crazy here, just messing around to try and fix a segfault
      in PyObject_Malloc */
   a = PyString_SafeFromString(from->user);
@@ -53,15 +50,6 @@ static void mw_got_text(struct mwServiceIm *srvc,
 
   robj = PyObject_CallMethodObjArgs((PyObject *) self, z, t, c, NULL);
 
-  /*
-  if(! robj) {
-    g_message("CallMethod failed");
-    if(PyErr_Occurred()) PyErr_Print();
-  }
-  */
-
-  /* Py_DECREF(a);
-     Py_DECREF(b); */
   Py_DECREF(c);
   Py_DECREF(t);
   Py_DECREF(z);

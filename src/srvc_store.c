@@ -242,7 +242,7 @@ static void recv_channelCreate(struct mwService *srvc,
 			       struct mwChannel *chan,
 			       struct mwMsgChannelCreate *msg) {
 
-  /* what the?! we don't accept no incoming channels */
+  /* what the?! we don't accept no stinkin' incoming channels */
   mwChannel_destroy(chan, ERR_FAILURE, NULL);
 }
 

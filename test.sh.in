@@ -1,0 +1,56 @@
+#! /bin/sh
+
+# Test script for Python wrappers
+#
+# If you don't have a test.conf, copy it from test.conf.in and modify
+# as necessary.
+
+PYDOC=@PYDOC@
+PYTHON=@PYTHON@
+PYLIBDIR=@PYTHON_LIBP@
+
+if test "$PYTHON" = "" ; then
+	echo "error: python support not built"
+	exit 1
+fi
+
+# obtain configuration data
+if [ -f 'test.conf' ] ; then
+	. test.conf
+else
+	echo "error: please create test.conf as described in test.conf.in"
+	exit 1
+fi
+
+# help
+if test "$1" = "help" ; then
+	echo "\
+Meanwhile Python Test Script -
+  Execute to log in to server using test ID from test.conf and act as a
+simple bot. See src/python/test.py for test script. This does not require
+the meanwhile library or the python wrappers to be actually installed, just
+compiled.
+
+ Options:
+    test.sh help        this message
+    test.sh debug       run the python interpreter and script from gdb
+    test.sh pydoc [m]   get pydoc information for m
+"
+	exit 0
+fi
+
+
+cd src/python
+export LD_LIBRARY_PATH=$PYLIBDIR/../:../.libs/
+
+if test "$1" = "debug" ; then
+	shift
+	gdb --args $PYTHON -v test.py $*
+
+elif test "$1" = "pydoc" ; then
+	shift
+	$PYDOC $*
+else
+	$PYTHON test.py 
+fi
+

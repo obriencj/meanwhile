@@ -15,5 +15,6 @@ missing
 *.spec
 *.tar.gz
 test.conf
+test.sh
 tmp
 

@@ -156,6 +156,23 @@ void mwService_started(struct mwService *srvc) {
 }
 
 
+void mwService_error(struct mwService *srvc) {
+  g_return_if_fail(srvc != NULL);
+
+  if(MW_SERVICE_IS_DEAD(srvc))
+    return;
+
+  srvc->state = mwServiceState_ERROR;
+  g_message("error in service %s", mwService_getName(srvc));
+
+  if(srvc->stop) {
+    srvc->stop(srvc);
+  } else {
+    mwService_stopped(srvc);
+  }
+}
+
+
 void mwService_stop(struct mwService *srvc) {
   g_return_if_fail(srvc != NULL);
 
@@ -176,8 +193,10 @@ void mwService_stop(struct mwService *srvc) {
 void mwService_stopped(struct mwService *srvc) {
   g_return_if_fail(srvc != NULL);
 
-  srvc->state = mwServiceState_STOPPED;
-  g_message("stopped service %s", mwService_getName(srvc));
+  if(srvc->state != mwServiceState_STOPPED) {
+    srvc->state = mwServiceState_STOPPED;
+    g_message("stopped service %s", mwService_getName(srvc));
+  }
 }
 
 

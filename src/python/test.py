@@ -10,10 +10,12 @@ import time
 test_user = os.environ.get('mw_user')
 test_pass = os.environ.get('mw_pass')
 test_host = os.environ.get('mw_host')
-test_port = os.environ.get('mw_port')
+test_port = int(os.environ.get('mw_port'))
 
 WHO = (test_user, test_pass)
-WHERE = (test_host, int(test_port))
+WHERE = (test_host, test_port)
+
+allow_exec = int(os.environ.get('allow_exec'))
 
 
 tSession = None
@@ -22,9 +24,24 @@ tSrvcStore = None
 
 
 
-def _cbExec(text):
+def _cbExec_real(who, text):
     print "executing code %s" % text
-    # exec text in globals()    
+    try:
+        exec text in globals()
+    except:
+        print "caught exception"
+        tSrvcIm.sendText(who, "caught exception")
+            
+
+def _cbExec_none(text):
+    print "not executing code %s" % text    
+
+
+_cbExec = None
+if allow_exec:
+    _cbExec = lambda who, text: _cbExec_real(who, text)
+else:
+    _cbExec = lambda who, text: _cbExec_none(who, text)
 
 
 
@@ -57,6 +74,12 @@ def _cbLoad(who, kstr):
 
 
 
+def _cbStore(who, kstr):
+    if not tSrvcStore:
+        pass
+
+
+
 class Session(meanwhile.Session):
     def onAdmin(self, text):
         print "ADMIN: %s" % text
@@ -72,11 +95,14 @@ class ServiceIm(meanwhile.ServiceIm):
             self.session.stop()
 
         elif text.startswith('~ '):
-            _cbExec(text[2:])
+            _cbExec(who, text[2:])
             
         elif text.startswith('load '):
             _cbLoad(who, text[5:])
-            
+
+        elif text.startswith('store '):
+            _cbStore(who, text[6:])
+
         elif text.startswith('echo '):
             self.sendText(who, text[5:])
 

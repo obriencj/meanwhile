@@ -50,10 +50,9 @@ static const char *mw_get_desc(struct mwService *srvc) {
 
 
 #if 0
-static void __attribute__((used)) _recv(struct mwService *srvc,
-					struct mwChannel *chan,
-					guint16 msg_type,
-					struct mwOpaque *data) {
+static void _recv(struct mwService *srvc, struct mwChannel *chan,
+		  guint16 msg_type, struct mwOpaque *data) {
+
   struct mwServicePyWrap *py_srvc;
   PyObject *sobj, *robj;
   PyObject *pbuf = PyBuffer_FromMemory(data->data, data->len);
@@ -306,6 +305,40 @@ static int py_set_state(mwPyService *self, PyObject *val, gpointer data) {
 }
 
 
+static PyObject *py_get_statestr(mwPyService *self, gpointer data) {
+  char *t = NULL;
+
+  guint32 state = (self->wrapped)? 
+    mwService_getState(self->wrapped):
+    mwService_getState(MW_SERVICE(self->wrapper));
+
+  switch(state) {
+  case mwServiceState_STOPPED:
+    t = "stopped"; break;
+  case mwServiceState_STOPPING:
+    t = "stopping"; break;
+  case mwServiceState_STARTED:
+    t = "started"; break;
+  case mwServiceState_STARTING:
+    t = "starting"; break;
+  case mwServiceState_ERROR:
+    t = "error"; break;
+
+  case mwServiceState_UNKNOWN:
+  default:
+    t = "UNKNOWN";
+  }
+
+  return PyString_FromString(t);
+}
+
+
+static int py_set_statestr(mwPyService *self, PyObject *val, gpointer data) {
+  PyErr_SetString(PyExc_TypeError, "member 'statestr' is read-only");
+  return -1;
+}
+
+
 static PyObject *py_get_session(mwPyService *self, gpointer data) {
   PyObject *ret = (PyObject *) self->session;
 
@@ -367,6 +400,9 @@ static PyGetSetDef tp_getset[] = {
 
   { "state", (getter) py_get_state, (setter) py_set_state,
     "read-only. The service's internal state", NULL },
+
+  { "statestr", (getter) py_get_statestr, (setter) py_set_statestr,
+    "read-only. Textual indicator of the service's internal state", NULL },
 
   { "session", (getter) py_get_session, (setter) py_set_session,
     "read-only. The service's owning Session" },

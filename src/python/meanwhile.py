@@ -1,4 +1,7 @@
 
+'''
+Wrappers for the Meanwhile library
+'''
 
 # todo: add more documentation for the base classes and their
 # call-back methods
@@ -13,6 +16,15 @@ from _meanwhile import Channel
 from _meanwhile import Service
 from _meanwhile import ServiceIm
 from _meanwhile import ServiceStorage
+
+from _meanwhile import \
+     SERVICE_STARTING, SERVICE_STARTED, SERVICE_STOPPING, SERVICE_STOPPED, \
+     SERVICE_ERROR, SERVICE_UNKNOWN
+
+from _meanwhile import \
+     SESSION_STARTING, SESSION_HANDSHAKE, SESSION_HANDSHAKE_ACK, \
+     SESSION_LOGIN, SESSION_LOGIN_REDIR, SESSION_LOGIN_ACK, \
+     SESSION_STARTED, SESSION_STOPPING, SESSION_STOPPED, SESSION_UNKNOWN
 
 
 class Session(_meanwhile.Session):
