@@ -113,9 +113,6 @@ static struct mwChannel *find_channel(struct mwChannelSet *cs,
       return c;
   }
 
-  g_message(" failed to find_channel for (%s, %s)\n",
-	    user->user, user->community);
-
   return NULL;
 }
 

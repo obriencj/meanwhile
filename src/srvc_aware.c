@@ -514,6 +514,11 @@ int mwAwareList_addAware(struct mwAwareList *list,
   g_message("adding %i buddies", count);
 
   for(; count--; id_list++) {
+    if(id_list->user == NULL || *id_list->user == '\0') {
+      g_info("buddy's user id is empty, skipping");
+      continue;
+    }
+
     aware = g_hash_table_lookup(list->entries, id_list);
     if(aware) {
       g_info("buddy: %s, %s already exists",

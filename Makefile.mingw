@@ -9,7 +9,8 @@
 ## INCLUDE  MAKEFILES
 ##
 
-include $(GAIM_TOP)/src/win32/global.mak
+#My Gaim src directory is just "GAIM" not GAIM0v.79 or whatever.  Change to match yours -jknight
+include ../gaim/src/win32/global.mak
 
 
 
