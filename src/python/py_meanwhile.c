@@ -39,10 +39,20 @@ PyMODINIT_FUNC init_meanwhile() {
   PyModule_AddIntConstant(m, "SESSION_STOPPED", mwSession_STOPPED);
   PyModule_AddIntConstant(m, "SESSION_UNKNOWN", mwSession_UNKNOWN);
 
+  PyModule_AddIntConstant(m, "AWARE_SERVER", mwAware_SERVER);
+  PyModule_AddIntConstant(m, "AWARE_USER", mwAware_USER);
+  PyModule_AddIntConstant(m, "AWARE_GROUP", mwAware_GROUP);
+
+  PyModule_AddIntConstant(m, "STATUS_ACTIVE", mwStatus_ACTIVE);
+  PyModule_AddIntConstant(m, "STATUS_IDLE", mwStatus_IDLE);
+  PyModule_AddIntConstant(m, "STATUS_AWAY", mwStatus_AWAY);
+  PyModule_AddIntConstant(m, "STATUS_BUSY", mwStatus_BUSY);
+
   PyModule_AddObject(m, "Channel", (PyObject *) mwPyChannel_type());
   PyModule_AddObject(m, "Service", (PyObject *) mwPyService_type());
   PyModule_AddObject(m, "Session", (PyObject *) mwPySession_type());
 
+  PyModule_AddObject(m, "ServiceAware", (PyObject *) mwPyServiceAware_type());
   PyModule_AddObject(m, "ServiceIm", (PyObject *) mwPyServiceIm_type());
   PyModule_AddObject(m, "ServiceStorage",
 		     (PyObject *) mwPyServiceStorage_type());

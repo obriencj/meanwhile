@@ -2,6 +2,7 @@
 #ifndef _HAVE_PYMW_H
 #define _HAVE_PYMW_H
 
+
 #include <glib/ghash.h>
 
 
@@ -40,6 +41,7 @@ struct pyObj_mwService {
   mwPySession *session;             /**< owning python session wrapper */
   struct mwServicePyWrap *wrapper;  /**< python wrapper service */
   struct mwService *wrapped;        /**< optional underlying service */
+  gpointer data;                    /**< optional additional data */
 };
 
 
@@ -59,6 +61,10 @@ struct mwServicePyWrap *mwServicePyWrap_wrap(mwPyService *self,
 
 /** the PyObject the wrapper service is connected to */
 mwPyService *mwServicePyWrap_getSelf(struct mwServicePyWrap *srvc);
+
+
+/** sub-type of mwPyService for wrapping a mwServiceAware instance */
+PyTypeObject *mwPyServiceAware_type();
 
 
 /** sub-type of mwPyService for wrapping a mwServiceIm instance */

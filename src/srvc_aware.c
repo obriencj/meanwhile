@@ -43,6 +43,7 @@ struct mwAwareList {
 
   /** user data for handler */
   gpointer on_aware_data;
+  GDestroyNotify on_aware_data_free;
 };
 
 
@@ -515,6 +516,9 @@ void mwAwareList_free(struct mwAwareList *list) {
   g_return_if_fail(list->entries != NULL);
   g_return_if_fail(list->service != NULL);
 
+  if(list->on_aware_data_free)
+    list->on_aware_data_free(list->on_aware_data);
+
   srvc = list->service;
   srvc->lists = g_list_remove(srvc->lists, list);
 
@@ -530,11 +534,12 @@ void mwAwareList_free(struct mwAwareList *list) {
 
 void mwAwareList_setOnAware(struct mwAwareList *list,
 			    mwAwareList_onAwareHandler cb,
-			    gpointer data) {
+			    gpointer data, GDestroyNotify data_free) {
 
   g_return_if_fail(list != NULL);
   list->on_aware = cb;
   list->on_aware_data = data;
+  list->on_aware_data_free = data_free;
 }
 
 

@@ -1,7 +1,7 @@
 
 
-#ifndef _MW_SRVC_AWARE_H_
-#define _MW_SRVC_AWARE_H_
+#ifndef _MW_SRVC_AWARE_H
+#define _MW_SRVC_AWARE_H
 
 
 #include "common.h"
@@ -68,12 +68,14 @@ int mwAwareList_removeAware(struct mwAwareList *list, GList *id_list);
 
 /** Utility function for registering a subscriber to the on-aware signal
     emitted by an aware list.
-    @param list  mwAwareList to listen for
-    @param cb    callback function
-    @param data  user-specific data to be passed along to cb
- */
+    @param list       mwAwareList to listen for
+    @param cb         callback function
+    @param data       optional user data to be passed along to cb
+    @param data_free  optional function to cleanup data on mwAwareList_free
+*/
 void mwAwareList_setOnAware(struct mwAwareList *list,
-			    mwAwareList_onAwareHandler cb, gpointer data);
+			    mwAwareList_onAwareHandler cb,
+			    gpointer data, GDestroyNotify data_free);
 
 
 /** trigger a got_aware event constructed from the passed user and

@@ -10,24 +10,34 @@ Wrappers for the Meanwhile library
 # some sort of synchronization wrapper around the feed thread, or
 # remove it. Maybe I can do that in the base type C implementations.
 
-
-import _meanwhile
 from _meanwhile import Channel
 from _meanwhile import Service
+from _meanwhile import ServiceAware
 from _meanwhile import ServiceIm
 from _meanwhile import ServiceStorage
+from _meanwhile import Session
 
+# service state values
 from _meanwhile import \
      SERVICE_STARTING, SERVICE_STARTED, SERVICE_STOPPING, SERVICE_STOPPED, \
      SERVICE_ERROR, SERVICE_UNKNOWN
 
+# session state values
 from _meanwhile import \
      SESSION_STARTING, SESSION_HANDSHAKE, SESSION_HANDSHAKE_ACK, \
      SESSION_LOGIN, SESSION_LOGIN_REDIR, SESSION_LOGIN_ACK, \
      SESSION_STARTED, SESSION_STOPPING, SESSION_STOPPED, SESSION_UNKNOWN
 
+# awareness id types
+from _meanwhile import \
+     AWARE_SERVER, AWARE_USER, AWARE_GROUP
 
-class Session(_meanwhile.Session):
+# awareness id states
+from _meanwhile import \
+     STATUS_ACTIVE, STATUS_IDLE, STATUS_AWAY, STATUS_BUSY
+
+
+class SocketSession(Session):
     '''
     '''
     
@@ -71,7 +81,7 @@ class Session(_meanwhile.Session):
         self._sock.connect(self._server)
         
         # resend the beginning data
-        _meanwhile.Session.start(self, self._id)
+        Session.start(self, self._id)
 
 
     def _recvLoop(self):
@@ -100,7 +110,7 @@ class Session(_meanwhile.Session):
         self._sock.connect(self._server)
         
         # send the beginning data
-        _meanwhile.Session.start(self, self._id)
+        Session.start(self, self._id)
 
         if background:
             # create a thread to continuously read from the server
