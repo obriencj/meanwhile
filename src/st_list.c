@@ -29,6 +29,7 @@ struct mwSametimeUser {
   struct mwIdBlock id;
   char *name;
   char *alias;
+  char type;
 };
 
 
@@ -99,8 +100,21 @@ static void collect(gpointer key, gpointer val, gpointer data) {
 
 GList *mwSametimeList_getGroups(struct mwSametimeList *l) {
   GList *list = NULL;
+
+  g_return_val_if_fail(l != NULL, NULL);
+
   g_hash_table_foreach(l->groups, collect, &list);
   return list;
+}
+
+
+struct mwSametimeGroup *mwSametimeList_getGroup(struct mwSametimeList *l,
+						const char *name) {
+  g_return_val_if_fail(l != NULL, NULL);
+  g_return_val_if_fail(name != NULL, NULL);
+  g_return_val_if_fail(strlen(name) > 0, NULL);
+
+  return (struct mwSametimeGroup *) g_hash_table_lookup(l->groups, name);
 }
 
 
@@ -171,6 +185,23 @@ void mwSametimeGroup_free(struct mwSametimeGroup *g) {
 const char *mwSametimeGroup_getName(struct mwSametimeGroup *g) {
   g_return_val_if_fail(g != NULL, NULL);
   return g->name;
+}
+
+
+void mwSametimeGroup_setName(struct mwSametimeGroup *g, const char *name) {
+  struct mwSametimeList *l;
+
+  g_return_if_fail(g != NULL);
+  g_return_if_fail(name != NULL);
+  g_return_if_fail(strlen(name) > 0);
+
+  l = g->list;
+  g_hash_table_remove(l->groups, g->name);
+
+  g_free(g->name);
+  g->name = g_strdup(name);
+
+  g_hash_table_insert(l->groups, g->name, g);
 }
 
 
@@ -379,6 +410,9 @@ static int get_user(char *b, struct mwSametimeList *l,
   g_return_val_if_fail(strlen(b) > 2, -1);
   g_return_val_if_fail(g != NULL, -1);
 
+  /* just get everything now */
+  str_replace(b, ';', ' ');
+
   id = b + 2; /* advance past "U " */
   tmp = strstr(b, "1:: "); /* backwards thinking saves overruns */
   if(! tmp) return -1;
@@ -387,26 +421,15 @@ static int get_user(char *b, struct mwSametimeList *l,
 
   name = b + 4; /* advance past the "1:: " */
 
-  tmp = strchr(name, id);
-
-  if(tmp) {
-    tmp += strlen(id);
-  } else {
-    tmp = strchr(name, ',');
-  }
-
+  tmp = strrchr(name, ',');
   if(tmp) {
     *tmp = '\0';
    
     tmp++;
     if(*tmp) {
-      str_replace(tmp, ';', ' ');
       alias = tmp;
     }
   }
-  
-  if(id && *id) str_replace(id, ';', ' ');
-  if(name && *name) str_replace(name, ';', ' ');
   
   idb.user = id;
   user = mwSametimeUser_new(g, &idb, name, alias);
@@ -487,6 +510,8 @@ static int put_user(char **b, gsize *n, struct mwSametimeUser *user) {
   if(id) str_replace(id, ' ', ';');
   if(name) str_replace(name, ' ', ';');
   if(alias) str_replace(alias, ' ', ';');
+
+  if(!name && alias) name = g_strdup(alias);
 
   writ = g_sprintf(*b, "U %s1:: %s,%s\n",
 		   id, name? name: id, alias? alias: "");
