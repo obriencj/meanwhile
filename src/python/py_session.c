@@ -29,12 +29,12 @@ static int mw_io_write(struct mwSession *s, const char *buf, gsize len) {
   pbuf = PyBuffer_FromMemory((char *) buf, len);
   g_return_val_if_fail(pbuf != NULL, -1);
 
-  robj = PyObject_CallMethod(sobj, ON_IO_WRITE, "N", pbuf);
+  robj = PyObject_CallMethod(sobj, ON_IO_WRITE, "O", pbuf);
 
   if(robj && PyInt_Check(robj))
     ret = (int) PyInt_AsLong(robj);
 
-  /* Py_DECREF(pbuf); */
+  Py_DECREF(pbuf);
   Py_XDECREF(robj);
 
   return ret;
