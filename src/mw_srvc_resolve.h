@@ -39,12 +39,12 @@ enum mwResolveFlag {
 };
 
 
+/** @see mwResolveResult */
 enum mwResolveCode {
   /** successful search */
   mwResolveCode_SUCCESS     = 0x00000000,
 
-  /** only some of the nested searches were successful. Unused in this
-      implementation, as we do not nest searches */
+  /** only some of the nested searches were successful */
   mwResolveCode_PARTIAL     = 0x00010000,
 
   /** more than one result (occurs when mwResolveFlag_UNIQUE is used
@@ -89,15 +89,15 @@ struct mwServiceResolve *mwServiceResolve_new(struct mwSession *);
 
 /** Inisitate a resolve request.
 
-    @param query    the query string
+    @param query    NULL terminated array of query strings
     @param flags    search flags
     @param handler  result handling function
     @param data     optional user data attached to the request
     @param cleanup  optional function to clean up user data
-    @return         the generated ID for the search request, or SEARCH_ERROR
+    @return         generated ID for the search request, or SEARCH_ERROR
 */
 guint32 mwServiceResolve_search(struct mwServiceResolve *srvc,
-				const char *query, enum mwResolveFlag flags,
+				const char *query[], enum mwResolveFlag flags,
 				mwResolveHandler handler,
 				gpointer data, GDestroyNotify cleanup);
 
