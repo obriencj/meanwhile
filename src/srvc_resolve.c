@@ -127,13 +127,17 @@ static void stop(struct mwServiceResolve *srvc) {
 
   /* destroy all the pending requests. */
   g_hash_table_destroy(srvc->searches);
+  srvc->searches = NULL;
   
   mwService_stopped(MW_SERVICE(srvc));
 }
 
 
 static void clear(struct mwServiceResolve *srvc) {
-  ;
+  if(srvc->searches) {
+    g_hash_table_destroy(srvc->searches);
+    srvc->searches = NULL;
+  }
 }
 
 

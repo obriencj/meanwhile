@@ -570,6 +570,8 @@ static void channel_recv(struct mwChannel *chan,
   struct mwService *srvc;
   srvc = mwChannel_getService(chan);
 
+  incr_stat(chan, mwChannelStat_MSG_RECV, 1);
+
   if(msg->head.options & mwMessageOption_ENCRYPT) {
     struct mwOpaque data = { 0, 0 };
     mwOpaque_clone(&data, &msg->data);
@@ -581,8 +583,6 @@ static void channel_recv(struct mwChannel *chan,
   } else {
     mwService_recv(srvc, chan, msg->type, &msg->data);
   }
-
-  incr_stat(chan, mwChannelStat_MSG_RECV, 1);
 }
 
 

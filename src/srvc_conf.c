@@ -532,18 +532,16 @@ static void recv(struct mwService *srvc, struct mwChannel *chan,
 }
 
 
-static void clear(struct mwService *srvc) {
-  struct mwServiceConference *srvc_conf;
-  GList *l;
+static void clear(struct mwServiceConference *srvc) {
+  struct mwConferenceHandler *h;
 
-  srvc_conf = (struct mwServiceConference *) srvc;
-  l = mwServiceConference_conferences(srvc_conf);
+  while(srvc->confs)
+    conf_free(srvc->confs->data);
 
-  for(; l; l = l->next)
-    mwConference_destroy(l->data, ERR_SUCCESS, NULL);
-
-  g_list_free(srvc_conf->confs);
-  srvc_conf->confs = NULL;
+  h = srvc->handler;
+  if(h && h->clear)
+    h->clear(srvc);
+  srvc->handler = NULL;
 }
 
 
@@ -562,9 +560,11 @@ static void start(struct mwService *srvc) {
 }
 
 
-static void stop(struct mwService *srvc) {
-  /** @todo stop and destroy all conferences */
-  mwService_stopped(srvc);
+static void stop(struct mwServiceConference *srvc) {
+  while(srvc->confs)
+    mwConference_destroy(srvc->confs->data, ERR_SUCCESS, NULL);
+
+  mwService_stopped(MW_SERVICE(srvc));
 }
 
 
@@ -583,12 +583,12 @@ mwServiceConference_new(struct mwSession *session,
 
   mwService_init(srvc, session, SERVICE_CONFERENCE);
   srvc->start = start;
-  srvc->stop = stop;
+  srvc->stop = (mwService_funcStop) stop;
   srvc->recv_create = recv_channelCreate;
   srvc->recv_accept = recv_channelAccept;
   srvc->recv_destroy = recv_channelDestroy;
   srvc->recv = recv;
-  srvc->clear = clear;
+  srvc->clear = (mwService_funcClear) clear;
   srvc->get_name = name;
   srvc->get_desc = desc;
 

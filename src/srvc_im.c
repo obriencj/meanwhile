@@ -241,6 +241,20 @@ static void convo_opened(struct mwConversation *conv) {
 }
 
 
+static void convo_free(struct mwConversation *conv) {
+  struct mwServiceIm *srvc;
+
+  srvc = conv->service;
+  srvc->convs = g_list_remove(srvc->convs, conv);
+
+  if(conv->clean)
+    conv->clean(conv->data);
+
+  mwIdBlock_clear(&conv->target);
+  g_free(conv);
+}
+
+
 static int send_accept(struct mwConversation *c) {
   struct mwChannel *chan = c->channel;
   struct mwSession *s = mwChannel_getSession(chan);
@@ -547,8 +561,16 @@ static void recv(struct mwService *srvc, struct mwChannel *chan,
 }
 
 
-static void clear(struct mwService *srvc) {
-  /** @todo get rid of the collection of conversations */
+static void clear(struct mwServiceIm *srvc) {
+  struct mwServiceImHandler *h;
+
+  while(srvc->convs)
+    convo_free(srvc->convs->data);
+
+  h = srvc->handler;
+  if(h && h->clear)
+    h->clear(srvc);
+  srvc->handler = NULL;
 }
 
 
@@ -567,9 +589,12 @@ static void start(struct mwService *srvc) {
 }
 
 
-static void stop(struct mwService *srvc) {
-  /** @todo close all open conversations */
-  mwService_stopped(srvc);
+static void stop(struct mwServiceIm *srvc) {
+
+  while(srvc->convs)
+    mwConversation_free(srvc->convs->data);
+
+  mwService_stopped(MW_SERVICE(srvc));
 }
 
 
@@ -590,11 +615,11 @@ struct mwServiceIm *mwServiceIm_new(struct mwSession *session,
   srvc->recv_accept = recv_channelAccept;
   srvc->recv_destroy = recv_channelDestroy;
   srvc->recv = recv;
-  srvc->clear = clear;
+  srvc->clear = (mwService_funcClear) clear;
   srvc->get_name = name;
   srvc->get_desc = desc;
   srvc->start = start;
-  srvc->stop = stop;
+  srvc->stop = (mwService_funcStop) stop;
 
   srvc_im->fancy = FALSE;
   srvc_im->handler = hndl;
@@ -873,20 +898,11 @@ void mwConversation_close(struct mwConversation *conv, guint32 reason) {
 
 
 void mwConversation_free(struct mwConversation *conv) {
-  struct mwServiceIm *srvc;
-
   g_return_if_fail(conv != NULL);
 
   if(! MW_CONVO_IS_CLOSED(conv))
     mwConversation_close(conv, ERR_SUCCESS);
 
-  srvc = conv->service;
-  srvc->convs = g_list_remove(srvc->convs, conv);
-
-  if(conv->clean)
-    conv->clean(conv->data);
-
-  mwIdBlock_clear(&conv->target);
-  g_free(conv);
+  convo_free(conv);
 }
 

@@ -14,7 +14,7 @@ struct mwSession;
 
 
 /** Type identifier for the conference service */
-#define SERVICE_CONFERENCE  0x00000010
+#define SERVICE_CONFERENCE  0x80000010
 
 
 enum mwConferenceState {

@@ -169,7 +169,7 @@ static void request_remove(struct mwServiceStorage *srvc,
 
 
 static const char *get_name(struct mwService *srvc) {
-  return "Storage Service";
+  return "User Storage";
 }
 
 

@@ -162,7 +162,11 @@ struct mwService {
       @relates mwService_stop */
   mwService_funcStop stop;
   
-  /** The service's cleanup handler.
+  /** The service's cleanup handler. Service implementations should
+      presume that mwService::stop will be called first. The clear
+      handler is not for shutting down channels or generating
+      non-cleanup side-effects, it is only for handling tear-down of
+      the service, and will only be called once for any instance.
 
       @relates mwService_free */
   mwService_funcClear clear;

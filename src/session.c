@@ -399,8 +399,10 @@ static void LOGIN_ACK_recv(struct mwSession *s,
   state(s, mwSession_STARTED, 0);
 
   /* send sense service requests for each added service */
-  for(ll = l = mwSession_getServices(s); l; l = l->next)
-    mwSession_senseService(s, mwService_getType(MW_SERVICE(l->data)));
+  for(ll = l = mwSession_getServices(s); l; l = l->next) {
+    /* mwSession_senseService(s, mwService_getType(MW_SERVICE(l->data))); */
+    mwService_start(l->data);
+  }
   g_list_free(ll);
 }
 
@@ -536,6 +538,7 @@ static void session_process(struct mwSession *s,
     g_warning("unknown message type 0x%04x, no handler", msg->type);
   }
 
+  mwGetBuffer_free(b);
   mwMessage_free(msg);
 }
 
