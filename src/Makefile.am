@@ -18,9 +18,9 @@ mwinclude_HEADERS = \
 	mw_st_list.h
 
 noinst_HEADERS = \
-	mw_compat.h \
 	mw_debug.h \
-	mw_util.h
+	mw_util.h \
+	mw_srvc_ft.h
 
 mwincludedir = $(includedir)/meanwhile
 
