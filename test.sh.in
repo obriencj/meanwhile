@@ -20,6 +20,14 @@ CONFIG="${dir}/test.conf"
 SCRIPT="${dir}/src/python/test.py"
 
 
+
+quiet_test() {
+    sh -c "$*" >/dev/null 2>&1
+    return $?
+}
+
+
+
 # if not configured with python support, than this script can't run
 if test "$PYTHON" = "" ; then
     echo "error: python support not built"
@@ -29,7 +37,7 @@ fi
 
 # Verify a setting for $EDITOR
 if test -z "${EDITOR}" ; then
-    if sh -c "vim --version" 2>&1 1> /dev/null; then
+    if quiet_test "vim --version" ; then
        EDITOR=vim
     else
        # Should we check for vi?  At least provide a message if we
@@ -100,7 +108,7 @@ if test "$1" = "debug" ; then
 # valgrind
 elif test "$1" = "valgrind" ; then
     shift
-    if sh -c "valgrind --version" 2>&1 1> /dev/null ; then
+    if quiet_test "valgrind --version" ; then
 	valgrind $* "$PYTHON" "$SCRIPT"
     else
 	echo "valgrind not found in \$PATH"
@@ -120,4 +128,3 @@ fi
 
 #
 # The End.
-
