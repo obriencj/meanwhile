@@ -53,8 +53,11 @@ enum mwResolveFlag {
   /** search all directories, not just the first with a match */
   mwResolveFlag_ALL_DIRS  = 0x00000004,
 
-  /** search for users. This should be set for all user searches */
+  /** search for users */
   mwResolveFlag_USERS     = 0x00000008,
+
+  /** search for groups */
+  mwResolveFlag_GROUPS    = 0x00000010,
 };
 
 
@@ -75,11 +78,17 @@ enum mwResolveCode {
 };
 
 
+enum mwResolveMatchType {
+  mwResolveMatch_USER   = 0x00000001,
+  mwResolveMatch_GROUP  = 0x00000002,
+};
+
+
 struct mwResolveMatch {
   char *id;      /**< user id */
   char *name;    /**< user name */
   char *desc;    /**< description */
-  guint32 type;  /**< match type, shouldl be 0x01 */
+  guint32 type;  /**< @see mwResolveMatchType */
 };
 
 

@@ -34,6 +34,7 @@ struct mwSession;
 
 
 /** @struct mwServiceAware
+
     Instance of an Aware Service. The members of this structure are
     not made available. Accessing the parts of an aware service should
     be performed through the appropriate functions. Note that
@@ -43,6 +44,7 @@ struct mwServiceAware;
 
 
 /** @struct mwAwareList
+
     Instance of an Aware List. The members of this structure are not
     made available. Access to the parts of an aware list should be
     handled through the appropriate functions.
@@ -50,26 +52,123 @@ struct mwServiceAware;
 struct mwAwareList;
 
 
+/** @struct mwAwareAttribute
+
+    Key/Value pair indicating an identity's attribute.
+ */
+struct mwAwareAttribute;
+
+
+/** Predefined keys appropriate for a mwAwareAttribute
+ */
+enum mwAwareAttributeKeys {
+  mwAttribute_AV_PREFS_SET   = 0x01, /**< A/V prefs specified, gboolean */
+  mwAttribute_MICROPHONE     = 0x02, /**< has a microphone, gboolean */
+  mwAttribute_SPEAKERS       = 0x03, /**< has speakers, gboolean */
+  mwAttribute_VIDEO_CAMERA   = 0x04, /**< has a video camera, gboolean */
+  mwAttribute_FILE_TRANSFER  = 0x06, /**< supports file transfers, gboolean */
+};
+
+
+typedef void (*mwAwareAttributeHandler)
+     (struct mwServiceAware *srvc,
+      struct mwAwareAttribute *attrib);
+
+
+struct mwAwareHandler {
+  mwAwareAttributeHandler on_attrib;
+  void (*clear)(struct mwServiceAware *srvc);
+};
+
+
 /** Appropriate function type for the on-aware signal
+
     @param list  mwAwareList emiting the signal
     @param id    awareness status information
     @param data  user-specified data
 */
-typedef void (*mwAwareList_onAwareHandler)
+typedef void (*mwAwareSnapshotHandler)
      (struct mwAwareList *list,
-      struct mwAwareSnapshot *id,
-      gpointer data);
+      struct mwAwareSnapshot *id);
 
 
-struct mwServiceAware *mwServiceAware_new(struct mwSession *);
+/** Appropriate function type for the on-option signal. The option's
+    value may need to be explicitly loaded in some instances,
+    resulting in this handler being triggered again.
+
+    @param list    mwAwareList emiting the signal
+    @param id      awareness the attribute belongs to
+    @param attrib  attribute
+*/
+typedef void (*mwAwareIdAttributeHandler)
+     (struct mwAwareList *list,
+      struct mwAwareIdBlock *id,
+      struct mwAwareAttribute *attrib);
 
 
-/** Allocate and initialize an aware list. */
-struct mwAwareList *mwAwareList_new(struct mwServiceAware *);
+struct mwAwareListHandler {
+  /** handle aware updates */
+  mwAwareSnapshotHandler on_aware;
+
+  /** handle attribute updates */
+  mwAwareIdAttributeHandler on_attrib;
+
+  /** optiona. Called from mwAwareList_free */
+  void (*clear)(struct mwAwareList *list);
+};
 
 
-/** Clean and free an aware list. Will remove all signal subscribers */
+struct mwServiceAware *
+mwServiceAware_new(struct mwSession *session,
+		   struct mwAwareHandler *handler);
+
+
+int mwServiceAware_setAttribute(struct mwServiceAware *srvc,
+				struct mwAwareAttribute *attrib);
+
+
+int mwServiceAware_deleteAttribute(struct mwServiceAware *srvc,
+				   guint32 key);
+
+
+struct mwAwareAttribute *
+mwAwareAttribute_newBoolean(guint32 key, gboolean val);
+
+
+struct mwAwareAttribute *
+mwAwareAttribute_newInteger(guint32 key, guint32 val);
+
+
+struct mwAwareAttribute *
+mwAwareAttribute_newString(guint32 key, const char *str);
+
+
+guint32 mwAwareAttribute_getKey(struct mwAwareAttribute *attrib);
+
+
+gboolean mwAwareAttribute_asBoolean(struct mwAwareAttribute *attrib);
+
+
+guint32 mwAwareAttribute_asInteger(struct mwAwareAttribute *attrib);
+
+
+char *mwAwareAttribute_asString(struct mwAwareAttribute *attrib);
+
+
+void mwAwareAttribute_free(struct mwAwareAttribute *attrib);
+
+
+/** Allocate and initialize an aware list */
+struct mwAwareList *
+mwAwareList_new(struct mwServiceAware *srvc,
+		struct mwAwareListHandler *handler);
+
+
+/** Clean and free an aware list */
 void mwAwareList_free(struct mwAwareList *list);
+
+
+struct mwAwareListHandler *mwAwareList_getHandler(struct mwAwareList *list);
 
 
 /** Add a collection of user IDs to an aware list.
@@ -88,16 +187,14 @@ int mwAwareList_addAware(struct mwAwareList *list, GList *id_list);
 int mwAwareList_removeAware(struct mwAwareList *list, GList *id_list);
 
 
-/** Utility function for registering a subscriber to the on-aware signal
-    emitted by an aware list.
-    @param list       mwAwareList to listen for
-    @param cb         callback function
-    @param data       optional user data to be passed along to cb
-    @param data_free  optional function to cleanup data on mwAwareList_free
-*/
-void mwAwareList_setOnAware(struct mwAwareList *list,
-			    mwAwareList_onAwareHandler cb,
-			    gpointer data, GDestroyNotify data_free);
+void mwAwareList_setClientData(struct mwAwareList *list,
+			       gpointer data, GDestroyNotify cleanup);
+
+
+void mwAwareList_removeClientData(struct mwAwareList *list);
+
+
+gpointer mwAwareList_getClientData(struct mwAwareList *list);
 
 
 /** trigger a got_aware event constructed from the passed user and

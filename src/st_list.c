@@ -426,7 +426,7 @@ static void group_put(GString *str, struct mwSametimeGroup *g) {
   GList *gl;
 
   name = g_strdup(g->name);
-  alias = g_strdup(g->alias);
+  alias = g_strdup((g->alias)? g->alias: name);
   type = group_type_to_char(g->type);
 
   str_replace(name, ' ', ';');
@@ -444,14 +444,13 @@ static void group_put(GString *str, struct mwSametimeGroup *g) {
 }
 
 
-void mwSametimeList_put(struct mwPutBuffer *b, struct mwSametimeList *l) {
+/** composes a GString with the written contents of a sametime list */
+static GString *list_store(struct mwSametimeList *l) {
   GString *str;
-  guint16 len;
   GList *gl;
 
-  g_return_if_fail(l != NULL);
-  g_return_if_fail(b != NULL);
-  
+  g_return_val_if_fail(l != NULL, NULL);
+
   str = g_string_new(NULL);
   g_string_append_printf(str, "Version=%u.%u.%u\r\n",
 			 l->ver_major, l->ver_minor, l->ver_micro);
@@ -460,6 +459,31 @@ void mwSametimeList_put(struct mwPutBuffer *b, struct mwSametimeList *l) {
     group_put(str, gl->data);
   }
 
+  return str;
+}
+
+
+char *mwSametimeList_store(struct mwSametimeList *l) {
+  GString *str;
+  char *s;
+
+  g_return_val_if_fail(l != NULL, NULL);
+
+  str = list_store(l);
+  s = str->str;
+  g_string_free(str, FALSE);
+  return s;
+}
+
+
+void mwSametimeList_put(struct mwPutBuffer *b, struct mwSametimeList *l) {
+  GString *str;
+  guint16 len;
+
+  g_return_if_fail(l != NULL);
+  g_return_if_fail(b != NULL);
+
+  str = list_store(l);
   len = (guint16) str->len;
   guint16_put(b, len);
   mwPutBuffer_write(b, str->str, len);
@@ -571,6 +595,7 @@ static void get_user(const char *line, struct mwSametimeGroup *g) {
 }
 
 
+/** returns a line from str, and advances str */
 static char *fetch_line(char **str) {
   char *start = *str;
   char *end;
@@ -615,6 +640,18 @@ void list_get(const char *lines, struct mwSametimeList *l) {
       g_warning("unknown sametime list data line:\n%s", line);
     }
   }  
+}
+
+
+struct mwSametimeList *mwSametimeList_load(const char *data) {
+  struct mwSametimeList *l;
+
+  g_return_val_if_fail(data != NULL, NULL);
+  
+  l = mwSametimeList_new();
+  list_get(data, l);
+
+  return l;
 }
 
 

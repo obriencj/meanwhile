@@ -72,12 +72,24 @@ struct mwSametimeList *mwSametimeList_new();
 void mwSametimeList_free(struct mwSametimeList *l);
 
 
-/** Load a sametime list from a buffer */
+/** Load a sametime list from a buffer. The list must be encapsulated
+    as a string (eg, the first two bytes in the buffer should be the
+    length of the string) */
 void mwSametimeList_get(struct mwGetBuffer *b, struct mwSametimeList *l);
 
 
-/** Write a sametime list onto a buffer */
+/** Write a sametime list onto a buffer. The list will be encapsulated
+    in a string (the first two bytes written will be the length of the
+    rest of the written list data) */
 void mwSametimeList_put(struct mwPutBuffer *b, struct mwSametimeList *l);
+
+
+/** convert a plain string into a sametime list */
+struct mwSametimeList *mwSametimeList_load(const char *str);
+
+
+/** convert a sametime list into a string */
+char *mwSametimeList_store(struct mwSametimeList *l);
 
 
 void mwSametimeList_setMajor(struct mwSametimeList *l, guint v);

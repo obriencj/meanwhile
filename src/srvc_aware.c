@@ -36,6 +36,8 @@
 struct mwServiceAware {
   struct mwService service;
 
+  struct mwAwareHandler *handler;
+
   /** map of ENTRY_KEY(aware_entry):aware_entry */
   GHashTable *entries;
 
@@ -56,12 +58,14 @@ struct mwAwareList {
   /** map of ENTRY_KEY(aware_entry):aware_entry */
   GHashTable *entries;
 
-  /** handler for awarenes events */
-  mwAwareList_onAwareHandler on_aware;
+  struct mwAwareListHandler *handler;
+  struct mw_datum client_data;
+};
 
-  /** user data for handler */
-  gpointer on_aware_data;
-  GDestroyNotify on_aware_data_free;
+
+struct mwAwareAttribute {
+  guint32 key;
+  struct mwOpaque data;
 };
 
 
@@ -76,12 +80,20 @@ struct aware_entry {
 
 
 /** the channel send types used by this service */
-enum send_types {
-  mwChannelSend_AWARE_ADD       = 0x0068,
-  mwChannelSend_AWARE_REMOVE    = 0x0069,
-  mwChannelSend_AWARE_SNAPSHOT  = 0x01f4,
-  mwChannelSend_AWARE_UPDATE    = 0x01f5,
-  mwChannelSend_AWARE_GROUP     = 0x01f6,
+enum msg_types {
+  msg_AWARE_ADD       = 0x0068,
+  msg_AWARE_REMOVE    = 0x0069,
+  msg_AWARE_SNAPSHOT  = 0x01f4,
+  msg_AWARE_UPDATE    = 0x01f5,
+  msg_AWARE_GROUP     = 0x01f6,
+
+  msg_OPT_DO_SET      = 0x00c9,
+  msg_OPT_DO_UNSET    = 0x00ca,
+
+  msg_OPT_GOT_SET     = 0x0259,
+
+  msg_OPT_DID_SET     = 0x025d,
+  msg_OPT_DID_UNSET   = 0x025f,
 };
 
 
@@ -138,7 +150,7 @@ static int send_add(struct mwChannel *chan, GList *id_list) {
 
   mwPutBuffer_finalize(&o, b);
 
-  ret = mwChannel_send(chan, mwChannelSend_AWARE_ADD, &o);
+  ret = mwChannel_send(chan, msg_AWARE_ADD, &o);
   mwOpaque_clear(&o);
 
   return ret;  
@@ -153,7 +165,7 @@ static int send_rem(struct mwChannel *chan, GList *id_list) {
   compose_list(b, id_list);
   mwPutBuffer_finalize(&o, b);
 
-  ret = mwChannel_send(chan, mwChannelSend_AWARE_REMOVE, &o);
+  ret = mwChannel_send(chan, msg_AWARE_REMOVE, &o);
   mwOpaque_clear(&o);
 
   return ret;
@@ -161,8 +173,8 @@ static int send_rem(struct mwChannel *chan, GList *id_list) {
 
 
 static gboolean collect_dead(gpointer key, gpointer val, gpointer data) {
-  struct aware_entry *aware = (struct aware_entry *) val;
-  GList **dead = (GList **) data;
+  struct aware_entry *aware = val;
+  GList **dead = data;
 
   if(aware->membership == NULL) {
     g_info(" removing %s, %s",
@@ -233,6 +245,7 @@ static void recv_destroy(struct mwServiceAware *srvc,
 
   srvc->channel = NULL;
   mwService_stop(MW_SERVICE(srvc));
+
   /** @todo session sense service */
 }
 
@@ -261,8 +274,9 @@ static void status_recv(struct mwServiceAware *srvc,
   /* trigger each of the entry's lists */
   for(l = aware->membership; l; l = l->next) {
     struct mwAwareList *alist = l->data;
-    if(alist->on_aware)
-      alist->on_aware(alist, &aware->aware, alist->on_aware_data);
+    struct mwAwareListHandler *handler = alist->handler;
+    if(handler && handler->on_aware)
+      handler->on_aware(alist, &aware->aware);
   }
 }
 
@@ -387,15 +401,15 @@ static void recv(struct mwService *srvc, struct mwChannel *chan,
   b = mwGetBuffer_wrap(data);
 
   switch(type) {
-  case mwChannelSend_AWARE_SNAPSHOT:
+  case msg_AWARE_SNAPSHOT:
     SNAPSHOT_recv(srvc_aware, b);
     break;
 
-  case mwChannelSend_AWARE_UPDATE:
+  case msg_AWARE_UPDATE:
     UPDATE_recv(srvc_aware, b);
     break;
 
-  case mwChannelSend_AWARE_GROUP:
+  case msg_AWARE_GROUP:
     GROUP_recv(srvc_aware, b);
     break;
 
@@ -467,13 +481,18 @@ static void stop(struct mwService *srvc) {
 }
 
 
-struct mwServiceAware *mwServiceAware_new(struct mwSession *session) {
+struct mwServiceAware *
+mwServiceAware_new(struct mwSession *session,
+		   struct mwAwareHandler *handler) {
+
   struct mwService *service;
   struct mwServiceAware *srvc;
 
-  g_assert(session);
+  g_return_val_if_fail(session != NULL, NULL);
+  g_return_val_if_fail(handler != NULL, NULL);
 
   srvc = g_new0(struct mwServiceAware, 1);
+  srvc->handler = handler;
   srvc->entries = g_hash_table_new_full((GHashFunc) mwAwareIdBlock_hash,
 					(GEqualFunc) mwAwareIdBlock_equal,
 					NULL,
@@ -496,15 +515,21 @@ struct mwServiceAware *mwServiceAware_new(struct mwSession *session) {
 }
 
 
-struct mwAwareList *mwAwareList_new(struct mwServiceAware *srvc) {
+struct mwAwareList *
+mwAwareList_new(struct mwServiceAware *srvc,
+		struct mwAwareListHandler *handler) {
+
   struct mwAwareList *al;
 
-  g_return_val_if_fail(srvc, NULL);
+  g_return_val_if_fail(srvc != NULL, NULL);
+  g_return_val_if_fail(handler != NULL, NULL);
 
   al = g_new0(struct mwAwareList, 1);
   al->service = srvc;
   al->entries = g_hash_table_new((GHashFunc) mwAwareIdBlock_hash,
 				 (GEqualFunc) mwAwareIdBlock_equal);
+  al->handler = handler;
+
   return al;
 }
 
@@ -518,13 +543,19 @@ static void dismember_aware(gpointer k, struct aware_entry *aware,
 
 void mwAwareList_free(struct mwAwareList *list) {
   struct mwServiceAware *srvc;
+  struct mwAwareListHandler *handler;
 
   g_return_if_fail(list != NULL);
   g_return_if_fail(list->entries != NULL);
   g_return_if_fail(list->service != NULL);
 
-  if(list->on_aware_data_free)
-    list->on_aware_data_free(list->on_aware_data);
+  handler = list->handler;
+  if(handler && handler->clear) {
+    handler->clear(list);
+    list->handler = NULL;
+  }
+
+  mw_datum_clear(&list->client_data);
 
   srvc = list->service;
   srvc->lists = g_list_remove(srvc->lists, list);
@@ -539,14 +570,9 @@ void mwAwareList_free(struct mwAwareList *list) {
 }
 
 
-void mwAwareList_setOnAware(struct mwAwareList *list,
-			    mwAwareList_onAwareHandler cb,
-			    gpointer data, GDestroyNotify data_free) {
-
-  g_return_if_fail(list != NULL);
-  list->on_aware = cb;
-  list->on_aware_data = data;
-  list->on_aware_data_free = data_free;
+struct mwAwareListHandler *mwAwareList_getHandler(struct mwAwareList *list) {
+  g_return_val_if_fail(list != NULL, NULL);
+  return list->handler;
 }
 
 
@@ -618,6 +644,26 @@ int mwAwareList_removeAware(struct mwAwareList *list, GList *id_list) {
   }
 
   return remove_unused(srvc);
+}
+
+
+void mwAwareList_setClientData(struct mwAwareList *list,
+			       gpointer data, GDestroyNotify clear) {
+
+  g_return_if_fail(list != NULL);
+  mw_datum_set(&list->client_data, data, clear);
+}
+
+
+gpointer mwAwareList_getClientData(struct mwAwareList *list) {
+  g_return_val_if_fail(list != NULL, NULL);
+  return mw_datum_get(&list->client_data);
+}
+
+
+void mwAwareList_removeClientData(struct mwAwareList *list) {
+  g_return_if_fail(list != NULL);
+  mw_datum_clear(&list->client_data);
 }
 
 
