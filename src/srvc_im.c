@@ -527,7 +527,7 @@ static void recv_data(struct mwServiceIm *srvc, struct mwChannel *chan,
   default:
     g_warning("unknown data message type in IM service:"
 	      " (0x%08x, 0x%08x)", type, subtype);
-    pretty_opaque(&o);
+    pretty_print_opaque(&o);
   }
 
   mwOpaque_clear(&o);

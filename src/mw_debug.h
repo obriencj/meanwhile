@@ -45,46 +45,66 @@
 #endif
 
 
-/** define DEBUG to have buf printed in hex pairs to stdout */
+/** logs buf as hex pairs. Requires DEBUG enabled during build */
 void pretty_print(const char *buf, gsize len);
 
 
-/** define DEBUG to have struct mwOpaque *opaque printed in hex pairs
-    to stdout */
-#define pretty_opaque(opaque) \
-  pretty_print((opaque)->data, (opaque)->len)
+/** logs block as hex pairs. Requires DEBUG enabled during build */
+void pretty_print_opaque(struct mwOpaque *block);
 
 
 #ifndef MW_MAILME_ADDRESS
+/** email address used in mw_debug_mailme. */
 #define MW_MAILME_ADDRESS  "meanwhile-devel@lists.sourceforge.net"
 #endif
 
 
 #ifndef MW_MAILME_CUT_START
-#define MW_MAILME_CUT_START  "\n-------- begin copy --------\n"
+#define MW_MAILME_CUT_START  "-------- begin copy --------"
 #endif
 
 
 #ifndef MW_MAILME_CUT_STOP
-#define MW_MAILME_CUT_STOP   "--------- end copy ---------\n"
+#define MW_MAILME_CUT_STOP   "--------- end copy ---------"
 #endif
 
 
 #ifndef MW_MAILME_MESSAGE
+/** message used in mw_debug_mailme instructing user on what to do
+    with the debugging output produced from that function */
 #define MW_MAILME_MESSAGE "\n" \
  "  Greetings! It seems that you've run across protocol data that the\n" \
  "Meanwhile library does not yet know about. As such, there may be\n"    \
  "some unexpected behaviour in this session. If you'd like to help\n"    \
  "resolve this issue, please copy and paste the following block into\n"  \
  "an email to the address listed below with a brief explanation of\n"    \
- "what you were doing at the time of this message. Thanks a lot!\n"      \
- "  Please send mail to: " MW_MAILME_ADDRESS
+ "what you were doing at the time of this message. Thanks a lot!"
 #endif
 
 
-void mw_debug_mailme_v(struct mwOpaque *block, const char *info, va_list args);
+/** Outputs a hex dump of a mwOpaque with debugging info and a
+    pre-defined message. Identical to mw_debug_mailme, but taking a
+    va_list argument */
+void mw_debug_mailme_v(struct mwOpaque *block,
+		       const char *info, va_list args);
 
 
+/** Outputs a hex dump of a mwOpaque with debugging info and a
+    pre-defined message.
+
+    @arg block  data to be printed in a hex block
+    @arg info   a printf-style format string
+
+    The resulting message is in the following format:
+    @code
+    MW_MAILME_MESSAGE
+    " Please send mail to: " MW_MAILME_ADDRESS
+    MW_MAILME_CUT_START
+    info
+    block
+    MW_MAILME_CUT_STOP
+    @endcode
+ */
 void mw_debug_mailme(struct mwOpaque *block, const char *info, ...);
 
 

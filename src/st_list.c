@@ -391,7 +391,7 @@ static void user_put(GString *str, struct mwSametimeUser *u) {
     alias = NULL;
   }
 
-  g_string_append_printf(str, "U %s%c:: %s,%s\n",
+  g_string_append_printf(str, "U %s%c:: %s,%s\r\n",
 			 id, type, (name? name: ""), (alias? alias: ""));
 
   g_free(id);
@@ -431,7 +431,7 @@ static void group_put(GString *str, struct mwSametimeGroup *g) {
   if(name) str_replace(name, ' ', ';');
   if(alias) str_replace(alias, ' ', ';');
 
-  g_string_append_printf(str, "G %s%c %s %c\n",
+  g_string_append_printf(str, "G %s%c %s %c\r\n",
 			 name, type, alias, (g->open? 'O':'C'));
 
   for(gl = g->users; gl; gl = gl->next) {
@@ -445,22 +445,22 @@ static void group_put(GString *str, struct mwSametimeGroup *g) {
 
 void mwSametimeList_put(struct mwPutBuffer *b, struct mwSametimeList *l) {
   GString *str;
-  guint32 len;
+  guint16 len;
   GList *gl;
 
   g_return_if_fail(l != NULL);
   g_return_if_fail(b != NULL);
   
   str = g_string_new(NULL);
-  g_string_append_printf(str, "Version=%u.%u.%u\n",
+  g_string_append_printf(str, "Version=%u.%u.%u\r\n",
 			 l->ver_major, l->ver_minor, l->ver_micro);
 
   for(gl = l->groups; gl; gl = gl->next) {
     group_put(str, gl->data);
   }
 
-  len = (guint32) str->len;
-  guint32_put(b, len);
+  len = (guint16) str->len;
+  guint16_put(b, len);
   mwPutBuffer_write(b, str->str, len);
 
   g_string_free(str, TRUE);
@@ -501,7 +501,9 @@ static struct mwSametimeGroup *get_group(const char *line,
   }
   
   if(name && *name) {
-    type = name[strlen(name)-1];
+    int l = strlen(name)-1;
+    type = name[l];
+    name[l] = '\0';
   }
 
   group = g_new0(struct mwSametimeGroup, 1);
@@ -525,9 +527,10 @@ static void get_user(const char *line, struct mwSametimeGroup *g) {
   int ret;
   
   ret = strlen(line);
+  idb.user = g_malloc0(ret);
   name = g_malloc0(ret);
 
-  ret = sscanf(line, "U %s:: %s\n",
+  ret = sscanf(line, "U %s %s",
 	       idb.user, name);
 
   if(ret < 2) {
@@ -535,7 +538,9 @@ static void get_user(const char *line, struct mwSametimeGroup *g) {
   }
 
   if(idb.user && *idb.user) {
-    type = idb.user[strlen(idb.user)];
+    int l = strlen(idb.user) - 3;
+    type = idb.user[l];
+    idb.user[l] = '\0';
   }
 
   if(name && *name) {
@@ -577,17 +582,11 @@ static char *fetch_line(char **str) {
 }
 
 
-void mwSametimeList_get(struct mwGetBuffer *b, struct mwSametimeList *l) {
-  char *str = NULL;
-  char *s, *line;
+void list_get(const char *lines, struct mwSametimeList *l) {
+  char *s = (char *) lines;
+  char *line;
 
   struct mwSametimeGroup *g = NULL;
-
-  g_return_if_fail(l != NULL);
-  g_return_if_fail(b != NULL);
-
-  mwString_get(b, &str);
-  s = str;
   
   while( (line = fetch_line(&s)) ) {
     switch(*line) {
@@ -606,8 +605,18 @@ void mwSametimeList_get(struct mwGetBuffer *b, struct mwSametimeList *l) {
     default:
       g_warning("unknown sametime list data line:\n%s", line);
     }
-  }
+  }  
+}
 
+
+void mwSametimeList_get(struct mwGetBuffer *b, struct mwSametimeList *l) {
+  char *str = NULL;
+
+  g_return_if_fail(l != NULL);
+  g_return_if_fail(b != NULL);
+
+  mwString_get(b, &str);
+  list_get(str, l);
   g_free(str);
 }
 

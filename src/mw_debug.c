@@ -30,6 +30,7 @@
 
 
 #ifdef DEBUG
+/** writes hex pairs of buf to str */
 static void t_pretty_print(GString *str, const char *buf, gsize len) {
   while(len) {
     if(len >= 16) {
@@ -60,12 +61,23 @@ static void t_pretty_print(GString *str, const char *buf, gsize len) {
 
 void pretty_print(const char *buf, gsize len) {
 #ifdef DEBUG
-  GString *str = g_string_new(NULL);
+  GString *str;
+
+  g_return_if_fail(buf != NULL);
+  if(! len) return;
+
+  str = g_string_new(NULL);
   t_pretty_print(str, buf, len);
   g_debug(str->str);
   g_string_free(str, TRUE);
 #endif
   ;
+}
+
+
+void pretty_print_opaque(struct mwOpaque *o) {
+  g_return_if_fail(o != NULL);
+  pretty_print(o->data, o->len);
 }
 
 
@@ -83,7 +95,9 @@ void mw_debug_mailme_v(struct mwOpaque *block,
   GString *str;
   char *txt;
 
-  str = g_string_new(MW_MAILME_MESSAGE MW_MAILME_CUT_START);
+  str = g_string_new(MW_MAILME_MESSAGE "\n"
+		     "  Please send mail to: " MW_MAILME_ADDRESS "\n"
+		     MW_MAILME_CUT_START "\n");
 
   txt = g_strdup_vprintf(info, args);
   g_string_append(str, txt);
