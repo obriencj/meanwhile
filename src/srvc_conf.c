@@ -8,15 +8,14 @@
 #include <string.h>
 #include <time.h>
 
-#include "srvc_conf.h"
-
-#include "channel.h"
-#include "compat.h"
-#include "error.h"
-#include "message.h"
+#include "mw_channel.h"
+#include "mw_compat.h"
 #include "mw_debug.h"
-#include "service.h"
-#include "session.h"
+#include "mw_error.h"
+#include "mw_message.h"
+#include "mw_service.h"
+#include "mw_session.h"
+#include "mw_srvc_conf.h"
 
 
 /* This thing needs a re-write. More than anything else, I need to

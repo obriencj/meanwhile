@@ -4,7 +4,7 @@
 
 
 #include <glib.h>
-#include "common.h"
+#include "mw_common.h"
 
 
 /* place-holder */

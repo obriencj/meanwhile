@@ -4,8 +4,8 @@
 #include <structmember.h>
 
 #include "py_meanwhile.h"
-#include "../channel.h"
-#include "../session.h"
+#include "../mw_channel.h"
+#include "../mw_session.h"
 
 
 static PyObject *py_get_id(mwPyChannel *self, gpointer data) {

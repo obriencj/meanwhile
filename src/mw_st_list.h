@@ -1,12 +1,12 @@
 
 
-#ifndef _MW_ST_LIST_H_
-#define _MW_ST_LIST_H_
+#ifndef _MW_ST_LIST_H
+#define _MW_ST_LIST_H
 
 
 #include <glib.h>
 #include <glib/glist.h>
-#include "common.h"
+#include "mw_common.h"
 
 
 #define LIST_VERSION_MAJOR     3

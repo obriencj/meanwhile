@@ -1,11 +1,11 @@
 
 
-#ifndef _MW_SRVC_CONF
-#define _MW_SRVC_CONF
+#ifndef _MW_SRVC_CONF_H
+#define _MW_SRVC_CONF_H
 
 
 #include <glib/glist.h>
-#include "common.h"
+#include "mw_common.h"
 
 
 /* place-holder */

@@ -5,13 +5,13 @@
 #include <glib/glist.h>
 #include <string.h>
 
-#include "channel.h"
-#include "cipher.h"
-#include "error.h"
-#include "message.h"
+#include "mw_channel.h"
+#include "mw_cipher.h"
 #include "mw_debug.h"
-#include "service.h"
-#include "session.h"
+#include "mw_error.h"
+#include "mw_message.h"
+#include "mw_service.h"
+#include "mw_session.h"
 
 
 /** @todo reorganize this file, stuff is just strewn about */
@@ -304,7 +304,7 @@ int mwChannel_create(struct mwChannel *chan) {
 
   g_return_val_if_fail(chan != NULL, -1);
   g_return_val_if_fail(chan->state == mwChannel_INIT, -1);
-  g_return_val_if_fail(CHAN_IS_OUTGOING(chan), -1);
+  g_return_val_if_fail(MW_CHAN_IS_OUTGOING(chan), -1);
 
   msg = (struct mwMsgChannelCreate *)
     mwMessage_new(mwMessage_CHANNEL_CREATE);
@@ -355,7 +355,7 @@ int mwChannel_accept(struct mwChannel *chan) {
   int ret;
 
   g_return_val_if_fail(chan != NULL, -1);
-  g_return_val_if_fail(CHAN_IS_INCOMING(chan), -1);
+  g_return_val_if_fail(MW_CHAN_IS_INCOMING(chan), -1);
   g_return_val_if_fail(chan->state == mwChannel_WAIT, -1);
 
   session = chan->session;
@@ -660,7 +660,7 @@ void mwChannel_recvCreate(struct mwChannel *chan,
   session = chan->session;
   g_return_if_fail(session != NULL);
 
-  if(CHAN_IS_OUTGOING(chan)) {
+  if(MW_CHAN_IS_OUTGOING(chan)) {
     g_warning("channel 0x%08x not an incoming channel", chan->id);
     mwChannel_destroy(chan, ERR_REQUEST_INVALID, NULL);
     return;
@@ -719,7 +719,7 @@ void mwChannel_recvAccept(struct mwChannel *chan,
   g_return_if_fail(msg != NULL);
   g_return_if_fail(chan->id == msg->head.channel);
 
-  if(CHAN_IS_INCOMING(chan)) {
+  if(MW_CHAN_IS_INCOMING(chan)) {
     g_warning("channel 0x%08x not an outgoing channel", chan->id);
     mwChannel_destroy(chan, ERR_REQUEST_INVALID, NULL);
     return;

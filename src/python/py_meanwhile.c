@@ -2,8 +2,10 @@
 
 #include <Python.h>
 #include "py_meanwhile.h"
-#include "../service.h"
-#include "../session.h"
+#include "../mw_service.h"
+#include "../mw_session.h"
+#include "../mw_srvc_aware.h"
+#include "../mw_srvc_im.h"
 
 
 #ifndef PyMODINIT_FUNC
@@ -21,6 +23,7 @@ PyMODINIT_FUNC init_meanwhile() {
 
   m = Py_InitModule3("_meanwhile", _methods, "Meanwhile client module");
 
+  /* service state constants */
   PyModule_AddIntConstant(m, "SERVICE_STARTING", mwServiceState_STARTING);
   PyModule_AddIntConstant(m, "SERVICE_STARTED", mwServiceState_STARTED);
   PyModule_AddIntConstant(m, "SERVICE_STOPPING", mwServiceState_STOPPING);
@@ -28,6 +31,7 @@ PyMODINIT_FUNC init_meanwhile() {
   PyModule_AddIntConstant(m, "SERVICE_ERROR", mwServiceState_ERROR);
   PyModule_AddIntConstant(m, "SERVICE_UNKNOWN", mwServiceState_UNKNOWN);
 
+  /* session state constants */
   PyModule_AddIntConstant(m, "SESSION_STARTING", mwSession_STARTING);
   PyModule_AddIntConstant(m, "SESSION_HANDSHAKE", mwSession_HANDSHAKE);
   PyModule_AddIntConstant(m, "SESSION_HANDSHAKE_ACK", mwSession_HANDSHAKE_ACK);
@@ -39,14 +43,28 @@ PyMODINIT_FUNC init_meanwhile() {
   PyModule_AddIntConstant(m, "SESSION_STOPPED", mwSession_STOPPED);
   PyModule_AddIntConstant(m, "SESSION_UNKNOWN", mwSession_UNKNOWN);
 
-  PyModule_AddIntConstant(m, "AWARE_SERVER", mwAware_SERVER);
-  PyModule_AddIntConstant(m, "AWARE_USER", mwAware_USER);
-  PyModule_AddIntConstant(m, "AWARE_GROUP", mwAware_GROUP);
-
+  /* user state constants */
   PyModule_AddIntConstant(m, "STATUS_ACTIVE", mwStatus_ACTIVE);
   PyModule_AddIntConstant(m, "STATUS_IDLE", mwStatus_IDLE);
   PyModule_AddIntConstant(m, "STATUS_AWAY", mwStatus_AWAY);
   PyModule_AddIntConstant(m, "STATUS_BUSY", mwStatus_BUSY);
+
+  /* awareness types */
+  PyModule_AddIntConstant(m, "AWARE_SERVER", mwAware_SERVER);
+  PyModule_AddIntConstant(m, "AWARE_USER", mwAware_USER);
+  PyModule_AddIntConstant(m, "AWARE_GROUP", mwAware_GROUP);
+
+  /* IM message types */
+  PyModule_AddIntConstant(m, "IM_PLAIN", mwImSend_PLAIN);
+  PyModule_AddIntConstant(m, "IM_HTML", mwImSend_HTML);
+  PyModule_AddIntConstant(m, "IM_SUBJECT", mwImSend_SUBJECT);
+  PyModule_AddIntConstant(m, "IM_TYPING", mwImSend_TYPING);
+
+  /* IM conversation states */
+  PyModule_AddIntConstant(m, "CONVERSATION_CLOSED", mwConversation_CLOSED);
+  PyModule_AddIntConstant(m, "CONVERSATION_PENDING", mwConversation_PENDING);
+  PyModule_AddIntConstant(m, "CONVERSATION_OPEN", mwConversation_OPEN);
+  PyModule_AddIntConstant(m, "CONVERSATION_UNKNOWN", mwConversation_UNKNOWN);
 
   PyModule_AddObject(m, "Channel", (PyObject *) mwPyChannel_type());
   PyModule_AddObject(m, "Service", (PyObject *) mwPyService_type());
@@ -64,8 +82,7 @@ PyObject *PyString_SafeFromString(const char *text) {
     return PyString_FromString(text);
 
   } else {
-    Py_INCREF(Py_None);
-    return Py_None;
+    mw_return_none();
   }
 }
 
@@ -78,3 +95,14 @@ const char *PyString_SafeAsString(PyObject *str) {
 
   return ret;
 }
+
+
+PyObject *mw_noargs_none(PyObject *obj) {
+  mw_return_none();
+}
+
+
+PyObject *mw_varargs_none(PyObject *obj, PyObject *args) {
+  mw_return_none();
+}
+

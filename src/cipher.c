@@ -4,10 +4,10 @@
 #include <string.h>
 #include <time.h>
 
-#include "channel.h"
-#include "cipher.h"
+#include "mw_channel.h"
+#include "mw_cipher.h"
 #include "mw_debug.h"
-#include "session.h"
+#include "mw_session.h"
 
 
 /** From RFC2268 */

@@ -1,7 +1,7 @@
 
 
-#ifndef _MW_ERROR
-#define _MW_ERROR
+#ifndef _MW_ERROR_H
+#define _MW_ERROR_H
 
 #include <glib.h>
 

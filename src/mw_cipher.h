@@ -1,11 +1,11 @@
 
 
-#ifndef _MW_CIPHER_
-#define _MW_CIPHER_
+#ifndef _MW_CIPHER_H
+#define _MW_CIPHER_H
 
 
 #include <glib.h>
-#include "common.h"
+#include "mw_common.h"
 
 
 /* place-holders */

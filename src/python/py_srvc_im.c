@@ -6,17 +6,18 @@
 #include <string.h>
 
 #include "py_meanwhile.h"
-#include "../common.h"
+#include "../mw_common.h"
 #include "../mw_debug.h"
-#include "../service.h"
-#include "../srvc_im.h"
+#include "../mw_service.h"
+#include "../mw_srvc_im.h"
 
 
 #define ON_TEXT     "onText"
 #define ON_HTML     "onHtml"
 #define ON_SUBJECT  "onSubject"
 #define ON_TYPING   "onTyping"
-#define ON_ERROR    "onError"
+#define ON_CLOSED   "onClosed"
+#define ON_OPENED   "onOpened"
 
 
 /*
@@ -31,13 +32,11 @@
 static void mw_got_text(struct mwServiceIm *srvc,
 			struct mwIdBlock *from, const char *text) {
 
-  struct mwServiceImHandler *h;
   struct pyObj_mwService *self;
   PyObject *robj = NULL;
   PyObject *a, *b, *c;
 
-  h = mwServiceIm_getHandler(srvc);
-  self = h->data;
+  self = mwService_getClientData(MW_SERVICE(srvc));
 
   a = PyString_SafeFromString(from->user);
   b = PyString_SafeFromString(from->community);
@@ -52,13 +51,11 @@ static void mw_got_text(struct mwServiceIm *srvc,
 static void mw_got_html(struct mwServiceIm *srvc,
 			struct mwIdBlock *from, const char *html) {
 
-  struct mwServiceImHandler *h;
   struct pyObj_mwService *self;
   PyObject *robj = NULL;
   PyObject *a, *b, *c;
 
-  h = mwServiceIm_getHandler(srvc);
-  self = h->data;
+  self = mwService_getClientData(MW_SERVICE(srvc));
 
   a = PyString_SafeFromString(from->user);
   b = PyString_SafeFromString(from->community);
@@ -73,13 +70,11 @@ static void mw_got_html(struct mwServiceIm *srvc,
 static void mw_got_subject(struct mwServiceIm *srvc,
 			   struct mwIdBlock *from, const char *subj) {
 
-  struct mwServiceImHandler *h;
   struct pyObj_mwService *self;
   PyObject *robj = NULL;
   PyObject *a, *b, *c;
 
-  h = mwServiceIm_getHandler(srvc);
-  self = h->data;
+  self = mwService_getClientData(MW_SERVICE(srvc));
 
   a = PyString_SafeFromString(from->user);
   b = PyString_SafeFromString(from->community);
@@ -94,13 +89,11 @@ static void mw_got_subject(struct mwServiceIm *srvc,
 static void mw_got_typing(struct mwServiceIm *srvc,
 			  struct mwIdBlock *from, gboolean typing) {
 
-  struct mwServiceImHandler *h;
   struct pyObj_mwService *self;
   PyObject *robj = NULL;
   PyObject *a, *b;
 
-  h = mwServiceIm_getHandler(srvc);
-  self = h->data;
+  self = mwService_getClientData(MW_SERVICE(srvc));
 
   a = PyString_SafeFromString(from->user);
   b = PyString_SafeFromString(from->community);
@@ -111,26 +104,75 @@ static void mw_got_typing(struct mwServiceIm *srvc,
 }
 
 
-static void mw_got_error(struct mwServiceIm *srvc,
-			 struct mwIdBlock *user, guint32 error) {
+static void mw_conversation_recv(struct mwConversation *conv,
+				 enum mwImSendType type, gconstpointer msg) {
 
-  struct mwServiceImHandler *h;
+  struct mwIdBlock *idb;
+  struct mwServiceIm *srvc;
+
+  g_return_if_fail(conv != NULL);
+
+  idb = mwConversation_getTarget(conv);
+  srvc = mwConversation_getService(conv);
+
+  switch(type) {
+  case mwImSend_PLAIN:
+    mw_got_text(srvc, idb, msg);
+    break;
+  case mwImSend_HTML:
+    mw_got_html(srvc, idb, msg);
+    break;
+  case mwImSend_SUBJECT:
+    mw_got_subject(srvc, idb, msg);
+    break;
+  case mwImSend_TYPING:
+    mw_got_typing(srvc, idb, GPOINTER_TO_INT(msg));
+    break;
+  default:
+    ; /* erm... */
+  }
+}
+
+
+static void mw_conversation_opened(struct mwConversation *conv) {
+  struct mwServiceIm *srvc;
   struct pyObj_mwService *self;
+  struct mwIdBlock *idb;
+  PyObject *robj = NULL;
+  PyObject *t;
+
+  srvc = mwConversation_getService(conv);
+  self = mwService_getClientData(MW_SERVICE(srvc));
+  idb = mwConversation_getTarget(conv);
+  
+  t = PyTuple_New(2);
+  PyTuple_SetItem(t, 0, PyString_SafeFromString(idb->user));
+  PyTuple_SetItem(t, 1, PyString_SafeFromString(idb->community));
+
+  /* why the hell do I have to double-tuple to make this work? */
+  robj = PyObject_CallMethod((PyObject *) self, ON_OPENED, "(N)", t);
+
+  Py_XDECREF(robj);
+}
+
+
+static void mw_conversation_closed(struct mwConversation *conv, guint32 err) {
+  struct mwServiceIm *srvc;
+  struct pyObj_mwService *self;
+  struct mwIdBlock *idb;
   PyObject *robj = NULL;
   PyObject *a, *b;
+  
+  srvc = mwConversation_getService(conv);
+  self = mwService_getClientData(MW_SERVICE(srvc));
+  idb = mwConversation_getTarget(conv);
 
-  h = mwServiceIm_getHandler(srvc);
-  self = h->data;
+  a = PyString_SafeFromString(idb->user);
+  b = PyString_SafeFromString(idb->community);
 
-  g_message("mw_got_error (%s,%s)0x%08x",
-	    user->user, user->community, error);
-
-  a = PyString_SafeFromString(user->user);
-  b = PyString_SafeFromString(user->community);
-
-  robj = PyObject_CallMethod((PyObject *) self, ON_ERROR,
-			     "(NN)l", a, b, error);
-  Py_XDECREF(robj);
+  robj = PyObject_CallMethod((PyObject *) self, ON_CLOSED, 
+			     "(NN)l", a, b, err);
+  Py_XDECREF(robj); 
 }
 
 
@@ -139,41 +181,11 @@ static void mw_clear(struct mwServiceIm *srvc) {
 }
 
 
-static PyObject *py_got_text(mwPyService *self, PyObject *args) {
-  Py_INCREF(Py_None);
-  return Py_None;
-}
-
-
-static PyObject *py_got_html(mwPyService *self, PyObject *args) {
-  Py_INCREF(Py_None);
-  return Py_None;
-}
-
-
-static PyObject *py_got_subject(mwPyService *self, PyObject *args) {
-  Py_INCREF(Py_None);
-  return Py_None;
-}
-
-
-static PyObject *py_got_typing(mwPyService *self, PyObject *args) {
-  Py_INCREF(Py_None);
-  return Py_None;
-}
-
-
-static PyObject *py_got_error(mwPyService *self, PyObject *args) {
-  Py_INCREF(Py_None);
-  return Py_None;
-}
-
-
 static PyObject *py_send_text(mwPyService *self, PyObject *args) {
   struct mwIdBlock id = { 0, 0 };
   const char *text = NULL;
   struct mwServiceIm *srvc_im;
-  int ret;
+  struct mwConversation *conv;
 
   PyObject *a, *b, *c;
 
@@ -185,10 +197,20 @@ static PyObject *py_send_text(mwPyService *self, PyObject *args) {
   text = PyString_SafeAsString(c);
 
   srvc_im = (struct mwServiceIm *) self->wrapped;
-  ret = mwServiceIm_sendText(srvc_im, &id, text);
-  /* don't free text or clear id, those strings are borrowed */
+  conv = mwServiceIm_findConversation(srvc_im, &id);
+  
+  if(!conv || !MW_CONVO_IS_OPEN(conv)) {
+    mw_throw("conversation not currently open");
+  } else if(! mwConversation_supports(conv, mwImSend_PLAIN)) {
+    mw_throw("conversation does not support sending plain text");
+  }
 
-  return PyInt_FromLong(ret);
+  /* don't free text or clear id, those strings are borrowed */
+  if(mwConversation_send(conv, mwImSend_PLAIN, text)) {
+    mw_throw("error sending message over conversation");
+  } else {
+    mw_return_none();
+  }
 }
 
 
@@ -196,7 +218,7 @@ static PyObject *py_send_html(mwPyService *self, PyObject *args) {
   struct mwIdBlock id = { 0, 0 };
   const char *text = NULL;
   struct mwServiceIm *srvc_im;
-  int ret;
+  struct mwConversation *conv;
 
   PyObject *a, *b, *c;
 
@@ -208,10 +230,20 @@ static PyObject *py_send_html(mwPyService *self, PyObject *args) {
   text = PyString_SafeAsString(c);
 
   srvc_im = (struct mwServiceIm *) self->wrapped;
-  ret = mwServiceIm_sendHtml(srvc_im, &id, text);
-  /* don't free text or clear id, those strings are borrowed */
+  conv = mwServiceIm_findConversation(srvc_im, &id);
 
-  return PyInt_FromLong(ret);
+  if(!conv || !MW_CONVO_IS_OPEN(conv)) {
+    mw_throw("conversation not currently open");
+  } else if(! mwConversation_supports(conv, mwImSend_HTML)) {
+    mw_throw("conversation does not support sending HTML");
+  }
+
+  /* don't free text or clear id, those strings are borrowed */
+  if(mwConversation_send(conv, mwImSend_HTML, text)) {
+    mw_throw("error sending message over conversation");
+  } else {
+    mw_return_none();
+  }
 }
 
 
@@ -219,7 +251,7 @@ static PyObject *py_send_subject(mwPyService *self, PyObject *args) {
   struct mwIdBlock id = { 0, 0 };
   const char *text = NULL;
   struct mwServiceIm *srvc_im;
-  int ret;
+  struct mwConversation *conv;
 
   PyObject *a, *b, *c;
 
@@ -231,28 +263,174 @@ static PyObject *py_send_subject(mwPyService *self, PyObject *args) {
   text = PyString_SafeAsString(c);
 
   srvc_im = (struct mwServiceIm *) self->wrapped;
-  ret = mwServiceIm_sendSubject(srvc_im, &id, text);
-  /* don't free text or clear id, those strings are borrowed */
+  conv = mwServiceIm_findConversation(srvc_im, &id);
 
-  return PyInt_FromLong(ret);
+  if(!conv || !MW_CONVO_IS_OPEN(conv)) {
+    mw_throw("conversation not currently open");
+  } else if(! mwConversation_supports(conv, mwImSend_SUBJECT)) {
+    mw_throw("conversation does not support sending subjects");
+  }
+
+  /* don't free text or clear id, those strings are borrowed */
+  if(mwConversation_send(conv, mwImSend_SUBJECT, text)) {
+    mw_throw("error sending message over conversation");
+  } else {
+    mw_return_none();
+  }
+}
+
+
+static PyObject *py_send_typing(mwPyService *self, PyObject *args) {
+  struct mwIdBlock id = { 0, 0 };
+  gboolean typing = FALSE;
+  struct mwServiceIm *srvc_im;
+  struct mwConversation *conv;
+
+  PyObject *a, *b;
+
+  if(! PyArg_ParseTuple(args, "(OO)l", &a, &b, &typing))
+    return NULL;
+
+  id.user = (char *) PyString_SafeAsString(a);
+  id.community = (char *) PyString_SafeAsString(b);
+
+  srvc_im = (struct mwServiceIm *) self->wrapped;
+  conv = mwServiceIm_findConversation(srvc_im, &id);
+
+  if(!conv || !MW_CONVO_IS_OPEN(conv)) {
+    mw_throw("conversation not currently open");
+  } else if(! mwConversation_supports(conv, mwImSend_TYPING)) {
+    mw_throw("conversation does not support sending typing notification");
+  }
+
+  /* don't clead id, it has borrowed strings */
+  if(mwConversation_send(conv, mwImSend_TYPING, GINT_TO_POINTER(typing))) {
+    mw_throw("error sending message over conversation");
+  } else {
+    mw_return_none();
+  }
+}
+
+
+static PyObject *py_convo_open(mwPyService *self, PyObject *args) {
+  struct mwIdBlock id = { 0, 0 };
+  struct mwServiceIm *srvc_im;
+  struct mwConversation *conv;
+
+  PyObject *a, *b;
+
+  if(! PyArg_ParseTuple(args, "(OO)", &a, &b))
+    return NULL;
+
+  id.user = (char *) PyString_SafeAsString(a);
+  id.community = (char *) PyString_SafeAsString(b);
+
+  srvc_im = (struct mwServiceIm *) self->wrapped;
+  conv = mwServiceIm_getConversation(srvc_im, &id);
+
+  if(! MW_CONVO_IS_CLOSED(conv)) {
+    mw_throw("conversation is already open or pending");
+  } else {
+    mwConversation_open(conv);
+    mw_return_none();
+  }
+}
+
+
+static PyObject *py_convo_close(mwPyService *self, PyObject *args) {
+  struct mwIdBlock id = { 0, 0 };
+  struct mwServiceIm *srvc_im;
+  struct mwConversation *conv;
+  guint32 err;
+
+  PyObject *a, *b;
+
+  if(! PyArg_ParseTuple(args, "(OO)l", &a, &b, &err))
+    return NULL;
+
+  id.user = (char *) PyString_SafeAsString(a);
+  id.community = (char *) PyString_SafeAsString(b);
+
+  srvc_im = (struct mwServiceIm *) self->wrapped;
+  conv = mwServiceIm_findConversation(srvc_im, &id);
+
+  if(!conv || MW_CONVO_IS_CLOSED(conv)) {
+    mw_throw("conversation is not open or pending");
+  } else {
+    /** @todo maybe want to free the conversation as well, unsure */
+    mwConversation_close(conv, err);
+    mw_return_none();
+  }
+}
+
+
+static PyObject *py_convo_get_state(mwPyService *self, PyObject *args) {
+  struct mwIdBlock id = { 0, 0 };
+  struct mwServiceIm *srvc_im;
+  struct mwConversation *conv;
+
+  PyObject *a, *b;
+
+  if(! PyArg_ParseTuple(args, "(OO)", &a, &b))
+    return NULL;
+
+  id.user = (char *) PyString_SafeAsString(a);
+  id.community = (char *) PyString_SafeAsString(b);
+
+  srvc_im = (struct mwServiceIm *) self->wrapped;
+  conv = mwServiceIm_findConversation(srvc_im, &id);
+
+  if(! conv) {
+    return PyInt_FromLong(mwConversation_CLOSED);
+  } else {
+    return PyInt_FromLong(mwConversation_getState(conv));
+  }
+}
+
+
+static PyObject *py_convo_supports(mwPyService *self, PyObject *args) {
+  struct mwIdBlock id = { 0, 0 };
+  struct mwServiceIm *srvc_im;
+  struct mwConversation *conv;
+  enum mwImSendType feature;
+
+  PyObject *a, *b;
+
+  if(! PyArg_ParseTuple(args, "(OO)l", &a, &b, &feature))
+    return NULL;
+
+  id.user = (char *) PyString_SafeAsString(a);
+  id.community = (char *) PyString_SafeAsString(b);
+
+  srvc_im = (struct mwServiceIm *) self->wrapped;
+  conv = mwServiceIm_findConversation(srvc_im, &id);
+
+  if(! conv) {
+    return PyInt_FromLong(FALSE);
+  } else {
+    return PyInt_FromLong(mwConversation_supports(conv, feature));
+  }
 }
 
 
 static struct PyMethodDef tp_methods[] = {
-  { ON_TEXT, (PyCFunction) py_got_text,
+  { ON_TEXT, MW_METH_VARARGS_NONE,
     METH_VARARGS, "override to receive text messages" },
 
-  { ON_HTML, (PyCFunction) py_got_html,
+  { ON_HTML, MW_METH_VARARGS_NONE,
     METH_VARARGS, "override to receive HTML formatted messages" },
 
-  { ON_SUBJECT, (PyCFunction) py_got_subject,
+  { ON_SUBJECT, MW_METH_VARARGS_NONE,
     METH_VARARGS, "override to handle conversation subjects" },
 
-  { ON_TYPING, (PyCFunction) py_got_typing,
+  { ON_TYPING, MW_METH_VARARGS_NONE,
     METH_VARARGS, "override to receive typing notification" },
 
-  { ON_ERROR, (PyCFunction) py_got_error,
-    METH_VARARGS, "override to handle errors" },
+  { ON_OPENED, MW_METH_VARARGS_NONE,
+    METH_VARARGS, "override to handle conversation openings" },
+
+  { ON_CLOSED, MW_METH_VARARGS_NONE,
+    METH_VARARGS, "override to handle conversation closings" },
 
   { "sendText", (PyCFunction) py_send_text,
     METH_VARARGS, "send a text message" },
@@ -262,6 +440,21 @@ static struct PyMethodDef tp_methods[] = {
 
   { "sendSubject", (PyCFunction) py_send_subject,
     METH_VARARGS, "send the conversation subject" },
+
+  { "sendTyping", (PyCFunction) py_send_typing,
+    METH_VARARGS, "send typing notification" },
+
+  { "openConversation", (PyCFunction) py_convo_open,
+    METH_VARARGS, "open a conversation to target" },
+
+  { "closeConversation", (PyCFunction) py_convo_close,
+    METH_VARARGS, "close a conversation" },
+
+  { "conversationState", (PyCFunction) py_convo_get_state,
+    METH_VARARGS, "is conversation open?" },
+
+  { "conversationSupports", (PyCFunction) py_convo_supports,
+    METH_VARARGS, "does conversation support message type?" },
 
   {NULL}
 };
@@ -290,16 +483,16 @@ static PyObject *tp_new(PyTypeObject *t, PyObject *args, PyObject *kwds) {
 
   /* handler with our call-backs */
   handler = g_new0(struct mwServiceImHandler, 1);
-  handler->got_text = mw_got_text;
-  handler->got_html = mw_got_html;
-  handler->got_subject = mw_got_subject;
-  handler->got_typing = mw_got_typing;
-  handler->got_error = mw_got_error;
+  handler->conversation_recv = mw_conversation_recv;
+  handler->conversation_opened = mw_conversation_opened;
+  handler->conversation_closed = mw_conversation_closed;
   handler->clear = mw_clear;
-  handler->data = self;
 
   /* create the im service */
   srvc_im = mwServiceIm_new(session, handler);
+
+  /* store the self object on the service's client data slot */
+  mwService_setClientData(MW_SERVICE(srvc_im), self, NULL);
 
   /* create a python wrapper service built around this instance */
   /* sets self->wrapper and self->service */

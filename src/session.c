@@ -3,13 +3,13 @@
 #include <glib.h>
 #include <string.h>
 
-#include "channel.h"
-#include "cipher.h"
-#include "error.h"
-#include "message.h"
+#include "mw_channel.h"
+#include "mw_cipher.h"
 #include "mw_debug.h"
-#include "service.h"
-#include "session.h"
+#include "mw_error.h"
+#include "mw_message.h"
+#include "mw_service.h"
+#include "mw_session.h"
 
 
 /** the hash table key for a service, for mwSession::services */
@@ -232,7 +232,7 @@ void mwSession_stop(struct mwSession *s, guint32 reason) {
   msg = (struct mwMsgChannelDestroy *)
     mwMessage_new(mwMessage_CHANNEL_DESTROY);
 
-  msg->head.channel = MASTER_CHANNEL_ID;
+  msg->head.channel = MW_MASTER_CHANNEL_ID;
   msg->reason = reason;
 
   /* don't care if this fails, we're closing the connection anyway */
@@ -387,7 +387,7 @@ static void CHANNEL_DESTROY_recv(struct mwSession *s,
 
   /* the server can indicate that we should close the session by
      destroying the zero channel */
-  if(msg->head.channel == MASTER_CHANNEL_ID) {
+  if(msg->head.channel == MW_MASTER_CHANNEL_ID) {
     mwSession_stop(s, msg->reason);
 
   } else {

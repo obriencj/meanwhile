@@ -5,7 +5,7 @@
 
 
 #include <time.h>
-#include "common.h"
+#include "mw_common.h"
 
 
 /* place-holders */
@@ -82,39 +82,25 @@ struct mwChannel;
 struct mwChannelSet;
 
 
-/** this should never ever need to change, but just in case... */
-#define MASTER_CHANNEL_ID  0x00000000
+/** special ID indicating the master channel */
+#define MW_MASTER_CHANNEL_ID  0x00000000
 
 
-#ifndef MAX_INACTIVE_KILLS
-/** Max inactive channels to destroy in a single call. Used in
-    mwChannelSet_destroyInactive to determine how many inactive
-    channels are collected for destruction. 32 is a big number for a
-    single client */
-#define MAX_INACTIVE_KILLS  32
-#endif
-
-
-/** 1 if a channel id appears to be that of an outgoing channel, else
-    0 */
-#define CHAN_ID_IS_OUTGOING(id) \
+/** non-zero if a channel id appears to be that of an outgoing channel */
+#define MW_CHAN_ID_IS_OUTGOING(id) \
   (! (0x80000000 & (id)))
 
+/** non-zero if a channel id appears to be that of an incoming channel */
+#define MW_CHAN_ID_IS_INCOMING(id) \
+  (! MW_CHAN_ID_IS_OUTGOING(id))
 
-/** 1 if a channel id appears to be that of an incoming channel, else
-    0 */
-#define CHAN_ID_IS_INCOMING(id) \
-  (! CHAN_ID_IS_OUTGOING(id))
+/** non-zero if a channel appears to be an outgoing channel */
+#define MW_CHAN_IS_OUTGOING(chan) \
+  MW_CHAN_ID_IS_OUTGOING((chan)->id)
 
-
-/** 1 if a channel appears to be an outgoing channel, else 0 */
-#define CHAN_IS_OUTGOING(chan) \
-  CHAN_ID_IS_OUTGOING((chan)->id)
-
-
-/** 1 if a channel appears to be an incoming channel, else 0 */
-#define CHAN_IS_INCOMING(chan) \
-  CHAN_ID_IS_INCOMING((chan)->id)
+/** non-zero if a channel appears to be an incoming channel */
+#define MW_CHAN_IS_INCOMING(chan) \
+  MW_CHAN_ID_IS_INCOMING((chan)->id)
 
 
 /** channel status */
@@ -129,7 +115,7 @@ enum mwChannelState {
 };
 
 
-#define CHANNEL_IS_STATE(chan, state) \
+#define MW_CHANNEL_IS_STATE(chan, state) \
   (mwChannel_getState(chan) == (state))
 
 
@@ -305,6 +291,7 @@ int mwChannel_send(struct mwChannel *chan, guint32 msg_type,
 /**  */
 void mwChannel_recvCreate(struct mwChannel *chan,
 			  struct mwMsgChannelCreate *msg);
+
 
 /**  */
 void mwChannel_recvAccept(struct mwChannel *chan,

@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "error.h"
+#include "mw_error.h"
 
 
 static char *err_to_str(guint32 code) {

@@ -2,15 +2,13 @@
 
 #include <glib/glist.h>
 
-#include "srvc_store.h"
-
-#include "channel.h"
-#include "error.h"
-#include "message.h"
+#include "mw_channel.h"
 #include "mw_debug.h"
-#include "service.h"
-#include "session.h"
-
+#include "mw_error.h"
+#include "mw_message.h"
+#include "mw_service.h"
+#include "mw_session.h"
+#include "mw_srvc_store.h"
 
 
 enum storage_action {

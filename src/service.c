@@ -1,13 +1,14 @@
 
-#include "channel.h"
-#include "message.h"
+#include "mw_channel.h"
 #include "mw_debug.h"
-#include "service.h"
+#include "mw_message.h"
+#include "mw_service.h"
 
 
 /* I tried to be explicit with the g_return_* calls, to make the debug
    logging a bit more sensible. Hence all the explicit "foo != NULL"
    checks. */
+
 
 void mwService_recvChannelCreate(struct mwService *s, struct mwChannel *chan,
 				 struct mwMsgChannelCreate *msg) {
@@ -209,6 +210,24 @@ void mwService_free(struct mwService *srvc) {
   if(srvc->clear)
     srvc->clear(srvc);
 
+  if(srvc->client_cleanup)
+    srvc->client_cleanup(srvc->client_data);
+
   g_free(srvc);
 }
 
+
+void mwService_setClientData(struct mwService *srvc,
+			     gpointer data, GDestroyNotify cleanup) {
+
+  g_return_if_fail(srvc != NULL);
+
+  srvc->client_data = data;
+  srvc->client_cleanup = cleanup;
+}
+
+
+gpointer mwService_getClientData(struct mwService *srvc) {
+  g_return_val_if_fail(srvc != NULL, NULL);
+  return srvc->client_data;
+}

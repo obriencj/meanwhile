@@ -5,9 +5,9 @@
 #include <glib.h>
 
 #include "py_meanwhile.h"
-#include "../common.h"
-#include "../service.h"
-#include "../srvc_aware.h"
+#include "../mw_common.h"
+#include "../mw_service.h"
+#include "../mw_srvc_aware.h"
 
 
 #define ON_AWARE  "onAware"

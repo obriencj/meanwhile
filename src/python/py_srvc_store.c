@@ -5,10 +5,10 @@
 #include <glib.h>
 
 #include "py_meanwhile.h"
-#include "../common.h"
+#include "../mw_common.h"
 #include "../mw_debug.h"
-#include "../service.h"
-#include "../srvc_store.h"
+#include "../mw_service.h"
+#include "../mw_srvc_store.h"
 
 
 enum cb_type {

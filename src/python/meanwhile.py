@@ -28,13 +28,22 @@ from _meanwhile import \
      SESSION_LOGIN, SESSION_LOGIN_REDIR, SESSION_LOGIN_ACK, \
      SESSION_STARTED, SESSION_STOPPING, SESSION_STOPPED, SESSION_UNKNOWN
 
+# awareness id states
+from _meanwhile import \
+     STATUS_ACTIVE, STATUS_IDLE, STATUS_AWAY, STATUS_BUSY
+
 # awareness id types
 from _meanwhile import \
      AWARE_SERVER, AWARE_USER, AWARE_GROUP
 
-# awareness id states
+# IM conversation message types/features
 from _meanwhile import \
-     STATUS_ACTIVE, STATUS_IDLE, STATUS_AWAY, STATUS_BUSY
+     IM_PLAIN, IM_HTML, IM_SUBJECT, IM_TYPING
+
+# IM conversation states
+from _meanwhile import \
+     CONVERSATION_CLOSED, CONVERSATION_PENDING, CONVERSATION_OPEN, \
+     CONVERSATION_UNKNOWN
 
 
 class SocketSession(Session):

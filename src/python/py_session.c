@@ -4,9 +4,9 @@
 #include <structmember.h>
 
 #include "py_meanwhile.h"
-#include "../service.h"
-#include "../session.h"
-#include "../channel.h"
+#include "../mw_service.h"
+#include "../mw_session.h"
+#include "../mw_channel.h"
 
 
 #define ON_IO_WRITE      "onIoWrite"

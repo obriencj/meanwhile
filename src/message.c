@@ -2,7 +2,7 @@
 
 #include <glib.h>
 
-#include "message.h"
+#include "mw_message.h"
 
 
 /* 7.1 Layering and message encapsulation */

@@ -1,10 +1,10 @@
 
 
-#ifndef _MW_SESSION_H_
-#define _MW_SESSION_H_
+#ifndef _MW_SESSION_H
+#define _MW_SESSION_H
 
 
-#include "common.h"
+#include "mw_common.h"
 
 
 #ifndef PROTOCOL_VERSION_MAJOR

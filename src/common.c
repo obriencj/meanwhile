@@ -3,7 +3,7 @@
 #include <glib.h>
 #include <string.h>
 
-#include "common.h"
+#include "mw_common.h"
 
 
 /** @todo the *_get functions should make sure to clear their

@@ -4,7 +4,7 @@
 #define _MW_SRVC_AWARE_H
 
 
-#include "common.h"
+#include "mw_common.h"
 
 
 /* place-holder */

@@ -5,7 +5,7 @@
 #include <glib.h>
 
 #include "py_meanwhile.h"
-#include "../service.h"
+#include "../mw_service.h"
 
 
 #define GET_NAME  "getName"

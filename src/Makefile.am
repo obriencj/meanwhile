@@ -4,27 +4,27 @@ SUBDIRS = . @WITH_PYTHON_SUBDIR@
 lib_LTLIBRARIES = libmeanwhile.la
 
 mwinclude_HEADERS = \
-	channel.h \
-	cipher.h \
-	common.h \
-	error.h \
-	message.h \
-	service.h \
-	session.h \
-	srvc_aware.h \
-	srvc_conf.h \
-	srvc_im.h \
-	srvc_store.h \
-	st_list.h
+	mw_channel.h \
+	mw_cipher.h \
+	mw_common.h \
+	mw_error.h \
+	mw_message.h \
+	mw_service.h \
+	mw_session.h \
+	mw_srvc_aware.h \
+	mw_srvc_conf.h \
+	mw_srvc_im.h \
+	mw_srvc_store.h \
+	mw_st_list.h
 
 noinst_HEADERS = \
-	compat.h \
+	mw_compat.h \
 	mw_debug.h
 
 mwincludedir = $(includedir)/meanwhile
 
 libmeanwhile_la_CFLAGS = \
-	-Wall -Werror \
+	-Wall -Werror $(DEBUG_CFLAGS) \
 	$(GLIB_CFLAGS)
 
 libmeanwhile_la_LDFLAGS = -no-undefined

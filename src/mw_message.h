@@ -1,11 +1,11 @@
 
 
-#ifndef _MW_MESSAGE
-#define _MW_MESSAGE
+#ifndef _MW_MESSAGE_H
+#define _MW_MESSAGE_H
 
 
 #include <glib/glist.h>
-#include "common.h"
+#include "mw_common.h"
 
 
 /** Cast a pointer to a message subtype (eg, mwMsgHandshake,

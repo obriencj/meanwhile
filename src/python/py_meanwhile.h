@@ -86,6 +86,7 @@ PyTypeObject *mwPySession_type();
 
 
 /** @section utility functions */
+/*@{*/
 
 
 /** @returns new PyString, or Py_None for NULL str */
@@ -94,6 +95,29 @@ PyObject *PyString_SafeFromString(const char *str);
 
 /** @returns contents of PyString, or NULL for Py_None */
 const char *PyString_SafeAsString(PyObject *str);
+
+
+/** @returns incremented Py_None */
+PyObject *mw_noargs_none(PyObject *obj);
+
+
+/** @returns incremented Py_None */
+PyObject *mw_varargs_none(PyObject *obj, PyObject *args);
+
+
+#define MW_METH_NOARGS_NONE   (PyCFunction) mw_noargs_none
+#define MW_METH_VARARGS_NONE  (PyCFunction) mw_varargs_none
+
+
+#define mw_return_none() \
+  { Py_INCREF(Py_None); return Py_None; }
+
+
+#define mw_throw(e) \
+  { PyErr_SetString(PyExc_Exception, (e)); return NULL; }
+
+
+/*@}*/
 
 
 #endif

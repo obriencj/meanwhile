@@ -4,7 +4,7 @@
 #define _MW_SERVICE_H
 
 
-#include "common.h"
+#include "mw_common.h"
 
 
 struct mwChannel;
@@ -29,17 +29,20 @@ enum mwServiceState {
 #define MW_SERVICE(srv) ((struct mwService *) srv)
 
 
+#define MW_SERVICE_IS_STATE(srvc, state) \
+  (mwService_getState(MW_SERVICE(srvc)) == (state))
+
 #define MW_SERVICE_IS_STOPPED(srvc)  \
-  (mwService_getState(MW_SERVICE(srvc)) == mwServiceState_STOPPED)
+  MW_SERVICE_IS_STATE(srvc, mwServiceState_STOPPED)
 
 #define MW_SERVICE_IS_STOPPING(srvc) \
-  (mwService_getState(MW_SERVICE(srvc)) == mwServiceState_STOPPING)
+  MW_SERVICE_IS_STATE(srvc, mwServiceState_STOPPING)
 
 #define MW_SERVICE_IS_STARTED(srvc)  \
-  (mwService_getState(MW_SERVICE(srvc)) == mwServiceState_STARTED)
+  MW_SERVICE_IS_STATE(srvc, mwServiceState_STARTED)
 
 #define MW_SERVICE_IS_STARTING(srvc) \
-  (mwService_getState(MW_SERVICE(srvc)) == mwServiceState_STARTING)
+  MW_SERVICE_IS_STATE(srvc, mwServiceState_STARTING)
 
 
 /** If a service is STARTING or STARTED, it's LIVE */
@@ -68,6 +71,7 @@ struct mwService {
   /** the state of this service. Determines whether or not the session
       should call the start function upon receipt of a service
       available message. Should not be set or checked by hand.
+
       @relates mwService_getState */
   enum mwServiceState state;
 
@@ -86,50 +90,84 @@ struct mwService {
   /** The service's channel create handler. Called when the session
       receives a channel create message with a service matching this
       service's type.
-      @relates mwService_recvChannelCreate */
+
+      @relates mwService_recvChannelCreate
+
+      @todo move the create data onto the channel, and remove the
+      message parameter */
   void (*recv_channelCreate)(struct mwService *, struct mwChannel *,
 			     struct mwMsgChannelCreate *);
 
   /** The service's channel accept handler. Called when the session
       receives a channel accept message for a channel with a service
       matching this service's type.
-      @relates mwService_recvChannelAccept */
+
+      @relates mwService_recvChannelAccept 
+
+      @todo move the accept data onto the channel, and remove the
+      message parameter */
   void (*recv_channelAccept)(struct mwService *, struct mwChannel *,
 			     struct mwMsgChannelAccept *);
 
   /** The service's channel destroy handler. Called when the session
       receives a channel destroy message for a channel with a service
       matching this service's type.
-      @relates mwService_recvChannelDestroy */
+
+      @relates mwService_recvChannelDestroy
+
+      @todo move the destroy data onto the channel, and remove the
+      message parameter */
   void (*recv_channelDestroy)(struct mwService *, struct mwChannel *,
 			      struct mwMsgChannelDestroy *);
 
   /** The service's input handler. Called when the session receives
-      data on a channel with a service matching this service's
-      type.
+      data on a channel belonging to this service
+
       @relates mwService_recv */
   void (*recv)(struct mwService *, struct mwChannel *,
 	       guint16 msg_type, struct mwOpaque *);
 
   /** The service's start handler. Called upon the receipt of a
       service available message.
+
       @relates mwService_start */
   void (*start)(struct mwService *);
 
   /** The service's stop handler. Called when the session is shutting
       down, or when the service is free'd.
+
       @relates mwService_stop */
   void (*stop)(struct mwService *);
 
   
   /** The service's cleanup handler.
+
       @relates mwService_free */
   void (*clear)(struct mwService *);
+
+
+  /** Optional client data, not for use by service implementations
+
+      @relates mwService_getClientData
+      @relates mwService_setClientData */
+  gpointer client_data;
+
+  /** Optional client data cleanup function. Called with client_data
+      from mwService_free
+
+      @relates mwService_getClientData
+      @relates mwService_setClientData */
+  GDestroyNotify client_cleanup;
 };
 
 
-/** Prepares a newly allocated service for use. Connects the base
-    service signals, etc.
+/** @name Service Extension API
+
+    These functions are for use by service implementations */
+/*@{*/
+
+
+/** Prepares a newly allocated service for use.
     
     Intended for use by service implementations, rather than by code
     utilizing a service.
@@ -142,6 +180,19 @@ struct mwService {
 */
 void mwService_init(struct mwService *service, struct mwSession *session,
 		    guint32 service_type);
+
+
+/** Indicate that a service is started. To be used by service
+    implementations when the service is fully started. */
+void mwService_started(struct mwService *service);
+
+
+/** Indicate that a service is stopped. To be used by service
+    implementations when the service is fully stopped. */
+void mwService_stopped(struct mwService *service);
+
+
+/*@}*/
 
 
 /** @name General Services API
@@ -208,12 +259,12 @@ struct mwSession *mwService_getSession(struct mwService *service);
 
 
 /** @returns the service's state
-    @see MW_SERVICE_IS_STARTING
-    @see MW_SERVICE_IS_STARTED
-    @see MW_SERVICE_IS_STOPPING
-    @see MW_SERVICE_IS_STOPPED
-    @see MW_SERVICE_IS_LIVE
-    @see MW_SERVICE_IS_DEAD
+    @relates MW_SERVICE_IS_STARTING
+    @relates MW_SERVICE_IS_STARTED
+    @relates MW_SERVICE_IS_STOPPING
+    @relates MW_SERVICE_IS_STOPPED
+    @relates MW_SERVICE_IS_LIVE
+    @relates MW_SERVICE_IS_DEAD
 */
 enum mwServiceState mwService_getState(struct mwService *service);
 
@@ -228,11 +279,6 @@ enum mwServiceState mwService_getState(struct mwService *service);
 void mwService_start(struct mwService *service);
 
 
-/** Indicate that a service is started. To be used by service
-    implementations when the service is fully started. */
-void mwService_started(struct mwService *service);
-
-
 /** Triggers the stop handler for the service. Normally called from
     the session before closing down the connection. Checks that the
     service is STARTED or STARTING, or returns
@@ -242,11 +288,6 @@ void mwService_started(struct mwService *service);
 void mwService_stop(struct mwService *service);
 
 
-/** Indicate that a service is stopped. To be used by service
-    implementations when the service is fully stopped. */
-void mwService_stopped(struct mwService *service);
-
-
 /** Frees memory used by a service. Will trigger the stop handler if
     the service is STARTED or STARTING. Triggers clear handler to allow
     cleanup.
@@ -254,6 +295,18 @@ void mwService_stopped(struct mwService *service);
     @param service The service to clear and free
 */
 void mwService_free(struct mwService *service);
+
+
+/** Associates client data with service. If there is existing data, it
+    will not have its cleanup function called. Client data is not for
+    use by service implementations. Rather, it is for use by client
+    code which may later make use of those service implementations. */
+void mwService_setClientData(struct mwService *service,
+			     gpointer data, GDestroyNotify cleanup);
+
+
+/** Reference associated client data */
+gpointer mwService_getClientData(struct mwService *service);
 
 
 /*@}*/

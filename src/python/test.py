@@ -91,6 +91,9 @@ class ServiceAware(meanwhile.ServiceAware):
 
 
 class ServiceIm(meanwhile.ServiceIm):
+    def _init_(self):
+        self._send_queue = {}
+    
     def processCmd(self, who, text):
         if text == 'shutdown':
             self.sendText(who, "good-bye")
@@ -111,6 +114,76 @@ class ServiceIm(meanwhile.ServiceIm):
         elif text.startswith('subj '):
             self.sendSubject(who, text[5:])
 
+
+    def _queue(self, who, cb, data):
+        q = self._send_queue
+        if not q.has_key(who):
+            q[who] = []
+        q[who].append((cb, data))
+
+
+    def _delqueue(self, who):
+        if q.has_key(who):
+            del q[who]
+
+
+    def _runqueue(self, who):
+        q = self._send_queue
+        if q.has_key(who):
+            for act in q[who]:
+                act[0](act[1])
+        del q[who]
+
+
+    def onOpened(self, who):
+        print '<opened>%s' % who[0]
+        self._runqueue(who)
+        
+
+    def onClosed(self, who, err):
+        print '<closed>%s: 0x%x' % (who[0], text)
+        self._delqueue(who)
+
+
+    def sendText(self, who, text):
+        state = self.conversationState(who)
+        if state == meanwhile.CONVERSATION_OPEN:
+            meanwhile.ServiceIm.sendText(self, who, text)
+        else:
+            self._queue(who, meanwhile.ServiceIm.sendText, text)
+            if state == meanwhile.CONVERSATION_CLOSED:
+                self.conversationOpen(who)
+
+
+    def sendHtml(self, who, html):
+        state = self.conversationState(who)
+        if state == meanwhile.CONVERSATION_OPEN:
+            meanwhile.ServiceIm.sendHtml(self, who, html)
+        else:
+            self._queue(who, meanwhile.ServiceIm.sendHtml, html)
+            if state == meanwhile.CONVERSATION_CLOSED:
+                self.conversationOpen(who)
+
+
+    def sendSubject(self, who, subj):
+        state = self.conversationState(who)
+        if state == meanwhile.CONVERSATION_OPEN:
+            meanwhile.ServiceIm.sendSubject(self, who, subj)
+        else:
+            self._queue(who, meanwhile.ServiceIm.sendSubject, subj)
+            if state == meanwhile.CONVERSATION_CLOSED:
+                self.conversationOpen(who)
+
+
+    def sendTyping(self, who, typing=True):
+        state = self.conversationState(who)
+        if state == meanwhile.CONVERSATION_OPEN:
+            meanwhile.ServiceIm.sendTyping(self, who, typing)
+        else:
+            self._queue(who, meanwhile.ServiceIm.sendTyping, typing)
+            if state == meanwhile.CONVERSATION_CLOSED:
+                self.conversationOpen(who)
+                
     
     def onText(self, who, text):
         print '<text>%s: "%s"' % (who[0], text)
@@ -124,11 +197,14 @@ class ServiceIm(meanwhile.ServiceIm):
 
     def onSubject(self, who, subj):
         print '<subject>%s: "%s"' % (who[0], subj)
-            
 
-    def onError(self, who, err):
-        print '<error>%s: 0x%x' % (who[0], text)
 
+    def onTyping(self, who, typing):
+        str = ("stopped typing", "typing")
+        print '<typing>%s: %s' % (who[0], str[typing])
+
+
+    
 
 
 
