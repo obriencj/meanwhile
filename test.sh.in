@@ -5,10 +5,12 @@
 # If you don't have a test.conf, copy it from test.conf.in and modify
 # as necessary.
 
+# values determined from options passed to ./configure
 PYDOC=@PYDOC@
 PYTHON=@PYTHON@
 PYLIBDIR=@PYTHON_LIBP@
 
+# if not configured with python support, than this script can't run
 if test "$PYTHON" = "" ; then
 	echo "error: python support not built"
 	exit 1
@@ -41,15 +43,17 @@ fi
 
 
 cd src/python
-export LD_LIBRARY_PATH=$PYLIBDIR/../:../.libs/
+export LD_LIBRARY_PATH=$PYLIBDIR/../:$PWD/.libs/
+
 
 if test "$1" = "debug" ; then
 	shift
-	gdb --args $PYTHON -v test.py $*
+	echo run | gdb --quiet --args $PYTHON -v test.py $*
 
 elif test "$1" = "pydoc" ; then
 	shift
 	$PYDOC $*
+
 else
 	$PYTHON test.py 
 fi

@@ -1,7 +1,12 @@
+#
 # Meanwhile Python Test Script Configuration File
 #
 # test.conf is read by the test shell script and used to provide login
 # information to Python.
+#
+# if you want to use the test script, just edit this file and save it
+# as test.conf
+
 
 # User name
 export mw_user=MyTestUser
