@@ -80,6 +80,7 @@ struct mwConference {
 
   struct mwLoginInfo owner;  /**< person who created this conference */
   GHashTable *members;       /**< mapping guint16:mwLoginInfo */
+  struct mw_datum client_data;
 };
 
 
@@ -818,6 +819,26 @@ int mwConference_sendTyping(struct mwConference *conf, gboolean typing) {
   mwOpaque_clear(&o);
 
   return ret;
+}
+
+
+void mwConference_setClientData(struct mwConference *conference,
+			     gpointer data, GDestroyNotify clear) {
+
+  g_return_if_fail(conference != NULL);
+  mw_datum_set(&conference->client_data, data, clear);
+}
+
+
+gpointer mwConference_getClientData(struct mwConference *conference) {
+  g_return_val_if_fail(conference != NULL, NULL);
+  return mw_datum_get(&conference->client_data);
+}
+
+
+void mwConference_removeClientData(struct mwConference *conference) {
+  g_return_if_fail(conference != NULL);
+  mw_datum_clear(&conference->client_data);
 }
 
 

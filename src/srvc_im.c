@@ -907,11 +907,6 @@ void mwConversation_close(struct mwConversation *conv, guint32 reason) {
 
   g_return_if_fail(conv != NULL);
 
-  if(conv->channel) {
-    mwChannel_destroy(conv->channel, reason, NULL);
-    conv->channel = NULL;
-  }
-
   convo_set_state(conv, mwConversation_CLOSED);
 
   srvc = conv->service;
@@ -920,6 +915,11 @@ void mwConversation_close(struct mwConversation *conv, guint32 reason) {
   h = srvc->handler;
   if(h && h->conversation_closed)
     h->conversation_closed(conv, reason);
+
+  if(conv->channel) {
+    mwChannel_destroy(conv->channel, reason, NULL);
+    conv->channel = NULL;
+  }
 }
 
 
