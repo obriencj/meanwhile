@@ -6,7 +6,6 @@
 
 import meanwhile
 import os
-import time
 
 
 
@@ -97,19 +96,19 @@ def _cbStore(who, kstr):
 
 
 
-class Session(meanwhile.SocketSession):
+class TestSession(meanwhile.SocketSession):
     def onAdmin(self, text):
         print "ADMIN: %s" % text
 
 
 
-class ServiceAware(meanwhile.ServiceAware):
+class TestServiceAware(meanwhile.ServiceAware):
     def onAware(self, id, stat):
         print "STATUS: ", id, stat
 
 
 
-class ServiceIm(meanwhile.ServiceIm):
+class TestServiceIm(meanwhile.ServiceIm):
     def __init__(self, session):
         meanwhile.ServiceIm.__init__(self, session)
         self._send_queue = {}
@@ -291,7 +290,7 @@ help\n\tprints this information'''
 
 
 
-class ServiceConference(meanwhile.ServiceConference):
+class TestServiceConference(meanwhile.ServiceConference):
     def onText(self, conf, who, text):
         print '<text>%s, %s: %s' % (conf, who[0], text)
 
@@ -335,12 +334,12 @@ def main():
     test_port = int(os.environ.get('mw_port'))
     
     print "Creating session"
-    tSession = Session((test_host, test_port), (test_user, test_pass))
+    tSession = TestSession((test_host, test_port), (test_user, test_pass))
 
     print "Creating services"
-    tSrvcAware = ServiceAware(tSession)
-    tSrvcConf = ServiceConference(tSession)
-    tSrvcIm = ServiceIm(tSession)
+    tSrvcAware = TestServiceAware(tSession)
+    tSrvcConf = TestServiceConference(tSession)
+    tSrvcIm = TestServiceIm(tSession)
     tSrvcResolve = meanwhile.ServiceResolve(tSession)
     tSrvcStore = meanwhile.ServiceStorage(tSession)
 
