@@ -356,17 +356,8 @@ int mwChannel_create(struct mwChannel *chan) {
 
 
 static void channel_open(struct mwChannel *chan) {
-  struct mwSessionHandler *sh;
-
   state(chan, mwChannel_OPEN);
   timestamp_stat(chan, mwChannelStat_OPENED_AT);
-
-  sh = mwSession_getHandler(chan->session);
-#if 0
-  if(sh->on_channelOpen)
-    sh->on_channelOpen(chan);
-#endif
-
   flush_channel(chan);
 }
 
@@ -408,6 +399,8 @@ int mwChannel_accept(struct mwChannel *chan) {
     mwCipherInstance_accept(chan->cipher);
 
     msg->encrypt.item = mwCipherInstance_newItem(chan->cipher);
+
+    /** @todo figure out encrypt modes */
     msg->encrypt.mode = 0x1000;
     msg->encrypt.extra = 0x1000;
   }
@@ -476,7 +469,6 @@ int mwChannel_destroy(struct mwChannel *chan,
 
   struct mwMsgChannelDestroy *msg;
   struct mwSession *session;
-  struct mwSessionHandler *sh;
   struct mwChannelSet *cs;
   int ret;
 
@@ -497,13 +489,6 @@ int mwChannel_destroy(struct mwChannel *chan,
   msg->head.channel = chan->id;
   msg->reason = reason;
   if(info) mwOpaque_clone(&msg->data, info);
-
-  /* inform the session handler */
-  sh = mwSession_getHandler(session);
-#if 0
-  if(sh->on_channelClose)
-    sh->on_channelClose(chan);
-#endif
 
   /* remove the channel from the channel set */
   g_hash_table_remove(cs->map, GUINT_TO_POINTER(chan->id));
@@ -534,10 +519,6 @@ static int channel_send(struct mwChannel *chan,
      opened */
 
   if(chan->state == mwChannel_OPEN) {
-
-    /*
-      g_info("sending %u bytes on channel 0x%08x", msg->data.len, chan->id);
-    */
     ret = mwSession_send(chan->session, (struct mwMessage *) msg);
     mwMessage_free(MW_MESSAGE(msg));
 
@@ -717,18 +698,6 @@ void mwChannel_recvCreate(struct mwChannel *chan,
     mwCipherInstance_offered(ci, ei);
     mwChannel_addSupportedCipherInstance(chan, ci);
   }
-
-  /*
-  if(! msg->encrypt.items) {
-    g_message("channel adding fall-back cipher");
-    struct mwCipher *cipher;
-    struct mwCipherInstance *ci;
-    cipher = mwSession_getCipher(session, 0x00);
-    ci = mwCipher_newInstance(cipher, chan);
-    mwCipherInstance_offered(ci, NULL);
-    mwChannel_addSupportedCipherInstance(chan, ci);
-  }
-  */
 
   mwLoginInfo_clone(&chan->user, &msg->creator);
   chan->service = msg->service;
