@@ -118,7 +118,7 @@ dnl Glib-2.0 option with some version detection for compat.h
 AM_PATH_GLIB_2_0(glib_required_version, ,
 	AC_MSG_ERROR([*** GLib glib_required_version is required.])
 )
-GLIB_VERSION=$glib_required_version
+GLIB_VERSION=glib_required_version
 AC_SUBST(GLIB_VERSION)
 AC_SUBST(GLIB_CFLAGS)
 AC_SUBST(GLIB_LIBS)
