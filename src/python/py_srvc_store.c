@@ -71,19 +71,19 @@ static void mw_stored(struct mwServiceStorage *srvc,
 		      guint32 result, struct mwStorageUnit *item,
 		      struct cb_data *cb) {
 
-  PyObject *tuple, *robj;
+  PyObject *args, *robj;
 
   g_return_if_fail(cb != NULL);
   g_return_if_fail(cb->callback != NULL);
 
-  tuple = PyTuple_New(3);
-  PyTuple_SetItem(tuple, 0, PyInt_FromLong(mwStorageUnit_getKey(item)));
-  PyTuple_SetItem(tuple, 1, PyInt_FromLong(result));
-  PyTuple_SetItem(tuple, 2, unmarshal(item, cb->type));
+  args = PyTuple_New(3);
+  PyTuple_SetItem(args, 0, PyInt_FromLong(mwStorageUnit_getKey(item)));
+  PyTuple_SetItem(args, 1, PyInt_FromLong(result));
+  PyTuple_SetItem(args, 2, unmarshal(item, cb->type));
 
-  robj = PyObject_CallObject(cb->callback, tuple);
+  robj = PyObject_CallObject(cb->callback, args);
 
-  Py_DECREF(tuple);
+  Py_DECREF(args);
   Py_XDECREF(robj);
 }
 
@@ -132,16 +132,16 @@ static PyObject *py_load_buf(mwPyService *self, PyObject *args) {
 
 
 static struct PyMethodDef tp_methods[] = {
-  { "load", (PyCFunction) py_load_buf,
-    METH_VARARGS, "initiate a load request" },
+  { "load", (PyCFunction) py_load_buf, METH_VARARGS,
+    "initiate a load request" },
 
-  { "loadString", (PyCFunction) py_load_str,
-    METH_VARARGS, "initiate a load request for a string value" },
+  { "loadString", (PyCFunction) py_load_str, METH_VARARGS,
+    "initiate a load request for a string value" },
 
-  { "loadInt", (PyCFunction) py_load_int,
-    METH_VARARGS, "initiate a load request for an integer value" },
+  { "loadInt", (PyCFunction) py_load_int, METH_VARARGS,
+    "initiate a load request for an integer value" },
 
-  {NULL}
+  { NULL }
 };
 
 

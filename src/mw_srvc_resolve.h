@@ -57,9 +57,10 @@ enum mwResolveCode {
 
 
 struct mwResolveMatch {
-  char *id;    /**< user id */
-  char *name;  /**< user name */
-  char *desc;  /**< description */
+  char *id;      /**< user id */
+  char *name;    /**< user name */
+  char *desc;    /**< description */
+  guint32 type;  /**< match type, shouldl be 0x01 */
 };
 
 
@@ -76,11 +77,13 @@ struct mwResolveResult {
 
     @param srvc     the resolve service
     @param id       the resolve request ID
+    @param code     return code
     @param results  list of mwResolveResult
     @param data     optional user data attached to the request
 */
 typedef void (*mwResolveHandler)(struct mwServiceResolve *srvc,
-				 guint32 id, GList *results, gpointer data);
+				 guint32 id, guint32 code, GList *results,
+				 gpointer data);
 
 
 /** Allocate a new resolve service */
@@ -89,7 +92,7 @@ struct mwServiceResolve *mwServiceResolve_new(struct mwSession *);
 
 /** Inisitate a resolve request.
 
-    @param query    NULL terminated array of query strings
+    @param queries  list query strings
     @param flags    search flags
     @param handler  result handling function
     @param data     optional user data attached to the request
@@ -97,7 +100,7 @@ struct mwServiceResolve *mwServiceResolve_new(struct mwSession *);
     @return         generated ID for the search request, or SEARCH_ERROR
 */
 guint32 mwServiceResolve_search(struct mwServiceResolve *srvc,
-				const char *query[], enum mwResolveFlag flags,
+				GList *queries, enum mwResolveFlag flags,
 				mwResolveHandler handler,
 				gpointer data, GDestroyNotify cleanup);
 

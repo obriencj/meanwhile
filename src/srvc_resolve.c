@@ -175,12 +175,74 @@ static void recv_destroy(struct mwServiceResolve *srvc,
 }
 
 
+static GList *load_matches(struct mwGetBuffer *b, guint32 count) {
+  GList *matches = NULL;
+
+  /** @todo actually load matches */
+  while(count--) {
+    struct mwResolveMatch *m = g_new0(struct mwResolveMatch, 1);
+
+    mwString_get(b, &m->id);
+    mwString_get(b, &m->name);
+    mwString_get(b, &m->desc);
+    guint32_get(b, &m->type);
+ 
+    matches = g_list_append(matches, m);
+  }
+
+  return matches;
+}
+
+
+static GList *load_results(struct mwGetBuffer *b, guint32 count) {
+  GList *results = NULL;
+
+  /** @todo actually load results */
+  while(count--) {
+    struct mwResolveResult *r = g_new0(struct mwResolveResult, 1);
+    guint32 junk, matches;
+
+    guint32_get(b, &junk);
+    guint32_get(b, &r->code);
+    mwString_get(b, &r->name);
+
+    guint32_get(b, &matches);
+    r->matches = load_matches(b, matches);
+
+    results = g_list_append(results, r);
+  }
+
+  return results;
+}
+
+
+static void free_matches(GList *matches) {
+  for(; matches; matches = g_list_delete_link(matches, matches)) {
+    struct mwResolveMatch *m = matches->data;
+    g_free(m->id);
+    g_free(m->name);
+    g_free(m->desc);
+    g_free(m);
+  }
+}
+
+
+static void free_results(GList *results) {
+  for(; results; results = g_list_delete_link(results, results)) {
+    struct mwResolveResult *r = results->data;
+    g_free(r->name);
+    free_matches(r->matches);
+    g_free(r);
+  }
+}
+
+
 static void recv(struct mwServiceResolve *srvc,
 		 struct mwChannel *chan,
 		 guint16 type, struct mwOpaque *data) {
 
   struct mwGetBuffer *b;
-  guint32 id;
+  guint32 id, code, count;
   struct mw_search *search;
 
   g_return_if_fail(srvc != NULL);
@@ -190,16 +252,26 @@ static void recv(struct mwServiceResolve *srvc,
   g_return_if_fail(data != NULL);
 
   b = mwGetBuffer_wrap(data);
-  id = guint32_peek(b);
-  search = g_hash_table_lookup(srvc->searches, GUINT_TO_POINTER(id));
+  guint32_get(b, &id);
+  guint32_get(b, &code);
+  guint32_get(b, &count);
 
-  if(! search) {
+  if(mwGetBuffer_error(b)) {
+    g_warning("error parsing search results");
     mwGetBuffer_free(b);
     return;
   }
-
-  /** @todo: get mwResolveResults from b */
   
+  search = g_hash_table_lookup(srvc->searches, GUINT_TO_POINTER(id));
+
+  if(search) {
+    GList *results = load_results(b, count);
+    search->handler(srvc, id, code, results, search->data);
+    free_results(results);
+    g_hash_table_remove(srvc->searches, GUINT_TO_POINTER(id));
+  }
+
+  mwGetBuffer_free(b);
 }
 
 
@@ -229,21 +301,19 @@ struct mwServiceResolve *mwServiceResolve_new(struct mwSession *session) {
 
 
 guint32 mwServiceResolve_search(struct mwServiceResolve *srvc,
-				const char *query[], enum mwResolveFlag flags,
+				GList *queries, enum mwResolveFlag flags,
 				mwResolveHandler handler,
 				gpointer data, GDestroyNotify cleanup) {
 
   struct mw_search *search;
   struct mwPutBuffer *b;
   struct mwOpaque o = { 0, 0 };
-  int ret;
-  int count = 0;
+  int ret, count = 0;
 
   g_return_val_if_fail(srvc != NULL, SEARCH_ERROR);
-  g_return_val_if_fail(query != NULL, SEARCH_ERROR);
   g_return_val_if_fail(handler != NULL, SEARCH_ERROR);
 
-  while(query[count]) count++;
+  count = g_list_length(queries);
   g_return_val_if_fail(count > 0, SEARCH_ERROR);
 
   search = search_new(srvc, data, cleanup);
@@ -252,7 +322,8 @@ guint32 mwServiceResolve_search(struct mwServiceResolve *srvc,
   guint32_put(b, 0x00); /* to be overwritten */
   guint32_put(b, search->id);
   guint32_put(b, count);
-  for(; query; query++) mwString_put(b, *query);
+  for(; queries; queries = queries->next)
+    mwString_put(b, queries->data);
   guint32_put(b, flags);
 
   mwPutBuffer_finalize(&o, b);

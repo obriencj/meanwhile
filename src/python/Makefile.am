@@ -19,6 +19,7 @@ _meanwhile_so_SOURCES = \
 	py_srvc_aware.c \
 	py_srvc_conf.c \
 	py_srvc_im.c \
+	py_srvc_resolve.c \
 	py_srvc_store.c
 
 _meanwhile_so_CFLAGS = \

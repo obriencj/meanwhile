@@ -35,7 +35,7 @@ PyTypeObject *mwPyChannel_type();
 
 
 #define mwPyChannel_check(obj) \
-  PyObject_IsInstance((obj), mwPyChannel_type())
+  PyObject_IsInstance((obj), (PyObject *) mwPyChannel_type())
 
 
 /** instantiate a mwPyChannel wrapping a given mwChannel. */
@@ -57,7 +57,7 @@ PyTypeObject *mwPyService_type();
 
 
 #define mwPyService_check(obj) \
-  PyObject_IsInstance((obj), mwPyService())
+  PyObject_IsInstance((obj),(PyObject *)  mwPyService_type())
 
 
 /** create an instance of the wrapper service with the given service
@@ -81,7 +81,7 @@ PyTypeObject *mwPyServiceAware_type();
 
 
 #define mwPyServiceAware_check(obj) \
-  PyObject_IsInstance((obj), mwPyServiceAware_type())
+  PyObject_IsInstance((obj), (PyObject *) mwPyServiceAware_type())
 
 
 /** static instance of the type for mwPyServiceConference
@@ -91,7 +91,7 @@ PyTypeObject *mwPyServiceConference_type();
 
 
 #define mwPyServiceConference_check(obj) \
-  PyObject_IsInstance((obj), mwPyServiceConference_type())
+  PyObject_IsInstance((obj),(PyObject *)  mwPyServiceConference_type())
 
 
 /** static instance of the type for mwPyServiceIm objects. sub-type of
@@ -100,7 +100,16 @@ PyTypeObject *mwPyServiceIm_type();
 
 
 #define mwPyServiceIm_check(obj) \
-  PyObject_IsInstance((obj), mwPyServiceIm_type())
+  PyObject_IsInstance((obj), (PyObject *) mwPyServiceIm_type())
+
+
+/** static instance of the type for mwPyServiceResolve objects.
+    sub-type of mwPyService for wrapping a mwServiceResolve instance */
+PyTypeObject *mwPyServiceResolve_type();
+
+
+#define mwPyServiceResolve_check(obj) \
+  PyObject_IsInstance((obj), (PyObject *) mwPyServiceResolve_type())
 
 
 /** static instance of the type for mwPyServiceStorage objects.
@@ -109,7 +118,7 @@ PyTypeObject *mwPyServiceStorage_type();
 
 
 #define mwPyServiceStorage_check(obj) \
-  PyObject_IsInstance((obj), mwPyServiceStorage_type())
+  PyObject_IsInstance((obj), (PyObject *) mwPyServiceStorage_type())
 
 
 struct pyObj_mwSession {
@@ -124,7 +133,7 @@ PyTypeObject *mwPySession_type();
 
 
 #define mwPySession_check(obj) \
-  PyObject_IsInstance((obj), mwPySession_type())
+  PyObject_IsInstance((obj), (PyObject *) mwPySession_type())
 
 
 /** @section utility functions */
