@@ -265,7 +265,7 @@ help\n\tprints this information'''
 
         html = StringIO()  # combined text segments
         images = {}        # map of Content-ID:binary image
-                
+        
         for part in msg.walk():
             mt = part.get_content_maintype()
             if mt == 'text':

@@ -7,7 +7,9 @@
 #include "mw_common.h"
 
 
+/* place-holders */
 struct mwChannel;
+struct mwService;
 struct mwSession;
 struct mwMsgChannelCreate;
 struct mwMsgChannelAccept;
@@ -45,14 +47,48 @@ enum mwServiceState {
   MW_SERVICE_IS_STATE(srvc, mwServiceState_STARTING)
 
 
-/** If a service is STARTING or STARTED, it's LIVE */
+/** If a service is STARTING or STARTED, it's considered LIVE */
 #define MW_SERVICE_IS_LIVE(srvc) \
   (MW_SERVICE_IS_STARTING(srvc) || MW_SERVICE_IS_STARTED(srvc))
 
-/** If a service is STOPPING or STOPPED, it's DEAD */
+/** If a service is STOPPING or STOPPED, it's considered DEAD */
 #define MW_SERVICE_IS_DEAD(srvc) \
   (MW_SERVICE_IS_STOPPING(srvc) || MW_SERVICE_IS_STOPPED(srvc))
 
+
+typedef void (*mwService_funcStart)(struct mwService *service);
+
+typedef void (*mwService_funcStop)(struct mwService *service);
+
+typedef void (*mwService_funcClear)(struct mwService *service);
+
+typedef const char *(*mwService_funcGetName)(struct mwService *service);
+
+typedef const char *(*mwService_funcGetDesc)(struct mwService *service);
+
+/** @todo remove msg and replace with appropriate additional parameters */
+typedef void (*mwService_funcRecvCreate)
+     (struct mwService *service,
+      struct mwChannel *channel,
+      struct mwMsgChannelCreate *msg);
+
+/** @todo remove msg and replace with appropriate additional parameters */
+typedef void (*mwService_funcRecvAccept)
+     (struct mwService *service,
+      struct mwChannel *channel,
+      struct mwMsgChannelAccept *msg);
+
+/** @todo remove msg and replace with appropriate additional parameters */
+typedef void (*mwService_funcRecvDestroy)
+     (struct mwService *service,
+      struct mwChannel *channel,
+      struct mwMsgChannelDestroy *msg);
+
+typedef void (*mwService_funcRecv)
+     (struct mwService *service,
+      struct mwChannel *channel,
+      guint16 msg_type,
+      struct mwOpaque *data);
 
 
 /** A service is the recipient of sendOnCnl messages sent over
@@ -81,77 +117,61 @@ struct mwService {
 
   /** @return string short name of the service
       @relates mwService_getName */
-  const char *(*get_name)(struct mwService *);
+  mwService_funcGetName get_name;
 
   /** @return string short description of the service
       @relates mwService_getDesc */
-  const char *(*get_desc)(struct mwService *);
+  mwService_funcGetDesc get_desc;
 
   /** The service's channel create handler. Called when the session
       receives a channel create message with a service matching this
       service's type.
 
-      @relates mwService_recvChannelCreate
-
-      @todo move the create data onto the channel, and remove the
-      message parameter */
-  void (*recv_channelCreate)(struct mwService *, struct mwChannel *,
-			     struct mwMsgChannelCreate *);
+      @relates mwService_recvCreate */
+  mwService_funcRecvCreate recv_create;
 
   /** The service's channel accept handler. Called when the session
       receives a channel accept message for a channel with a service
       matching this service's type.
 
-      @relates mwService_recvChannelAccept 
-
-      @todo move the accept data onto the channel, and remove the
-      message parameter */
-  void (*recv_channelAccept)(struct mwService *, struct mwChannel *,
-			     struct mwMsgChannelAccept *);
+      @relates mwService_recvAccept */
+  mwService_funcRecvAccept recv_accept;
 
   /** The service's channel destroy handler. Called when the session
       receives a channel destroy message for a channel with a service
       matching this service's type.
 
-      @relates mwService_recvChannelDestroy
-
-      @todo move the destroy data onto the channel, and remove the
-      message parameter */
-  void (*recv_channelDestroy)(struct mwService *, struct mwChannel *,
-			      struct mwMsgChannelDestroy *);
+      @relates mwService_recvDestroy */
+  mwService_funcRecvDestroy recv_destroy;
 
   /** The service's input handler. Called when the session receives
       data on a channel belonging to this service
 
       @relates mwService_recv */
-  void (*recv)(struct mwService *, struct mwChannel *,
-	       guint16 msg_type, struct mwOpaque *);
+  mwService_funcRecv recv;
 
   /** The service's start handler. Called upon the receipt of a
       service available message.
 
       @relates mwService_start */
-  void (*start)(struct mwService *);
+  mwService_funcStart start;
 
   /** The service's stop handler. Called when the session is shutting
       down, or when the service is free'd.
 
       @relates mwService_stop */
-  void (*stop)(struct mwService *);
-
+  mwService_funcStop stop;
   
   /** The service's cleanup handler.
 
       @relates mwService_free */
-  void (*clear)(struct mwService *);
-
+  mwService_funcClear clear;
 
   /** Optional client data, not for use by service implementations
 
       @relates mwService_getClientData
       @relates mwService_setClientData */
   gpointer client_data;
-
 
   /** Optional client data cleanup function. Called with client_data
       from mwService_free
@@ -175,11 +195,11 @@ struct mwService {
     
     The service state will be initialized to STOPPED.
     
-    @param service The service to initialize
-    @param session The service's owning session
-    @param service_type The service number
-*/
-void mwService_init(struct mwService *service, struct mwSession *session,
+    @param service       the service to initialize
+    @param session       the service's owning session
+    @param service_type  the service ID number */
+void mwService_init(struct mwService *service,
+		    struct mwSession *session,
 		    guint32 service_type);
 
 
@@ -203,44 +223,46 @@ void mwService_stopped(struct mwService *service);
 /*@{*/
 
 
-/** Triggers the recv_channelCreate handler on the service.
-    @param service the service to handle the message
-    @param channel the channel being created
-    @param msg the channel create message
-*/
-void mwService_recvChannelCreate(struct mwService *service,
-				 struct mwChannel *channel,
-				 struct mwMsgChannelCreate *msg);
+/** Triggers the recv_create handler on the service.
+
+    @param service  the service to handle the message
+    @param channel  the channel being created
+    @param msg      the channel create message */
+void mwService_recvCreate(struct mwService *service,
+			  struct mwChannel *channel,
+			  struct mwMsgChannelCreate *msg);
 
 
-/** Triggers the recv_channelAccept handler on the service.
-    @param service the service to handle the message
-    @param channel the channel being accepted
-    @param msg the channel accept message
-*/
-void mwService_recvChannelAccept(struct mwService *service,
-				 struct mwChannel *channel,
-				 struct mwMsgChannelAccept *msg);
+/** Triggers the recv_accept handler on the service.
+
+    @param service  the service to handle the message
+    @param channel  the channel being accepted
+    @param msg      the channel accept message */
+void mwService_recvAccept(struct mwService *service,
+			  struct mwChannel *channel,
+			  struct mwMsgChannelAccept *msg);
 
 
-/** Triggers the recv_channelDestroy handler on the service.
-    @param service the service to handle the message
-    @param channel the channel being destroyed
-    @param msg the channel destroy message
-*/
-void mwService_recvChannelDestroy(struct mwService *service,
-				  struct mwChannel *channel,
-				  struct mwMsgChannelDestroy *msg);
+/** Triggers the recv_destroy handler on the service.
+
+    @param service  the service to handle the message
+    @param channel  the channel being destroyed
+    @param msg      the channel destroy message */
+void mwService_recvDestroy(struct mwService *service,
+			   struct mwChannel *channel,
+			   struct mwMsgChannelDestroy *msg);
 
 
 /** Triggers the input handler on the service
-    @param service the service to receive the input
-    @param channel the channel the input was received from
-    @param msg_type the service-dependant message type
-    @param data the message data
-*/
-void mwService_recv(struct mwService *service, struct mwChannel *channel,
-		    guint16 msg_type, struct mwOpaque *data);
+
+    @param service   the service to receive the input
+    @param channel   the channel the input was received from
+    @param msg_type  the service-dependant message type
+    @param data      the message data */
+void mwService_recv(struct mwService *service,
+		    struct mwChannel *channel,
+		    guint16 msg_type,
+		    struct mwOpaque *data);
 
 
 /** @return the appropriate type id for the service */

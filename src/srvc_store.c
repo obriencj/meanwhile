@@ -11,6 +11,10 @@
 #include "mw_srvc_store.h"
 
 
+#define PROTOCOL_TYPE  0x00000025
+#define PROTOCOL_VER   0x00000001
+
+
 enum storage_action {
   action_load    = 0x0004,
   action_loaded  = 0x0005,
@@ -184,8 +188,8 @@ static struct mwChannel *make_channel(struct mwServiceStorage *srvc) {
   chan = mwChannel_newOutgoing(cs);
  
   mwChannel_setService(chan, MW_SERVICE(srvc));
-  mwChannel_setProtoType(chan, 0x00000025);
-  mwChannel_setProtoVer(chan, 0x00000001);
+  mwChannel_setProtoType(chan, PROTOCOL_TYPE);
+  mwChannel_setProtoVer(chan, PROTOCOL_VER);
 
   return mwChannel_create(chan)? NULL: chan;
 }
@@ -308,6 +312,7 @@ static void recv(struct mwService *srvc, struct mwChannel *chan,
 
   g_return_if_fail(chan != NULL);
   g_return_if_fail(chan == srvc_stor->channel);
+  g_return_if_fail(data != NULL);
 
   b = mwGetBuffer_wrap(data);
 
@@ -362,9 +367,9 @@ struct mwServiceStorage *mwServiceStorage_new(struct mwSession *session) {
   mwService_init(srvc, session, SERVICE_STORAGE);
   srvc->get_name = get_name;
   srvc->get_desc = get_desc;
-  srvc->recv_channelCreate = recv_channelCreate;
-  srvc->recv_channelAccept = recv_channelAccept;
-  srvc->recv_channelDestroy = recv_channelDestroy;
+  srvc->recv_create = recv_channelCreate;
+  srvc->recv_accept = recv_channelAccept;
+  srvc->recv_destroy = recv_channelDestroy;
   srvc->recv = recv;
   srvc->start = start;
   srvc->stop = stop;

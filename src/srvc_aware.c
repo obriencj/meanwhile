@@ -66,9 +66,9 @@ enum send_types {
 };
 
 
-static void recv_channelCreate(struct mwService *srvc,
-			       struct mwChannel *chan,
-			       struct mwMsgChannelCreate *msg) {
+static void recv_create(struct mwServiceAware *srvc,
+			struct mwChannel *chan,
+			struct mwMsgChannelCreate *msg) {
 
   /* We only like outgoing blist channels */
   mwChannel_destroy(chan, ERR_FAILURE, NULL);
@@ -194,21 +194,20 @@ static void collect_aware(gpointer key, gpointer val, gpointer data) {
 }
 
 
-static void recv_channelAccept(struct mwService *srvc,
-			       struct mwChannel *chan,
-			       struct mwMsgChannelAccept *msg) {
+static void recv_accept(struct mwServiceAware *srvc,
+			struct mwChannel *chan,
+			struct mwMsgChannelAccept *msg) {
 
-  struct mwServiceAware *srvc_aware = (struct mwServiceAware *) srvc;
-  g_return_if_fail(srvc_aware->channel == chan);
+  g_return_if_fail(srvc->channel == chan);
 
-  if(MW_SERVICE_IS_STARTING(srvc)) {
+  if(MW_SERVICE_IS_STARTING(MW_SERVICE(srvc))) {
     GList *list = NULL;
 
-    g_hash_table_foreach(srvc_aware->entries, collect_aware, &list);
+    g_hash_table_foreach(srvc->entries, collect_aware, &list);
     send_add(chan, list);
     g_list_free(list);
 
-    mwService_started(srvc);
+    mwService_started(MW_SERVICE(srvc));
 
   } else {
     mwChannel_destroy(chan, ERR_FAILURE, NULL);
@@ -216,12 +215,12 @@ static void recv_channelAccept(struct mwService *srvc,
 }
 
 
-static void recv_channelDestroy(struct mwService *srvc,
-				struct mwChannel *chan,
-				struct mwMsgChannelDestroy *msg) {
+static void recv_destroy(struct mwServiceAware *srvc,
+			 struct mwChannel *chan,
+			 struct mwMsgChannelDestroy *msg) {
 
-  mwService_stop(srvc);
-  /* TODO: session sense service. */
+  mwService_stop(MW_SERVICE(srvc));
+  /** @todo: session sense service. */
 }
 
 
@@ -477,9 +476,9 @@ struct mwServiceAware *mwServiceAware_new(struct mwSession *session) {
 
   mwService_init(srvc, session, SERVICE_AWARE);
 
-  srvc->recv_channelCreate = recv_channelCreate;
-  srvc->recv_channelAccept = recv_channelAccept;
-  srvc->recv_channelDestroy = recv_channelDestroy;
+  srvc->recv_create = (mwService_funcRecvCreate) recv_create;
+  srvc->recv_accept = (mwService_funcRecvAccept) recv_accept;
+  srvc->recv_destroy = (mwService_funcRecvDestroy) recv_destroy;
   srvc->recv = recv;
   srvc->start = start;
   srvc->stop = stop;

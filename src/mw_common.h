@@ -167,35 +167,6 @@ struct mwAwareSnapshot {
 };
 
 
-/* 8.3.1.5 Resolve error codes */
-/* @todo move into the resolve service */
-
-enum mwResolveCode {
-  mwResolve_SUCCESS    = 0x00000000,
-  mwResolve_PARTIAL    = 0x00010000,
-  mwResolve_MULTIPLE   = 0x80020000,
-  mwResolve_BAD_FORMAT = 0x80030000,
-};
-
-
-/* 8.4.4.2 Resolve Response */
-/* @todo move into the resolve service */
-
-struct mwResolveMatch {
-  char *id;    /**< user id */
-  char *name;  /**< user name */
-  char *desc;  /**< description */
-};
-
-
-struct mwResolveResult {
-  guint32 code;   /**< @see mwResolveCode */
-  char *name;     /**< name of the result */
-  guint32 count;  /**< count of matches */
-  struct mwResolveMatch *matches;
-};
-
-
 /** encryption blocks */
 struct mwEncryptItem {
   guint16 id;            /**< cipher identifier */

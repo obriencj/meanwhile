@@ -105,13 +105,16 @@ guint32 mwStorageUnit_getKey(struct mwStorageUnit *);
 gboolean mwStorageUnit_asBoolean(struct mwStorageUnit *, gboolean val);
 
 
+/** attempts to obtain a guint32 value from a storage unit. If the
+    unit is empty, or does not contain the type in a recognizable
+    format, val is returned instead */
 guint32 mwStorageUnit_asInteger(struct mwStorageUnit *, guint32 val);
 
 
 /** attempts to obtain a string value from a storage unit. If the unit
     is empty, or does not contain the type in a recognizable format,
-    NULL is returned instead. Note that string returned is a copy, and
-    will need to be deallocated at some point. */
+    NULL is returned instead. Note that the string returned is a copy,
+    and will need to be deallocated at some point. */
 char *mwStorageUnit_asString(struct mwStorageUnit *);
 
 

@@ -14,6 +14,7 @@ mwinclude_HEADERS = \
 	mw_srvc_aware.h \
 	mw_srvc_conf.h \
 	mw_srvc_im.h \
+	mw_srvc_resolve.h \
 	mw_srvc_store.h \
 	mw_st_list.h
 
@@ -42,6 +43,7 @@ libmeanwhile_la_SOURCES = \
 	srvc_conf.c \
 	srvc_im.c \
 	srvc_store.c \
+	srvc_resolve.c \
 	st_list.c
 
 libmeanwhile_la_LIBADD = $(GLIB_LIBS)

@@ -105,39 +105,39 @@ static void mw_clear(struct mwService *srvc) {
 }
 
 
-static void mw_recv_create(struct mwService *srvc, struct mwChannel *c,
-			 struct mwMsgChannelCreate *msg) {
+static void mw_recv_create(struct mwServicePyWrap *srvc,
+			   struct mwChannel *c,
+			   struct mwMsgChannelCreate *msg) {
 
-  struct mwServicePyWrap *py_srvc = (struct mwServicePyWrap *) srvc;
-  if(py_srvc->self->wrapped)
-    mwService_recvChannelCreate(py_srvc->self->wrapped, c, msg);
+  if(srvc->self->wrapped)
+    mwService_recvCreate(srvc->self->wrapped, c, msg);
 }
 
 
-static void mw_recv_accept(struct mwService *srvc, struct mwChannel *c,
+static void mw_recv_accept(struct mwServicePyWrap *srvc,
+			   struct mwChannel *c,
 			   struct mwMsgChannelAccept *msg) {
   
-  struct mwServicePyWrap *py_srvc = (struct mwServicePyWrap *) srvc;
-  if(py_srvc->self->wrapped)
-    mwService_recvChannelAccept(py_srvc->self->wrapped, c, msg);
+  if(srvc->self->wrapped)
+    mwService_recvAccept(srvc->self->wrapped, c, msg);
 }
 
 
-static void mw_recv_destroy(struct mwService *srvc, struct mwChannel *c,
+static void mw_recv_destroy(struct mwServicePyWrap *srvc,
+			    struct mwChannel *c,
 			    struct mwMsgChannelDestroy *msg) {
   
-  struct mwServicePyWrap *py_srvc = (struct mwServicePyWrap *) srvc;
-  if(py_srvc->self->wrapped)
-    mwService_recvChannelDestroy(py_srvc->self->wrapped, c, msg);
+  if(srvc->self->wrapped)
+    mwService_recvDestroy(srvc->self->wrapped, c, msg);
 }
 
 
-static void fwd_recv(struct mwService *srvc, struct mwChannel *c,
-		      guint16 msg_type, struct mwOpaque *data) {
-
-  struct mwServicePyWrap *py_srvc = (struct mwServicePyWrap *) srvc;
-  if(py_srvc->self->wrapped)
-    mwService_recv(py_srvc->self->wrapped, c, msg_type, data);
+static void fwd_recv(struct mwServicePyWrap *srvc,
+		     struct mwChannel *c,
+		     guint16 msg_type, struct mwOpaque *data) {
+  
+  if(srvc->self->wrapped)
+    mwService_recv(srvc->self->wrapped, c, msg_type, data);
 }
 
 
@@ -156,11 +156,10 @@ struct mwServicePyWrap *mwServicePyWrap_new(mwPyService *self,
   srvc->stop = mw_stop;
   srvc->clear = mw_clear;
 
-  /** @todo need the recv_channel functions */
-  srvc->recv_channelCreate = mw_recv_create;
-  srvc->recv_channelAccept = mw_recv_accept;
-  srvc->recv_channelDestroy = mw_recv_destroy;
-  srvc->recv = fwd_recv;
+  srvc->recv_create = (mwService_funcRecvCreate) mw_recv_create;
+  srvc->recv_accept = (mwService_funcRecvAccept) mw_recv_accept;
+  srvc->recv_destroy = (mwService_funcRecvDestroy) mw_recv_destroy;
+  srvc->recv = (mwService_funcRecv) fwd_recv;
 
   psrvc->self = self;
 

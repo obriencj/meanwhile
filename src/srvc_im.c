@@ -586,9 +586,9 @@ struct mwServiceIm *mwServiceIm_new(struct mwSession *session,
   srvc = &srvc_im->service;
 
   mwService_init(srvc, session, SERVICE_IM);
-  srvc->recv_channelCreate = recv_channelCreate;
-  srvc->recv_channelAccept = recv_channelAccept;
-  srvc->recv_channelDestroy = recv_channelDestroy;
+  srvc->recv_create = recv_channelCreate;
+  srvc->recv_accept = recv_channelAccept;
+  srvc->recv_destroy = recv_channelDestroy;
   srvc->recv = recv;
   srvc->clear = clear;
   srvc->get_name = name;

@@ -702,7 +702,7 @@ void mwChannel_recvCreate(struct mwChannel *chan,
   
   srvc = mwSession_getService(session, msg->service);
   if(srvc) {
-    mwService_recvChannelCreate(srvc, chan, msg);
+    mwService_recvCreate(srvc, chan, msg);
 
   } else {
     mwChannel_destroy(chan, ERR_SERVICE_NO_SUPPORT, NULL);
@@ -759,7 +759,7 @@ void mwChannel_recvAccept(struct mwChannel *chan,
   }
 
   /* let the service know */
-  mwService_recvChannelAccept(srvc, chan, msg);
+  mwService_recvAccept(srvc, chan, msg);
 
   /* mark it, flush it */
   channel_open(chan);
@@ -779,7 +779,7 @@ void mwChannel_recvDestroy(struct mwChannel *chan,
   state(chan, msg->reason? mwChannel_ERROR: mwChannel_DESTROY);
 
   srvc = mwChannel_getService(chan);
-  if(srvc) mwService_recvChannelDestroy(srvc, chan, msg);
+  if(srvc) mwService_recvDestroy(srvc, chan, msg);
 
   cs = mwSession_getChannels(chan->session);
   g_return_if_fail(cs != NULL);

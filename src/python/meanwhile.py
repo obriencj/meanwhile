@@ -62,7 +62,8 @@ class SocketSession(Session):
     handling functionality.  '''
     
     def __init__(self, where, who):
-        '''
+        
+        ''' 
         '''
         
         self._server = where

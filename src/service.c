@@ -10,8 +10,8 @@
    checks. */
 
 
-void mwService_recvChannelCreate(struct mwService *s, struct mwChannel *chan,
-				 struct mwMsgChannelCreate *msg) {
+void mwService_recvCreate(struct mwService *s, struct mwChannel *chan,
+			  struct mwMsgChannelCreate *msg) {
 
   /* ensure none are null, ensure that the service and channel belong
      to the same session, and ensure that the message belongs on the
@@ -22,13 +22,13 @@ void mwService_recvChannelCreate(struct mwService *s, struct mwChannel *chan,
   g_return_if_fail(s->session == mwChannel_getSession(chan));
   g_return_if_fail(mwChannel_getId(chan) == msg->channel);
 
-  if(s->recv_channelCreate)
-    s->recv_channelCreate(s, chan, msg);
+  if(s->recv_create)
+    s->recv_create(s, chan, msg);
 }
 
 
-void mwService_recvChannelAccept(struct mwService *s, struct mwChannel *chan,
-				 struct mwMsgChannelAccept *msg) {
+void mwService_recvAccept(struct mwService *s, struct mwChannel *chan,
+			  struct mwMsgChannelAccept *msg) {
 
   /* ensure none are null, ensure that the service and channel belong
      to the same session, and ensure that the message belongs on the
@@ -39,13 +39,13 @@ void mwService_recvChannelAccept(struct mwService *s, struct mwChannel *chan,
   g_return_if_fail(s->session == mwChannel_getSession(chan));
   g_return_if_fail(mwChannel_getId(chan) == msg->head.channel);
 
-  if(s->recv_channelAccept)
-    s->recv_channelAccept(s, chan, msg);
+  if(s->recv_accept)
+    s->recv_accept(s, chan, msg);
 }
 
 
-void mwService_recvChannelDestroy(struct mwService *s, struct mwChannel *chan,
-				  struct mwMsgChannelDestroy *msg) {
+void mwService_recvDestroy(struct mwService *s, struct mwChannel *chan,
+			   struct mwMsgChannelDestroy *msg) {
 
   /* ensure none are null, ensure that the service and channel belong
      to the same session, and ensure that the message belongs on the
@@ -56,8 +56,8 @@ void mwService_recvChannelDestroy(struct mwService *s, struct mwChannel *chan,
   g_return_if_fail(s->session == mwChannel_getSession(chan));
   g_return_if_fail(mwChannel_getId(chan) == msg->head.channel);
 
-  if(s->recv_channelDestroy)
-    s->recv_channelDestroy(s, chan, msg);
+  if(s->recv_destroy)
+    s->recv_destroy(s, chan, msg);
 }
 
 
