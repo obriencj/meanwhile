@@ -1,17 +1,12 @@
+##############################################################################
+# simple python bot test script
+##############################################################################
 
-# simple python test script to create, start, and stop a session
+
 
 import meanwhile
 import os
 import time
-
-
-# provided from test.conf via test.sh
-test_user = os.environ.get('mw_user')
-test_pass = os.environ.get('mw_pass')
-test_host = os.environ.get('mw_host')
-test_port = int(os.environ.get('mw_port'))
-allow_exec = int(os.environ.get('allow_exec'))
 
 
 
@@ -25,6 +20,9 @@ tSrvcStore = None
 
 
 def _cbExec_real(who, text):
+
+    ''' actually executes text as code '''
+
     print "executing code %s" % text
     try:
         exec text in globals()
@@ -40,11 +38,13 @@ def _cbExec_none(text):
 
 
 
+# determine which _cbExec to use based on the allow_exec environment
+# variable
 _cbExec = None
-if allow_exec:
-    _cbExec = lambda who, text: _cbExec_real(who, text)
+if os.environ.get('allow_exec'):
+    _cbExec = _cbExec_real
 else:
-    _cbExec = lambda who, text: _cbExec_none(who, text)
+    _cbExec = _cbExec_none
 
 
 
@@ -99,6 +99,7 @@ class ServiceIm(meanwhile.ServiceIm):
     def __init__(self, session):
         meanwhile.ServiceIm.__init__(self, session)
         self._send_queue = {}
+
     
     def processCmd(self, who, text):
         if text == 'shutdown':
@@ -136,8 +137,9 @@ help\n\tprints this information'''
 
 
     def _queue(self, who, cb, data):
+        
         ''' queues up a send call to be handled when the conversation
-        is fully opened.  '''
+        is fully opened. '''
         
         q = self._send_queue
         t = (cb, data)
@@ -148,6 +150,7 @@ help\n\tprints this information'''
 
 
     def _delqueue(self, who):
+        
         ''' deletes all queued send calls '''
         
         q = self._send_queue
@@ -156,6 +159,7 @@ help\n\tprints this information'''
 
 
     def _runqueue(self, who):
+        
         ''' sends all queued calls '''
         
         q = self._send_queue
@@ -232,8 +236,9 @@ help\n\tprints this information'''
 
 
     def onMime(self, who, data):
-        '''Handles incoming MIME messages
-        '''
+        
+        ''' Handles incoming MIME messages, such as those sent by
+        NotesBuddy containing images. '''
 
         from email.Parser import Parser
         from StringIO import StringIO
@@ -295,9 +300,19 @@ class ServiceConference(meanwhile.ServiceConference):
 
 
 
-if __name__ == "__main__":
+def main():
+
+    ''' Run the test bot '''
+
+    test_user = os.environ.get('mw_user')
+    test_pass = os.environ.get('mw_pass')
+    test_host = os.environ.get('mw_host')
+    test_port = int(os.environ.get('mw_port'))
+    
+    print "Creating session"
     tSession = Session((test_host, test_port), (test_user, test_pass))
 
+    print "Creating services"
     tSrvcAware = ServiceAware(tSession)
     tSrvcConf = ServiceConference(tSession)
     tSrvcIm = ServiceIm(tSession)
@@ -308,10 +323,25 @@ if __name__ == "__main__":
     tSession.addService(tSrvcIm)
     tSession.addService(tSrvcStore)
 
-    tSession.start(background=False, daemon=False)
+    print "Starting session"
+    try:
+        tSession.start(background=False, daemon=False)
+    except Exception, e:
+        print "Error: %s" % e[1]
 
+    print "Shutting down"
     tSession.removeService(tSrvcAware.type)
     tSession.removeService(tSrvcConf.type)
     tSession.removeService(tSrvcIm.type)
     tSession.removeService(tSrvcStore.type)
 
+    print "Done"
+    
+
+
+if __name__ == "__main__":
+    main()
+
+
+
+# The End.

@@ -41,7 +41,7 @@ from _meanwhile import \
 
 # IM conversation message types/features
 from _meanwhile import \
-     IM_PLAIN, IM_HTML, IM_SUBJECT, IM_TYPING
+     IM_PLAIN, IM_TYPING, IM_HTML, IM_SUBJECT, IM_MIME
 
 # IM conversation states
 from _meanwhile import \

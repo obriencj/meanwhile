@@ -57,9 +57,10 @@ PyMODINIT_FUNC init_meanwhile() {
 
   /* IM message types */
   PyModule_AddIntConstant(m, "IM_PLAIN", mwImSend_PLAIN);
+  PyModule_AddIntConstant(m, "IM_TYPING", mwImSend_TYPING);
   PyModule_AddIntConstant(m, "IM_HTML", mwImSend_HTML);
   PyModule_AddIntConstant(m, "IM_SUBJECT", mwImSend_SUBJECT);
-  PyModule_AddIntConstant(m, "IM_TYPING", mwImSend_TYPING);
+  PyModule_AddIntConstant(m, "IM_MIME", mwImSend_MIME);
 
   /* IM conversation states */
   PyModule_AddIntConstant(m, "CONVERSATION_CLOSED", mwConversation_CLOSED);

@@ -18,6 +18,7 @@
 #define ON_TYPING     "onTyping"
 #define ON_INVITED    "onInvited"
 #define ON_OPENED     "onOpened"
+#define ON_CLOSING    "onClosing"
 
 
 /* 
@@ -25,6 +26,147 @@
    identified by the conference_name, which is generated at creation
    and immutable. 
 */
+
+
+static void mw_on_invited(struct mwConference *conf,
+			  struct mwLoginInfo *inviter, const char *invite) {
+
+  struct pyObj_mwService *self;
+  PyObject *robj;
+  PyObject *a, *b, *c, *d;
+
+  self = mwService_getClientData(MW_SERVICE(mwConference_getService(conf)));
+
+  a = PyString_SafeFromString(mwConference_getName(conf));
+  b = PyString_SafeFromString(inviter->user_id);
+  c = PyString_SafeFromString(inviter->community);
+  d = PyString_SafeFromString(invite);
+
+  robj = PyObject_CallMethod((PyObject *) self, ON_INVITED,
+			     "N(NN)N", a, b, c, d);
+  Py_XDECREF(robj);
+}
+
+
+static void mw_conf_opened(struct mwConference *conf, GList *members) {
+  struct pyObj_mwService *self;
+  PyObject *robj;
+  PyObject *a, *m;
+
+  self = mwService_getClientData(MW_SERVICE(mwConference_getService(conf)));
+
+  a = PyString_SafeFromString(mwConference_getName(conf));
+  m = PyList_New(0);
+  
+  while(members) {
+    struct mwLoginInfo *i = members->data;
+    PyObject *t = PyTuple_New(2);
+
+    PyTuple_SetItem(t, 0, PyString_SafeFromString(i->user_id));
+    PyTuple_SetItem(t, 1, PyString_SafeFromString(i->community));
+
+    PyList_Append(m, t);
+    members = members->next;
+  }
+
+  robj = PyObject_CallMethod((PyObject *) self, ON_OPENED,
+			     "NN", a, m);
+  Py_XDECREF(robj);
+}
+
+
+static void mw_conf_closed(struct mwConference *conf, guint32 reason) {
+  struct pyObj_mwService *self;
+  PyObject *robj;
+  PyObject *a, *b;
+
+  self = mwService_getClientData(MW_SERVICE(mwConference_getService(conf)));
+
+  a = PyString_SafeFromString(mwConference_getName(conf));
+  b = PyInt_FromLong(reason);
+
+  robj = PyObject_CallMethod((PyObject *) self, ON_CLOSING,
+			     "NN", a, b);
+  Py_XDECREF(robj);
+}
+
+
+static void mw_on_peer_joined(struct mwConference *conf,
+			      struct mwLoginInfo *who) {
+
+  struct pyObj_mwService *self;
+  PyObject *robj;
+  PyObject *a, *b, *c;
+
+  self = mwService_getClientData(MW_SERVICE(mwConference_getService(conf)));
+
+  a = PyString_SafeFromString(mwConference_getName(conf));
+  b = PyString_SafeFromString(who->user_id);
+  c = PyString_SafeFromString(who->community);
+
+  robj = PyObject_CallMethod((PyObject *) self, ON_PEER_JOIN,
+			     "N(NN)", a, b, c);
+  Py_XDECREF(robj);
+}
+
+
+static void mw_on_peer_parted(struct mwConference *conf,
+			      struct mwLoginInfo *who) {
+
+  struct pyObj_mwService *self;
+  PyObject *robj;
+  PyObject *a, *b, *c;
+
+  self = mwService_getClientData(MW_SERVICE(mwConference_getService(conf)));
+
+  a = PyString_SafeFromString(mwConference_getName(conf));
+  b = PyString_SafeFromString(who->user_id);
+  c = PyString_SafeFromString(who->community);
+
+  robj = PyObject_CallMethod((PyObject *) self, ON_PEER_PART,
+			     "N(NN)", a, b, c);
+  Py_XDECREF(robj);
+}
+
+
+static void mw_on_text(struct mwConference *conf,
+		       struct mwLoginInfo *who, const char *what) {
+
+  struct pyObj_mwService *self;
+  PyObject *robj;
+  PyObject *a, *b, *c, *d;
+
+  self = mwService_getClientData(MW_SERVICE(mwConference_getService(conf)));
+
+  a = PyString_SafeFromString(mwConference_getName(conf));
+  b = PyString_SafeFromString(who->user_id);
+  c = PyString_SafeFromString(who->community);
+  d = PyString_SafeFromString(what);
+
+  robj = PyObject_CallMethod((PyObject *) self, ON_TEXT,
+			     "N(NN)N", a, b, c, d);
+  Py_XDECREF(robj);
+}
+
+
+static void mw_on_typing(struct mwConference *conf,
+			 struct mwLoginInfo *who, gboolean typing) {
+  
+  struct pyObj_mwService *self;
+  PyObject *robj;
+  PyObject *a, *b, *c, *d;
+
+  self = mwService_getClientData(MW_SERVICE(mwConference_getService(conf)));
+
+  a = PyString_SafeFromString(mwConference_getName(conf));
+  b = PyString_SafeFromString(who->user_id);
+  c = PyString_SafeFromString(who->community);
+  d = PyInt_FromLong(typing);
+
+  robj = PyObject_CallMethod((PyObject *) self, ON_TYPING,
+			     "N(NN)N", a, b, c, d);
+  Py_XDECREF(robj);
+}
 
 
 static void mw_clear(struct mwServiceConference *srvc) {
@@ -76,6 +218,9 @@ static struct PyMethodDef tp_methods[] = {
   { ON_OPENED, MW_METH_VARARGS_NONE, METH_VARARGS,
     "override to receive notification of successful conference joining" },
 
+  { ON_CLOSING, MW_METH_VARARGS_NONE, METH_VARARGS,
+    "override to receive notification of conference closing" },
+
   { "createConference", (PyCFunction) py_conf_new, METH_VARARGS,
     "create an outgoing conference" },
   
@@ -118,10 +263,16 @@ static PyObject *tp_new(PyTypeObject *t, PyObject *args, PyObject *kwds) {
 
   /* handler with our call-backs */
   handler = g_new0(struct mwConferenceHandler, 1);
-  /* @todo fill this in */
+  handler->on_invited = mw_on_invited;
+  handler->conf_opened = mw_conf_opened;
+  handler->conf_closed = mw_conf_closed;
+  handler->on_peer_joined = mw_on_peer_joined;
+  handler->on_peer_parted = mw_on_peer_parted;
+  handler->on_text = mw_on_text;
+  handler->on_typing = mw_on_typing;
   handler->clear = mw_clear;
   
-  /* create the im service */
+  /* create the conference service */
   srvc_conf = mwServiceConference_new(session, handler);
 
   /* store the self object on the service's client data slot */

@@ -109,6 +109,10 @@ struct mwConference *mwConference_new(struct mwServiceConference *srvc,
 				      const char *title);
 
 
+/** @returns the owning service of a conference */
+struct mwServiceConference *mwConference_getService(struct mwConference *conf);
+
+
 /** @returns unique conference name */
 const char *mwConference_getName(struct mwConference *conf);
 

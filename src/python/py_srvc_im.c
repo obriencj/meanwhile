@@ -467,6 +467,35 @@ static PyObject *py_convo_supports(mwPyService *self, PyObject *args) {
 }
 
 
+static PyObject *py_supports(mwPyService *self, PyObject *args) {
+  struct mwServiceIm *srvc;
+  enum mwImSendType feature;
+
+  if(! PyArg_ParseTuple(args, "l", &feature))
+    return NULL;
+
+  srvc = (struct mwServiceIm *) self->wrapped;
+
+  return PyInt_FromLong(mwServiceIm_supports(srvc, feature));
+}
+
+
+static PyObject *py_set_supported(mwPyService *self, PyObject *args) {
+  struct mwServiceIm *srvc;
+  enum mwImSendType feature;
+  int supported;
+
+  if(! PyArg_ParseTuple(args, "ll", &feature, &supported))
+    return NULL;
+
+  srvc = (struct mwServiceIm *) self->wrapped;
+
+  mwServiceIm_setSupported(srvc, feature, !!supported);
+
+  mw_return_none();
+}
+
+
 static struct PyMethodDef tp_methods[] = {
   { ON_TEXT, MW_METH_VARARGS_NONE, METH_VARARGS,
     "override to receive text messages" },
@@ -515,6 +544,12 @@ static struct PyMethodDef tp_methods[] = {
 
   { "conversationSupports", (PyCFunction) py_convo_supports, METH_VARARGS,
     "does conversation support message type?" },
+
+  { "supports", (PyCFunction) py_supports, METH_VARARGS,
+    "does service support message type?" },
+
+  { "setSupported", (PyCFunction) py_set_supported, METH_VARARGS,
+    "set service support for message type" },
 
   { NULL }
 };

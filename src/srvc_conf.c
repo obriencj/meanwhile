@@ -611,6 +611,13 @@ struct mwConference *mwConference_new(struct mwServiceConference *srvc,
 }
 
 
+struct mwServiceConference *
+mwConference_getService(struct mwConference *conf) {
+  g_return_val_if_fail(conf != NULL, NULL);
+  return conf->service;
+}
+
+
 const char *mwConference_getName(struct mwConference *conf) {
   g_return_val_if_fail(conf != NULL, NULL);
   return conf->name;

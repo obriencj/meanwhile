@@ -20,9 +20,9 @@
 /* data for the addtl blocks of channel creation */
 #define mwImAddtlA_NORMAL  0x00000001
 
-#define mwImAddtlB_NORMAL   0x00000001  /**< standard */
-#define mwImAddtlB_PRECONF  0x00000019  /**< pre-conference chat */
-#define mwImAddtlB_HTML     0x00033453  /**< notesbuddy */
+#define mwImAddtlB_NORMAL      0x00000001  /**< standard */
+#define mwImAddtlB_PRECONF     0x00000019  /**< pre-conference chat */
+#define mwImAddtlB_NOTESBUDDY  0x00033453  /**< notesbuddy */
 
 #define mwImAddtlC_NORMAL  0x00000002
 
@@ -51,6 +51,9 @@ enum mwImDataType {
     reference conversations by channel and target */
 struct mwServiceIm {
   struct mwService service;
+
+  /** supports NotesBuddy features */
+  gboolean fancy;
 
   struct mwServiceImHandler *handler;
   GList *convs;  /**< list of struct im_convo */
@@ -165,7 +168,7 @@ struct mwConversation *mwServiceIm_getConversation(struct mwServiceIm *srvc,
     c->service = srvc;
     mwIdBlock_clone(&c->target, to);
     c->state = mwConversation_CLOSED;
-    c->fancy = TRUE;
+    c->fancy = srvc->fancy;
 
     srvc->convs = g_list_prepend(srvc->convs, c);
   }
@@ -206,7 +209,7 @@ static void convo_create_chan(struct mwConversation *c) {
   /* compose the addtl create, with optional FANCY HTML! */
   b = mwPutBuffer_new();
   guint32_put(b, mwImAddtlA_NORMAL);
-  guint32_put(b, c->fancy? mwImAddtlB_HTML: mwImAddtlB_NORMAL);
+  guint32_put(b, c->fancy? mwImAddtlB_NOTESBUDDY: mwImAddtlB_NORMAL);
   mwPutBuffer_finalize(mwChannel_getAddtlCreate(chan), b);
 
   c->channel = mwChannel_create(chan)? NULL: chan;
@@ -247,7 +250,7 @@ static int send_accept(struct mwConversation *c) {
 
   b = mwPutBuffer_new();
   guint32_put(b, mwImAddtlA_NORMAL);
-  guint32_put(b, c->fancy? mwImAddtlB_HTML: mwImAddtlB_NORMAL);
+  guint32_put(b, c->fancy? mwImAddtlB_NOTESBUDDY: mwImAddtlB_NORMAL);
   guint32_put(b, mwImAddtlC_NORMAL);
 
   o = mwChannel_getAddtlAccept(chan);
@@ -315,6 +318,10 @@ static void recv_channelCreate(struct mwService *srvc,
     mwChannel_destroy(chan, ERR_IM_NOT_REGISTERED, NULL);
     return;
 
+  } else if(y == mwImAddtlB_NOTESBUDDY && !srvc_im->fancy) {
+    mwChannel_destroy(chan, ERR_IM_NOT_REGISTERED, NULL);
+    return;
+
   } else if(stat->status == mwStatus_BUSY) {
     /** @todo it's reasonable to permit a new channel to attach to an
 	existing conversation in this event */
@@ -347,7 +354,7 @@ static void recv_channelCreate(struct mwService *srvc,
      if the other side requested it */
   c->channel = chan;
   mwIdBlock_clone(&c->target, &idb);
-  c->fancy = (y == mwImAddtlB_HTML);
+  c->fancy = (y == mwImAddtlB_NOTESBUDDY);
   convo_set_state(c, mwConversation_PENDING);
 
   if(send_accept(c)) {
@@ -589,6 +596,7 @@ struct mwServiceIm *mwServiceIm_new(struct mwSession *session,
   srvc->start = start;
   srvc->stop = stop;
 
+  srvc_im->fancy = FALSE;
   srvc_im->handler = hndl;
   srvc_im->convs = NULL;
 
@@ -599,6 +607,48 @@ struct mwServiceIm *mwServiceIm_new(struct mwSession *session,
 struct mwServiceImHandler *mwServiceIm_getHandler(struct mwServiceIm *srvc) {
   g_return_val_if_fail(srvc != NULL, NULL);
   return srvc->handler;
+}
+
+
+gboolean mwServiceIm_supports(struct mwServiceIm *srvc,
+			      enum mwImSendType type) {
+
+  g_return_val_if_fail(srvc != NULL, FALSE);
+
+  switch(type) {
+  case mwImSend_PLAIN:
+  case mwImSend_TYPING:
+    return TRUE;
+
+  case mwImSend_SUBJECT:
+  case mwImSend_HTML:
+  case mwImSend_MIME:
+    return srvc->fancy;
+
+  default:
+    return FALSE;
+  }
+}
+
+
+void mwServiceIm_setSupported(struct mwServiceIm *srvc,
+			      enum mwImSendType type, gboolean supported) {
+
+  g_return_if_fail(srvc != NULL);
+
+  switch(type) {
+  case mwImSend_PLAIN:
+  case mwImSend_TYPING:
+    return;
+    
+  case mwImSend_SUBJECT:
+  case mwImSend_HTML:
+  case mwImSend_MIME:
+    srvc->fancy = supported;
+
+  default:
+    return;
+  }
 }
 
 

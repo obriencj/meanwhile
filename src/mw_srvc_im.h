@@ -14,9 +14,7 @@ struct mwSession;
 
 
 /** @file srvc_im.h
-
-    @todo this service can be adapted later to allow for more than
-    just the four understood types of events */
+ */
 
 
 /** Type identifier for the IM service */
@@ -24,27 +22,38 @@ struct mwSession;
 
 
 /** @struct mwServiceIm
+
     An instance of the IM service. This service provides simple
     instant messaging functionality */
 struct mwServiceIm;
 
 
 /** @struct mwConversation
+
     A conversation between the local service and a single other user */
 struct mwConversation;
 
 
 /**
+   Types of supported messages. When a conversation is created, the
+   least common denominator of features between either side of the
+   conversation (based on what features are available in the IM
+   service itself) becomes the set of supported features for that
+   conversation. At any point, the feature set for the service may
+   change, without affecting any existing conversations.
+
+   @relates mwServiceIm_supports
+   @relates mwServiceIm_setSupported
    @relates mwConversation_supports
    @relates mwConversation_send
    @relates mwServiceImHandler::conversation_recv
  */
 enum mwImSendType {
-  mwImSend_PLAIN,   /**< char *, plain test message */
-  mwImSend_HTML,    /**< char *, html formatted message */
-  mwImSend_SUBJECT, /**< char *, conversation subject */
-  mwImSend_TYPING,  /**< gboolean, typing status */
-  mwImSend_MIME,    /**< mwOpaque *, mime-encoded message */
+  mwImSend_PLAIN,   /**< char *, plain-text message (STANDARD) */
+  mwImSend_TYPING,  /**< gboolean, typing status (STANDARD) */
+  mwImSend_HTML,    /**< char *, HTML formatted message (NOTESBUDDY) */
+  mwImSend_SUBJECT, /**< char *, conversation subject (NOTESBUDDY) */
+  mwImSend_MIME,    /**< mwOpaque *, MIME-encoded message (NOTESBUDDY) */
 };
 
 
@@ -112,6 +121,28 @@ struct mwConversation *mwServiceIm_findConversation(struct mwServiceIm *srvc,
 						    struct mwIdBlock *target);
 
 
+/** determine if the conversations created from this service will
+    support a given send type */
+gboolean mwServiceIm_supports(struct mwServiceIm *srvc,
+			      enum mwImSendType type);
+
+
+/** turn support for a specific send type on or off. This does not
+    effect existing conversations, only those which will be opened
+    afterwards. Note that some send types are grouped, such that
+    supporting one send type will result in others also being
+    supported, and vise verse. This is really a hack to turn
+    NotesBuddy support on or off, but it may work with other
+    client-specific features at some point later.
+
+    @param srvc       the IM service
+    @param type       the send type to enable/disable
+    @param supported  TRUE to enable, FALSE to disable
+*/
+void mwServiceIm_setSupported(struct mwServiceIm *srvc,
+			      enum mwImSendType type, gboolean supported);
+
+
 /** attempt to open a conversation. If the conversation was not
     already open and it is accepted,
     mwServiceImHandler::conversation_opened will be triggered. Upon
@@ -131,6 +162,7 @@ gboolean mwConversation_supports(struct mwConversation *conv,
 
 
 /** get the state of a conversation
+
     @relates MW_CONVO_IS_OPEN
     @relates MW_CONVO_IS_CLOSED
     @relates MW_CONVO_IS_PENDING
