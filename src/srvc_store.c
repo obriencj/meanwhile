@@ -141,9 +141,10 @@ static struct mwStorageReq *request_find(struct mwServiceStorage *srvc,
 }
 
 
-static void request_trigger(struct mwStorageReq *req) {
+static void request_trigger(struct mwServiceStorage *srvc,
+			    struct mwStorageReq *req) {
   if(req->cb)
-    req->cb(req->result_code, req->item, req->data);
+    req->cb(srvc, req->result_code, req->item, req->data);
 }
 
 
@@ -228,19 +229,14 @@ static void start(struct mwService *srvc) {
   struct mwChannel *chan;
 
   g_return_if_fail(srvc != NULL);
-  g_return_if_fail(MW_SERVICE_STOPPED(srvc));
 
   srvc_store = (struct mwServiceStorage *) srvc;
-  srvc->state = mwServiceState_STARTING;
-
-  g_message(" starting storage service");
-
   chan = make_channel(srvc->session->channels);
+
   if(chan) {
     srvc_store->channel = chan;
   } else {
-    g_message(" stopped storage service");
-    srvc->state = mwServiceState_STOPPED;
+    mwService_stopped(srvc);
   }
 }
 
@@ -253,15 +249,10 @@ static void stop(struct mwService *srvc) {
   GList *l;
 
   g_return_if_fail(srvc != NULL);
-  g_return_if_fail(MW_SERVICE_STARTED(srvc));
 
   srvc_store = (struct mwServiceStorage *) srvc;
-
-  srvc->state = mwServiceState_STOPPING;
-  g_message(" stopping storage service");
-
   if(srvc_store->channel) {
-    mwChannel_destroyQuick(srvc_store->channel, ERR_ABORT);
+    mwChannel_destroyQuick(srvc_store->channel, ERR_SUCCESS);
     srvc_store->channel = NULL;
   }
 
@@ -274,8 +265,7 @@ static void stop(struct mwService *srvc) {
     }
   }
 
-  srvc->state = mwServiceState_STOPPED;
-  g_message(" stopped storage service");
+  mwService_stopped(srvc);
 }
 
 
@@ -297,7 +287,10 @@ static void recv_channelAccept(struct mwService *srvc, struct mwChannel *chan,
   g_return_if_fail(srvc != NULL);
   g_return_if_fail(chan != NULL);
 
-  g_return_if_fail(srvc->state == mwServiceState_STARTING);
+  if(! MW_SERVICE_IS_STARTING(srvc)) {
+    mwChannel_destroyQuick(chan, ERR_FAILURE);
+    return;
+  }
 
   srvc_stor = (struct mwServiceStorage *) srvc;
   g_return_if_fail(chan == srvc_stor->channel);
@@ -309,8 +302,7 @@ static void recv_channelAccept(struct mwService *srvc, struct mwChannel *chan,
     }
   }
 
-  srvc->state = mwServiceState_STARTED;
-  g_message(" started storage service");
+  mwService_started(srvc);
 }
 
 
@@ -326,7 +318,7 @@ static void recv_channelDestroy(struct mwService *srvc, struct mwChannel *chan,
   srvc_stor = (struct mwServiceStorage *) srvc;
   srvc_stor->channel = NULL;
 
-  stop(srvc);
+  mwService_stop(srvc);
 }
 
 
@@ -364,7 +356,7 @@ static void recv(struct mwService *srvc, struct mwChannel *chan,
     g_warning("failed to parse request 0x%08x of type 0x%04x"
 	      " for storage service", msg_type, id);
   } else {
-    request_trigger(req);
+    request_trigger(srvc_stor, req);
   }
 
   request_remove(srvc_stor, req);
@@ -372,11 +364,8 @@ static void recv(struct mwService *srvc, struct mwChannel *chan,
 
 
 static void clear(struct mwService *srvc) {
-
   struct mwServiceStorage *srvc_stor;
   GList *l;
-
-  stop(srvc);
 
   g_return_if_fail(srvc != NULL);
   srvc_stor = (struct mwServiceStorage *) srvc;
@@ -544,8 +533,8 @@ void mwServiceStorage_load(struct mwServiceStorage *srvc,
 
   srvc->pending = g_list_append(srvc->pending, req);
 
-  if(MW_SERVICE_STOPPED(MW_SERVICE(srvc))) {
-    start(MW_SERVICE(srvc));
+  if(MW_SERVICE_IS_STOPPED(srvc)) {
+    mwService_start(MW_SERVICE(srvc));
     return;
   }
 
@@ -574,8 +563,8 @@ void mwServiceStorage_save(struct mwServiceStorage *srvc,
 
   srvc->pending = g_list_append(srvc->pending, req);
 
-  if(MW_SERVICE_STOPPED(MW_SERVICE(srvc))) {
-    start(MW_SERVICE(srvc));
+  if(MW_SERVICE_IS_STOPPED(srvc)) {
+    mwService_start(MW_SERVICE(srvc));
     return;
   }
 

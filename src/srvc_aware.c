@@ -13,7 +13,6 @@
 #include "srvc_aware.h"
 
 
-
 struct mwServiceAware {
   struct mwService service;
 
@@ -148,7 +147,7 @@ static int remove_unused(struct mwServiceAware *srvc) {
   GList *dead = NULL, *l;
   g_hash_table_foreach_steal(srvc->entries, collect_dead, &dead);
  
-  if(MW_SERVICE_LIVE(MW_SERVICE(srvc)))
+  if(MW_SERVICE_IS_LIVE(srvc))
     ret = send_rem(srvc->channel, dead);
 
   for(l = dead; l; l = l->next) aware_entry_free(l->data);
@@ -158,6 +157,7 @@ static int remove_unused(struct mwServiceAware *srvc) {
 }
 
 
+/** fill a GList with living memberships */
 static void collect_aware(gpointer key, gpointer val, gpointer data) {
   struct aware_entry *aware = (struct aware_entry *) val;
   GList **list = (GList **) data;
@@ -173,15 +173,14 @@ static void recv_channelAccept(struct mwService *srvc, struct mwChannel *chan,
   struct mwServiceAware *srvc_aware = (struct mwServiceAware *) srvc;
   g_return_if_fail(srvc_aware->channel == chan);
 
-  if(MW_SERVICE_STARTING(srvc)) {
+  if(MW_SERVICE_IS_STARTING(srvc)) {
     GList *list = NULL;
 
     g_hash_table_foreach(srvc_aware->entries, collect_aware, &list);
     send_add(chan, list);
     g_list_free(list);
 
-    srvc->state = mwServiceState_STARTED;
-    g_message(" started aware service");
+    mwService_started(srvc);
 
   } else {
     mwChannel_destroyQuick(chan, ERR_FAILURE);
@@ -226,12 +225,11 @@ static void status_recv(struct mwServiceAware *srvc,
     /* trigger each of the entry's lists */
     for(l = aware->membership; l; l = l->next) {
       alist = (struct mwAwareList *) l->data;
-      if(alist->on_aware) {
-	g_message(" triggering list");
+      if(alist->on_aware)
 	alist->on_aware(alist, &aware->aware, alist->on_aware_data);
-      }
     }
   }
+
 }
 
 
@@ -306,17 +304,20 @@ static void recv(struct mwService *srvc, struct mwChannel *chan,
 
 
 static void clear(struct mwService *srvc) {
-  /* struct mwServiceAware *srvc_aware = (struct mwServiceAware *) srvc; */
+  struct mwServiceAware *srvc_aware = (struct mwServiceAware *) srvc;
 
-  /* TODO:
-     - remove each list
-     - remove each awareness entry
-  */
+  g_return_if_fail(srvc != NULL);
+
+  while(srvc_aware->lists)
+    mwAwareList_free( (struct mwAwareList *) srvc_aware->lists->data );
+
+  g_hash_table_destroy(srvc_aware->entries);
+  srvc_aware->entries = NULL;
 }
 
 
 static const char *name() {
-  return "Basic Presence Awareness";
+  return "Presence Awareness";
 }
 
 
@@ -380,18 +381,13 @@ static void start(struct mwService *srvc) {
   struct mwServiceAware *srvc_aware;
   struct mwChannel *chan;
 
-  if(! MW_SERVICE_STOPPED(srvc)) return;
-
-  g_message(" starting aware service");
-
-  srvc->state = mwServiceState_STARTING;
   srvc_aware = (struct mwServiceAware *) srvc;
-
   chan = make_blist(srvc->session->channels);
+
   if(chan != NULL) {
     srvc_aware->channel = chan;
   } else {
-    srvc->state = mwServiceState_STOPPED;
+    mwService_stopped(srvc);
   }
 }
 
@@ -399,15 +395,9 @@ static void start(struct mwService *srvc) {
 static void stop(struct mwService *srvc) {
   struct mwServiceAware *srvc_aware;
 
-  if(! MW_SERVICE_LIVE(srvc)) return;
-
-  g_message(" stopping aware service");
-
-  srvc->state = mwServiceState_STOPPING;
   srvc_aware = (struct mwServiceAware *) srvc;
-  
   mwChannel_destroyQuick(srvc_aware->channel, ERR_SUCCESS);
-  srvc->state = mwServiceState_STOPPED;
+  mwService_stopped(srvc);
 }
 
 
@@ -449,6 +439,34 @@ struct mwAwareList *mwAwareList_new(struct mwServiceAware *srvc) {
 
   a_list->entries = g_hash_table_new_full(id_hash, id_equal, NULL, NULL);
   return a_list;
+}
+
+
+static void dismember_aware(gpointer key, gpointer val, gpointer data) {
+  struct aware_entry *aware = (struct aware_entry *) val;
+  struct mwAwareList *list = (struct mwAwareList *) data;
+
+  aware->membership = g_list_remove(aware->membership, list);
+}
+
+
+void mwAwareList_free(struct mwAwareList *list) {
+  struct mwServiceAware *srvc;
+
+  g_return_if_fail(list != NULL);
+  g_return_if_fail(list->entries != NULL);
+  g_return_if_fail(list->service != NULL);
+
+  srvc = list->service;
+  srvc->lists = g_list_remove(srvc->lists, list);
+
+  /* for each entry, remove the aware list from the service entry's
+     membership collection */
+  g_hash_table_foreach(list->entries, dismember_aware, list);
+  g_hash_table_destroy(list->entries);
+  g_free(list);
+
+  remove_unused(srvc);
 }
 
 
@@ -517,9 +535,8 @@ int mwAwareList_addAware(struct mwAwareList *list,
 
   /* if the service is alive-- or getting there-- we'll need to send
      these additions upstream */
-  if(MW_SERVICE_LIVE(MW_SERVICE(srvc))) {
+  if(MW_SERVICE_IS_LIVE(srvc))
     ret = send_add(srvc->channel, additions);
-  }
 
   g_list_free(additions);
   return ret;

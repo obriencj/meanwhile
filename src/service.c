@@ -77,17 +77,23 @@ void mwService_recv(struct mwService *s, struct mwChannel *chan,
 }
 
 
+guint32 mwService_getServiceType(struct mwService *s) {
+  g_return_val_if_fail(s != NULL, 0x00);
+  return s->type;
+}
+
+
 const char *mwService_getName(struct mwService *s) {
-  g_return_val_if_fail(s != NULL, "");
-  g_return_val_if_fail(s->get_name != NULL, "");
+  g_return_val_if_fail(s != NULL, NULL);
+  g_return_val_if_fail(s->get_name != NULL, NULL);
 
   return s->get_name();
 }
 
 
 const char *mwService_getDesc(struct mwService *s) {
-  g_return_val_if_fail(s != NULL, "");
-  g_return_val_if_fail(s->get_desc != NULL, "");
+  g_return_val_if_fail(s != NULL, NULL);
+  g_return_val_if_fail(s->get_desc != NULL, NULL);
 
   return s->get_desc();
 }
@@ -114,31 +120,66 @@ void mwService_init(struct mwService *srvc, struct mwSession *sess,
 }
 
 
+enum mwServiceState mwService_getState(struct mwService *srvc) {
+  g_return_val_if_fail(srvc != NULL, mwServiceState_STOPPED);
+  return srvc->state;
+}
+
+
 void mwService_start(struct mwService *srvc) {
   g_return_if_fail(srvc != NULL);
 
-  if(! MW_SERVICE_STOPPED(srvc))
+  if(! MW_SERVICE_IS_STOPPED(srvc))
     return;
 
-  if(srvc->start)
+  srvc->state = mwServiceState_STARTING;
+  g_message("starting service %s", mwService_getName(srvc));
+
+  if(srvc->start) {
     srvc->start(srvc);
+  } else {
+    mwService_started(srvc);
+  }
+}
+
+
+void mwService_started(struct mwService *srvc) {
+  g_return_if_fail(srvc != NULL);
+
+  srvc->state = mwServiceState_STARTED;
+  g_message("started service %s", mwService_getName(srvc));
 }
 
 
 void mwService_stop(struct mwService *srvc) {
   g_return_if_fail(srvc != NULL);
 
-  if(MW_SERVICE_STOPPED(srvc) || MW_SERVICE_STOPPING(srvc))
+  if(MW_SERVICE_IS_DEAD(srvc))
     return;
 
-  if(srvc->stop)
+  srvc->state = mwServiceState_STOPPING;
+  g_message("stopping service %s", mwService_getName(srvc));
+
+  if(srvc->stop) {
     srvc->stop(srvc);
+  } else {
+    mwService_stopped(srvc);
+  }
+}
+
+
+void mwService_stopped(struct mwService *srvc) {
+  g_return_if_fail(srvc != NULL);
+
+  srvc->state = mwServiceState_STOPPED;
+  g_message("stopped service %s", mwService_getName(srvc));
 }
 
 
 void mwService_free(struct mwService *srvc) {
   g_return_if_fail(srvc != NULL);
 
+  g_message("destroying service %s", mwService_getName(srvc));
   mwService_stop(srvc);
 
   if(srvc->clear)

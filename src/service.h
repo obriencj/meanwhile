@@ -48,19 +48,27 @@ enum mwServiceState {
 #define MW_SERVICE(srv) ((struct mwService *) srv)
 
 
-#define MW_SERVICE_STOPPED(srvc)  ((srvc)->state == mwServiceState_STOPPED)
-#define MW_SERVICE_STOPPING(srvc) ((srvc)->state == mwServiceState_STOPPING)
-#define MW_SERVICE_STARTED(srvc)  ((srvc)->state == mwServiceState_STARTED)
-#define MW_SERVICE_STARTING(srvc) ((srvc)->state == mwServiceState_STARTING)
+#define MW_SERVICE_IS_STOPPED(srvc)  \
+  (mwService_getState(MW_SERVICE(srvc)) == mwServiceState_STOPPED)
+
+#define MW_SERVICE_IS_STOPPING(srvc) \
+  (mwService_getState(MW_SERVICE(srvc)) == mwServiceState_STOPPING)
+
+#define MW_SERVICE_IS_STARTED(srvc)  \
+  (mwService_getState(MW_SERVICE(srvc)) == mwServiceState_STARTED)
+
+#define MW_SERVICE_IS_STARTING(srvc) \
+  (mwService_getState(MW_SERVICE(srvc)) == mwServiceState_STARTING)
 
 
 /** If a service is STARTING or STARTED, it's LIVE */
-#define MW_SERVICE_LIVE(srvc) \
-  (MW_SERVICE_STARTING(srvc) || MW_SERVICE_STARTED(srvc))
+#define MW_SERVICE_IS_LIVE(srvc) \
+  (MW_SERVICE_IS_STARTING(srvc) || MW_SERVICE_IS_STARTED(srvc))
 
 /** If a service is STOPPING or STOPPED, it's DEAD */
-#define MW_SERVICE_DEAD(srvc) \
-  (MW_SERVICE_STOPPING(srvc) || MW_SERVICE_STOPPED(srvc))
+#define MW_SERVICE_IS_DEAD(srvc) \
+  (MW_SERVICE_IS_STOPPING(srvc) || MW_SERVICE_IS_STOPPED(srvc))
+
 
 
 /** A service is the recipient of sendOnCnl messages sent over
@@ -77,10 +85,12 @@ struct mwService {
 
   /** the state of this service. Determines whether or not the session
       should call the start function upon receipt of a service
-      available message */
+      available message. Should not be set or checked by hand.
+      @relates mwService_getState */
   enum mwServiceState state;
 
-  /** session this service is attached to. */
+  /** session this service is attached to.
+      @relates mwService_getSession */
   struct mwSession *session;
 
   /** @return string short name of the service
@@ -200,6 +210,10 @@ void mwService_recv(struct mwService *service, struct mwChannel *channel,
 		    guint16 msg_type, const char *buf, gsize len);
 
 
+/** @return the appropriate type id for the service */
+guint32 mwService_getServiceType(struct mwService *);
+
+
 /** @return string short name of the service */
 const char *mwService_getName(struct mwService *);
 
@@ -212,6 +226,17 @@ const char *mwService_getDesc(struct mwService *);
 struct mwSession *mwService_getSession(struct mwService *service);
 
 
+/** @returns the service's state
+    @see MW_SERVICE_IS_STARTING
+    @see MW_SERVICE_IS_STARTED
+    @see MW_SERVICE_IS_STOPPING
+    @see MW_SERVICE_IS_STOPPED
+    @see MW_SERVICE_IS_LIVE
+    @see MW_SERVICE_IS_DEAD
+*/
+enum mwServiceState mwService_getState(struct mwService *service);
+
+
 /** Triggers the start handler for the service. Normally called from
     the session upon receipt of a service available message. Service
     implementations should use this handler to open any necessary
@@ -222,6 +247,11 @@ struct mwSession *mwService_getSession(struct mwService *service);
 void mwService_start(struct mwService *service);
 
 
+/** Indicate that a service is started. To be used by service
+    implementations when the service is fully started. */
+void mwService_started(struct mwService *service);
+
+
 /** Triggers the stop handler for the service. Normally called from
     the session before closing down the connection. Checks that the
     service is STARTED or STARTING, or returns
@@ -229,6 +259,11 @@ void mwService_start(struct mwService *service);
     @param service The service to stop
 */
 void mwService_stop(struct mwService *service);
+
+
+/** Indicate that a service is stopped. To be used by service
+    implementations when the service is fully stopped. */
+void mwService_stopped(struct mwService *service);
 
 
 /** Frees memory used by a service. Will trigger the stop handler if

@@ -78,9 +78,14 @@ void onStart_sendHandshake(struct mwSession *s) {
 
 
 void mwSession_stop(struct mwSession *s, guint32 reason) {
+  GList *l = NULL;
   struct mwMsgChannelDestroy *msg;
 
   g_return_if_fail(s != NULL);
+  g_message("stopping meanwhile session, reason: 0x%08x", reason);
+
+  for(l = s->services; l; l = l->next)
+    mwService_stop(MW_SERVICE(l->data));
 
   msg = (struct mwMsgChannelDestroy *)
     mwMessage_new(mwMessage_CHANNEL_DESTROY);
@@ -284,21 +289,21 @@ static void CHANNEL_ACCEPT_recv(struct mwSession *s,
   g_return_if_fail(chan != NULL);
 
   if(CHAN_IS_INCOMING(chan)) {
+    g_warning("bad channel id: 0x%x", chan_id);
     mwChannel_destroyQuick(chan, ERR_REQUEST_INVALID);
-    g_message("CHANNEL_ACCEPT_recv, bad channel id: 0x%x", chan_id);
     return;
   }
 
   if(chan->status != mwChannel_WAIT) {
+    g_warning("channel status not WAIT");
     mwChannel_destroyQuick(chan, ERR_REQUEST_INVALID);
-    g_message("CHANNEL_ACCEPT_recv, channel status not WAIT");
     return;
   }
   
   srvc = mwSession_getService(s, chan->service);
   if(! srvc) {
+    g_warning("no service: 0x%x", chan->service);
     mwChannel_destroyQuick(chan, ERR_SERVICE_NO_SUPPORT);
-    g_message("CHANNEL_ACCEPT_recv, no service: 0x%x", chan->service);
     return;
   }
 
@@ -566,6 +571,7 @@ int mwSession_send(struct mwSession *s, struct mwMessage *msg) {
       LOGIN_recv(s, (struct mwMsgLogin *) msg);
       break;
     case mwMessage_SET_USER_STATUS:
+      /* maybe not necessary if the server always replies */
       SET_USER_STATUS_recv(s, (struct mwMsgSetUserStatus *) msg);
       break;
     default:
@@ -596,7 +602,8 @@ int mwSession_setUserStatus(struct mwSession *s, struct mwUserStatus *stat) {
 
 
 int mwSession_putService(struct mwSession *s, struct mwService *srv) {
-  g_return_val_if_fail(s && srv, -1);
+  g_return_val_if_fail(s != NULL, -1);
+  g_return_val_if_fail(srv != NULL, -1);
 
   if(mwSession_getService(s, srv->type)) {
     return 1;
@@ -611,12 +618,13 @@ int mwSession_putService(struct mwSession *s, struct mwService *srv) {
 struct mwService *mwSession_getService(struct mwSession *s, guint32 srv) {
   GList *l;
 
-  g_return_val_if_fail(s, NULL);
+  g_return_val_if_fail(s != NULL, NULL);
 
   for(l = s->services; l; l = l->next) {
-    struct mwService *svc = (struct mwService *) l->data;
-    if(svc->type == srv) return svc;
+    struct mwService *svc = MW_SERVICE(l->data);
+    if(mwService_getServiceType(svc) == srv) return svc;
   }
+
   return NULL;
 }
 
@@ -625,7 +633,7 @@ int mwSession_removeService(struct mwSession *s, guint32 srv) {
   struct mwService *svc;
   int ret = 1;
 
-  g_return_val_if_fail(s, -1);
+  g_return_val_if_fail(s != NULL, -1);
 
   while((svc = mwSession_getService(s, srv))) {
     ret = 0;

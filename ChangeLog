@@ -1,7 +1,11 @@
 
 version 0.3  Chris O'Brien  <siege@preoccupied.net>
-	2004-06-21: Bug fix and some more API cleanup.
-		
+	
+	2004-06-21: Bug fix and API cleanup.
+
+	* service.c, service.h: refinements to service start/stop and
+	state checking
+	
 	* srvc_im.c: fixed a reported bug where messages were not being
 	rejected even when the user was in mwStatus_BUSY. Thanks jdob!
 	

@@ -511,7 +511,6 @@ struct mwServiceConf *mwServiceConf_new(struct mwSession *session) {
   srvc->recv_channelAccept = recv_channelAccept;
   srvc->recv_channelDestroy = recv_channelDestroy;
   srvc->recv = recv;
-  /* todo: start and stop */
   srvc->clear = clear;
   srvc->get_name = name;
   srvc->get_desc = desc;

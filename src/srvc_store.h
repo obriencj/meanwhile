@@ -38,12 +38,14 @@ struct mwStorageUnit {
 
 
 /** Appropriate function type for load and store callbacks.
+    @param srvc the storage service
     @param result the result value of the load or store call
     @param item the storage unit loaded or saved
     @param data user data
  */
 typedef void (*mwStorageCallback)
-     (guint result, struct mwStorageUnit *item, gpointer data);
+     (struct mwServiceStorage *srvc,
+      guint result, struct mwStorageUnit *item, gpointer data);
 
 
 /** Allocates and initializes a storage service instance for use on
