@@ -12,15 +12,16 @@
 
 
 enum storage_action {
-  action_load   = 0x0004,
-  action_loaded = 0x0005,
-  action_save   = 0x0006,
-  action_saved  = 0x0007
+  action_load    = 0x0004,
+  action_loaded  = 0x0005,
+  action_save    = 0x0006,
+  action_saved   = 0x0007
 };
 
 
 struct mwStorageReq {
   guint32 id;                  /**< unique id for this request */
+  guint32 result_code;         /**< result code for completed request */
   enum storage_action action;  /**< load or save */
   struct mwStorageUnit *item;  /**< the key/data pair */ 
   mwStorageCallback cb;        /**< callback to notify upon completion */
@@ -42,6 +43,125 @@ struct mwServiceStorage {
 };
 
 
+static gsize request_buflen(struct mwStorageReq *req) {
+  /* req id, count, key */
+  gsize len = 4 + 4 + 4;
+
+  if(req->action == action_save) {
+    len += 4; /* offset */
+    len += mwOpaque_buflen(&req->item->data);
+  }
+
+  return len;
+}
+
+
+static int request_get(char **b, gsize *n, struct mwStorageReq *req) {
+  guint32 id, count, junk;
+
+  if( guint32_get(b, n, &id) ||
+      guint32_get(b, n, &req->result_code) )
+    return *n;
+
+  if(req->action == action_loaded) {
+    if( guint32_get(b, n, &count) ||
+	guint32_get(b, n, &junk) ||
+	guint32_get(b, n, &req->item->key) ||
+	mwOpaque_get(b, n, &req->item->data) )
+      return *n;
+  }
+  
+  return 0;
+}
+
+
+static int request_put(char **b, gsize *n, struct mwStorageReq *req) {
+  gsize len = *n;
+
+  if( guint32_put(b, n, req->id) ||
+      guint32_put(b, n, 1) )
+    return *n;
+
+  if(req->action == action_save) {
+    if( guint32_put(b, n, len) ||
+	guint32_put(b, n, req->item->key) ||
+	mwOpaque_put(b, n, &req->item->data) )
+      return *n;
+
+  } else {
+    if( guint32_put(b, n, req->item->key) )
+      return *n;
+  }
+
+  return 0;
+}
+
+
+static int request_send(struct mwChannel *chan, struct mwStorageReq *req) {
+  char *buf, *b;
+  gsize len, n;
+
+  int ret;
+
+  len = n = request_buflen(req);
+  buf = b = g_malloc0(len);
+
+  if(request_put(&b, &n, req)) {
+    g_free(buf);
+    return -1;
+  }
+
+  ret = mwChannel_send(chan, req->action, buf, len);
+  if(! ret) {
+    if(req->action == action_save) {
+      req->action = action_saved;
+    } else if(req->action == action_load) {
+      req->action = action_loaded;
+    }
+  }
+
+  g_free(buf);
+  return ret;
+}
+
+
+static struct mwStorageReq *request_find(struct mwServiceStorage *srvc,
+					 guint32 id) {
+  struct mwStorageReq *req = NULL;
+  GList *l;
+
+  for(l = srvc->pending; l; l = l->next) {
+    struct mwStorageReq *r = (struct mwStorageReq *) l->data;
+    if(r->id == id) {
+      req = r;
+      break;
+    }
+  }
+
+  return req;
+}
+
+
+static void request_trigger(struct mwStorageReq *req) {
+  if(req->cb)
+    req->cb(req->result_code, req->item, req->data);
+}
+
+
+static void request_free(struct mwStorageReq *req) {
+  mwStorageUnit_free(req->item);
+  g_free(req);
+}
+
+
+static void request_remove(struct mwServiceStorage *srvc,
+			   struct mwStorageReq *req) {
+
+  srvc->pending = g_list_remove_all(srvc->pending, req);
+  request_free(req);
+}
+
+
 static const char *get_name() {
   return "Storage Service";
 }
@@ -49,6 +169,109 @@ static const char *get_name() {
 
 static const char *get_desc() {
   return "Simple implementation of the storage service";
+}
+
+
+static int send_create(struct mwChannel *chan) {
+  struct mwMsgChannelCreate *msg;
+  char *b;
+  gsize n;
+
+  int ret;
+
+  msg = (struct mwMsgChannelCreate *)
+    mwMessage_new(mwMessage_CHANNEL_CREATE);
+
+  msg->channel = chan->id;
+  msg->service = chan->service;
+  msg->proto_type = chan->proto_type;
+  msg->proto_ver = chan->proto_ver;
+
+  msg->encrypt.type = chan->encrypt.type;
+  msg->encrypt.opaque.len = n = 10;
+  msg->encrypt.opaque.data = b = (char *) g_malloc(n);
+   
+  /* I really want to know what this opaque means. Every client seems
+     to send it or something similar, and it doesn't work without it */
+  guint32_put(&b, &n, 0x00000001);
+  guint32_put(&b, &n, 0x00000000);
+  guint16_put(&b, &n, 0x0000);
+
+  ret = mwChannel_create(chan, msg);
+  mwMessage_free(MW_MESSAGE(msg));
+
+  if(ret) mwChannel_destroy(chan, NULL);
+
+  return ret;
+}
+
+
+static struct mwChannel *make_channel(struct mwChannelSet *cs) {
+
+  int ret = 0;
+  struct mwChannel *chan = mwChannel_newOutgoing(cs);
+
+  chan->status = mwChannel_INIT;
+  chan->service = mwService_STORAGE;
+  chan->proto_type = mwProtocol_STORAGE;
+  chan->proto_ver = 0x01;
+  chan->encrypt.type = mwEncrypt_RC2_40;
+
+  ret = send_create(chan);
+  return ret? NULL: chan;
+}
+
+
+static void start(struct mwService *srvc) {
+  /* start to open the channel */
+
+  struct mwServiceStorage *srvc_store;
+  struct mwChannel *chan;
+
+  g_return_if_fail(srvc != NULL);
+  g_return_if_fail(MW_SERVICE_STOPPED(srvc));
+
+  srvc_store = (struct mwServiceStorage *) srvc;
+
+  srvc->state = mwServiceState_STARTING;
+  chan = make_channel(srvc->session->channels);
+  if(chan) {
+    srvc_store->channel = chan;
+  } else {
+    srvc->state = mwServiceState_STOPPED;
+  }
+}
+
+
+static void stop(struct mwService *srvc) {
+  /* - close the channel.
+     - Reset all pending requests to a an "unsent" state. */
+
+  struct mwServiceStorage *srvc_store;
+  GList *l;
+
+  g_return_if_fail(srvc != NULL);
+  g_return_if_fail(MW_SERVICE_STARTED(srvc));
+
+  srvc_store = (struct mwServiceStorage *) srvc;
+
+  srvc->state = mwServiceState_STOPPING;
+
+  if(srvc_store->channel) {
+    mwChannel_destroyQuick(srvc_store->channel, ERR_ABORT);
+    srvc_store->channel = NULL;
+  }
+
+  for(l = srvc_store->pending; l; l = l->next) {
+    struct mwStorageReq *req = (struct mwStorageReq *) l->data;
+    if(req->action == action_loaded) {
+      req->action = action_load;
+    } else if(req->action == action_saved) {
+      req->action = action_save;
+    }
+  }
+
+  srvc->state = mwServiceState_STOPPED;
 }
 
 
@@ -73,7 +296,10 @@ static void recv_channelAccept(struct mwService *srvc, struct mwChannel *chan,
   srvc_stor = (struct mwServiceStorage *) srvc;
 
   for(l = srvc_stor->pending; l; l = l->next) {
-    
+    struct mwStorageReq *req = (struct mwStorageReq *) l->data;
+    if(req->action == action_save || req->action == action_load) {
+      request_send(chan, req);
+    }
   }
 }
 
@@ -82,47 +308,77 @@ static void recv_channelDestroy(struct mwService *srvc, struct mwChannel *chan,
 				struct mwMsgChannelDestroy *msg) {
 
   /* close, instruct the session to re-open */
+  struct mwServiceStorage *srvc_stor;
+
+  g_return_if_fail(srvc != NULL);
+  g_return_if_fail(chan != NULL);
+
+  srvc_stor = (struct mwServiceStorage *) srvc;
+  srvc_stor->channel = NULL;
+
+  stop(srvc);
 }
 
 
 static void recv(struct mwService *srvc, struct mwChannel *chan,
-		 guint32 msg_type, const char *b, gsize n) {
+		 guint16 msg_type, const char *buf, gsize len) {
 
   /* process into results, trigger callbacks */
-}
 
+  struct mwServiceStorage *srvc_stor;
+  struct mwStorageReq *req;
+  guint32 id;
+  int ret = 0;
 
-static void start(struct mwService *srvc) {
-  /* start to open the channel */
-}
+  char *b = (char *) buf;
+  gsize n = len;
 
-
-static void stop(struct mwService *srvc) {
-  /* - close the channel.
-     - Reset all pending requests to a an "unsent" state. */
-
-  struct mwServiceStorage *srvc_store;
-  GList *l;
-
+  g_return_if_fail(chan != NULL);
   g_return_if_fail(srvc != NULL);
-  srvc_store = (struct mwServiceStorage *) srvc;
+  srvc_stor = (struct mwServiceStorage *) srvc;
 
-  mwChannel_destroyQuick(srvc_store->channel, ERR_ABORT);
+  g_return_if_fail(chan != srvc_stor->channel);
 
-  for(l = srvc_store->pending; l; l = l->next) {
-    struct mwStorageReq *req = (struct mwStorageReq *) l->data;
-    if(req->action == action_loaded) {
-      req->action = action_load;
-    } else if(req->action == action_saved) {
-      req->action = action_save;
-    }
+  id = guint32_peek(buf, len);
+  req = request_find(srvc_stor, id);
+
+  if(! req) {
+    g_warning("couldn't find request 0x%08x in storage service", id);
+    return;
   }
+
+  g_return_if_fail(req->action == msg_type);
+  ret = request_get(&b, &n, req);
+
+  if(ret) {
+    g_warning("failed to parse request 0x%08x of type 0x%04x"
+	      " for storage service", msg_type, id);
+  } else {
+    request_trigger(req);
+  }
+
+  request_remove(srvc_stor, req);
 }
 
 
 static void clear(struct mwService *srvc) {
+
+  struct mwServiceStorage *srvc_stor;
+  GList *l;
+
   stop(srvc);
-  /** @todo free all pending */
+
+  g_return_if_fail(srvc != NULL);
+  srvc_stor = (struct mwServiceStorage *) srvc;
+
+  for(l = srvc_stor->pending; l; l = l->next) {
+    request_free((struct mwStorageReq *) l->data);
+    l->data = NULL;
+  }
+  g_list_free(srvc_stor->pending);
+  srvc_stor->pending = NULL;
+
+  srvc_stor->id_counter = 0;
 }
 
 
@@ -279,10 +535,7 @@ void mwServiceStorage_load(struct mwServiceStorage *srvc,
     return;
   }
 
-  /* todo:
-     compose load message
-     send load message
-     set request to action_loaded */
+  request_send(srvc->channel, req);
 }
 
 
@@ -312,9 +565,6 @@ void mwServiceStorage_save(struct mwServiceStorage *srvc,
     return;
   }
 
-  /* todo:
-     compose save message
-     send save message
-     set request to action_saved */
+  request_send(srvc->channel, req);
 }
 

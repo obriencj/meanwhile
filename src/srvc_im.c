@@ -243,7 +243,7 @@ static int recv_text(struct mwServiceIM *srvc, struct mwChannel *chan,
     return -1;
 
   /* sometimes we receive a zero-length string. Let's ignore those */
-  if(! text) return 0;
+  if(!text || !*text) return 0;
 
   /* no longer inactive */
   chan->inactive = 0x00;
@@ -301,7 +301,7 @@ static int recv_data(struct mwServiceIM *srvc, struct mwChannel *chan,
 
 
 static void recv(struct mwService *srvc, struct mwChannel *chan,
-		 unsigned int type, const char *b, gsize n) {
+		 guint16 type, const char *b, gsize n) {
 
   /* - ensure message type is something we want
      - parse message type into either mwIMText or mwIMData
@@ -324,11 +324,11 @@ static void recv(struct mwService *srvc, struct mwChannel *chan,
     break;
 
   default:
-    g_warning("unknown message type %x for im service\n", mt);
+    g_warning("unknown message type 0x%04x for im service", mt);
   }
 
   if(ret) {
-    g_warning("failed to parse message of type %x in im service\n", mt);
+    g_warning("failed to parse message of type 0x%04x for im service", mt);
     /* consider closing the channel */
   }
 }
@@ -394,7 +394,6 @@ int mwServiceIM_sendText(struct mwServiceIM *srvc,
     return -1;
 
   ret = mwChannel_send(chan, mwChannelSend_CHAT_MESSAGE, buf, len);
-  if(ret) chan->inactive = 0x00;
   g_free(buf);
   return ret;
 }
@@ -424,11 +423,10 @@ int mwServiceIM_sendTyping(struct mwServiceIM *srvc,
   if( guint32_put(&b, &n, mwIM_DATA) ||
       guint32_put(&b, &n, mwIMData_TYPING) ||
       guint32_put(&b, &n, !typing) ||
-      guint32_put(&b, &n, 0x00) ) /* an opaque with nothing in it */
+      guint32_put(&b, &n, 0x00000000) ) /* an opaque with nothing in it */
     return -1;
 
   ret = mwChannel_send(chan, mwChannelSend_CHAT_MESSAGE, buf, len);
-  if(ret) chan->inactive = 0x00;
   g_free(buf);
   return ret;
 }

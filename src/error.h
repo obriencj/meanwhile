@@ -4,7 +4,10 @@
 #define _MW_ERROR_
 
 
-char* mwError(unsigned int code);
+#include <glib.h>
+
+
+char* mwError(guint32 code);
 
 
 /* 8.3 Constants */

@@ -174,7 +174,7 @@ static int UPDATE_recv(struct mwServiceAware *srvc,
 
 
 static void recv(struct mwService *srvc, struct mwChannel *chan,
-		 guint32 type, const char *b, gsize n) {
+		 guint16 type, const char *b, gsize n) {
 
   struct mwServiceAware *srvc_aware = (struct mwServiceAware *) srvc;
   int ret;

@@ -116,7 +116,7 @@ struct mwService {
       data on a channel with a service matching this service's
       type.
       @relates mwService_recv */
-  void (*recv)(struct mwService *, struct mwChannel *, guint32 msg_type,
+  void (*recv)(struct mwService *, struct mwChannel *, guint16 msg_type,
 	       const char *, gsize);
 
   /** The service's start handler. Called upon the receipt of a
@@ -197,7 +197,7 @@ void mwService_recvChannelDestroy(struct mwService *service,
     @param len the length of the input buffer
 */
 void mwService_recv(struct mwService *service, struct mwChannel *channel,
-		    guint32 msg_type, const char *buf, gsize len);
+		    guint16 msg_type, const char *buf, gsize len);
 
 
 /** @return string short name of the service */

@@ -1,17 +1,16 @@
 
 
-#include <glib.h>
 #include <stdio.h>
 #include <string.h>
 
 #include "error.h"
 
 
-static char *err_to_str(unsigned int code) {
-  char *b[32]; /* a little overkill never hurt */
-  memset((char *) b, 0x00, 32);
+static char *err_to_str(guint32 code) {
+  static char b[11]; /* 0x12345678 + NULL terminator */
   sprintf((char *) b, "0x%08x", code);
-  return g_strdup((char *)b);
+  b[10] = '\0';
+  return b;
 }
 
 
@@ -21,7 +20,7 @@ case val: \
   break;
 
 
-char* mwError(unsigned int code) {
+char* mwError(guint32 code) {
   const char *m;
 
   switch(code) {
@@ -32,12 +31,14 @@ char* mwError(unsigned int code) {
     CASE(ERR_REQUEST_DELAY, "Request delayed");
     CASE(ERR_REQUEST_INVALID, "Request is invalid");
     CASE(ERR_NO_USER, "User is not online");
-
-    /* 8.3.1.3 Client error codes */
-    CASE(ERR_CLIENT_USER_GONE, "User not present");
-    CASE(ERR_CLIENT_USER_DND, "User is in Do Not Disturb mode");
-    CASE(ERR_CLIENT_USER_ELSEWHERE, "Already logged in elsewhere");
-
+    CASE(ERR_CHANNEL_NO_SUPPORT, "Requested channel is not supported");
+    CASE(ERR_CHANNEL_EXISTS, "Requested channel already exists");
+    CASE(ERR_SERVICE_NO_SUPPORT, "Requested service is not supported");
+    CASE(ERR_PROTOCOL_NO_SUPPORT, "Requested protocol is not supported");
+    CASE(ERR_VERSION_NO_SUPPORT, "Version is not supported");
+    CASE(ERR_USER_SKETCHY, "User is invalid or not trusted");
+    CASE(ERR_ALREADY_INITIALIZED, "Already initialized");
+    
     /* 8.3.1.2 Connection/disconnection errors */
     CASE(CONNECTION_BROKEN, "Connection broken");
     CASE(CONNECTION_ABORTED, "Connection aborted");
@@ -48,14 +49,18 @@ char* mwError(unsigned int code) {
     CASE(INCORRECT_LOGIN, "Incorrect Username/Password");
     CASE(VERIFICATION_DOWN, "Login verification down or unavailable");
 
+    /* 8.3.1.3 Client error codes */
+    CASE(ERR_CLIENT_USER_GONE, "User is not online");
+    CASE(ERR_CLIENT_USER_DND, "User is in Do Not Disturb mode");
+    CASE(ERR_CLIENT_USER_ELSEWHERE, "Already logged in elsewhere");
+
     /* 8.3.1.4 IM error codes */
-    CASE(ERR_IM_COULDNT_REGISTER, "ERR_IM_COULDNT_REGISTER");
-    CASE(ERR_IM_ALREADY_REGISTERED, "ERR_IM_ALREADY_REGISTERED");
-    CASE(ERR_IM_NOT_REGISTERED, "ERR_IM_NOT_REGISTERED");
+    CASE(ERR_IM_COULDNT_REGISTER, "Cannot register a reserved type");
+    CASE(ERR_IM_ALREADY_REGISTERED, "Requested type is already registered");
+    CASE(ERR_IM_NOT_REGISTERED, "Requested type is not registered");
 
   default:
-    /* return now to avoid re-duplicating */
-    return err_to_str(code);
+    m = err_to_str(code);
   }
 
   return g_strdup(m);

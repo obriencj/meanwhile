@@ -438,7 +438,7 @@ static int MESSAGE_recv(struct mwServiceConf *srvc, struct mwConference *conf,
 
 
 static void recv(struct mwService *srvc, struct mwChannel *chan,
-		 guint32 type, const char *b, gsize n) {
+		 guint16 type, const char *b, gsize n) {
 
   struct mwServiceConf *srvc_conf = (struct mwServiceConf *) srvc;
   struct mwConference *conf = mwConference_findByChannel(srvc_conf, chan);

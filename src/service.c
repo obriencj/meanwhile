@@ -61,7 +61,7 @@ void mwService_recvChannelDestroy(struct mwService *s, struct mwChannel *chan,
 
 
 void mwService_recv(struct mwService *s, struct mwChannel *chan,
-		    guint32 msg_type, const char *buf, gsize n) {
+		    guint16 msg_type, const char *buf, gsize n) {
 
   /* ensure that none are null. buf and n should both be set to
      something greater-than zero, as empty messages are supposed to be
