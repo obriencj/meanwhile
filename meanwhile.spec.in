@@ -2,6 +2,7 @@
 
 %define with_python_subpackage  @WITH_PYTHON_SUBPACKAGE@%{nil}
 %define with_python_version     @PYTHON_VERSION@%{nil}
+%define python_site_packages	@PYTHON_LIBP@/site-packages
 
 
 Summary: Lotus Sametime Community Client library
@@ -78,7 +79,7 @@ Group: Applications/Internet
 Summary: Python bindings for the Meanwhile library
 License: LGPL
 Requires: %{name} = %{version}-%{release}
-Requires: python >= %{with_python_version}
+Requires: python = %{with_python_version}
 
 %description python
 The meanwhile-python package contains a module that permits applications
@@ -87,7 +88,8 @@ by the Meanwhile library.
 
 %files python
 %defattr(-,root,root,-)
-%{__libdir}/python%{with_python_version}/site-packages/mwmodule.so
+%{python_site_packages}/_meanwhile.so
+%{python_site_packages}/meanwhile.py
 
 %endif
 
@@ -101,6 +103,9 @@ by the Meanwhile library.
 
 
 %changelog
+* Mon Dec 27 2004  <siege@preoccupied.net>
+- updated python package
+
 * Thu Jul 22 2004  <siege@preoccupied.net>
 - moved .a, .la into -devel package
 - added docs to install

@@ -88,7 +88,8 @@ if test "$withval" != "no" ; then
 		# requirements
 
 		AC_MSG_RESULT($PYTHON_FOUND_VERSION)
-		PYTHON_VERSION=python_required_version
+		#PYTHON_VERSION=python_required_version
+		PYTHON_VERSION=$PYTHON_FOUND_VERSION
 		AC_SUBST(PYTHON_VERSION)
 	fi
 

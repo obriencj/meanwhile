@@ -40,14 +40,19 @@ AM_CPPFLAGS = \
 	-DG_LOG_DOMAIN=\"@PACKAGE@-python\"
 
 
-
 noinst_DATA = .libs/renamed
 .libs/renamed:
 	( cd .libs ; \
 	  for F in UNDERSCORE_* ; do \
-		cp $$F ../`echo $$F | sed s/UNDERSCORE//` ; \
+		cp $$F `echo $$F | sed s/UNDERSCORE//` ; \
           done ; \
 	  touch renamed )
 
 
+install-exec-hook:
+	( cd $pythondir ; \
+	  rm -f UNDERSCORE_meanwhile.*a ; \
+	  for F in UNDERSCORE_meanwhile* ; do \
+		mv $$F `echo $$F | sed s/UNDERSCORE//` ; \
+          done )
 
