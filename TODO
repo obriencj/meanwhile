@@ -15,3 +15,37 @@
     copy/paste segment of opaque message data and instructions to send it
     to meanwhile-devel@lists.sourceforge.net
 
+- IM Service
+  - new Client Type, 0xbadf00d
+  - data message type 0xbadf00d	feature negotiation
+	- subtype 0x01		offer named features
+	OPAQUE
+		COUNT
+			STRING
+			ADDTL
+
+	- subtype 0x02		accept named features
+	OPAQUE
+		COUNT
+			STRING
+			ADDTL
+
+	- subtype 0x03		remove named features
+	OPAQUE
+		COUNT
+			STRING
+		
+	- example features:
+		"std.plaintext"
+		"std.typing"
+		"nb.html"
+		"nb.mime"
+		"nb.topic"
+		"gaim.encrypt"
+
+  - data message type 0xdeadbeef
+	- subtype 0x01		named feature message
+	OPAQUE
+		STRING		name of feature
+		OPAQUE		data for message
+

@@ -159,7 +159,6 @@ static PyObject *py_start(mwPySession *self, PyObject *args) {
   mwSession_setProperty(self->session, PROPERTY_SESSION_PASSWORD, pass, NULL);
 
   mwSession_start(self->session);
-
   mw_return_none();
 }
 
@@ -171,7 +170,6 @@ static PyObject *py_stop(mwPySession *self, PyObject *args) {
     return NULL;
 
   mwSession_stop(self->session, reason);
-
   mw_return_none();
 }
 
@@ -241,8 +239,7 @@ static PyObject *py_get_service(mwPySession *self, PyObject *args) {
 
   srvc = mwSession_getService(self->session, id);
   if(! srvc) {
-    Py_INCREF(Py_None);
-    return Py_None;
+    mw_return_none();
   }
 
   srvcobj = g_hash_table_lookup(self->services, srvc);
@@ -320,7 +317,7 @@ static struct PyMethodDef tp_methods[] = {
   { "removeService", (PyCFunction) py_rem_service,
     METH_VARARGS, "remove a service from the session by its ID" },
 
-  {NULL},
+  { NULL },
 };
 
 
