@@ -1,9 +1,38 @@
 
 
+#include <glib/ghash.h>
+#include <glib/gprintf.h>
 #include <stdio.h>
 #include <string.h>
 
 #include "st_list.h"
+
+
+struct mwSametimeList {
+  guint ver_major;
+  guint ver_minor;
+  guint ver_revision;
+
+  GHashTable *groups;
+};
+
+
+struct mwSametimeGroup {
+  struct mwSametimeList *list;
+  char *name;
+  gboolean open;
+  GHashTable *users;
+};
+
+
+struct mwSametimeUser {
+  struct mwSametimeGroup *group;
+  struct mwIdBlock id;
+  char *alias;
+};
+
+
+#define MW_ST_USER_KEY(stuser) (&stuser->id)
 
 
 static guint id_hash(gconstpointer v) {
@@ -40,7 +69,7 @@ struct mwSametimeList *mwSametimeList_new() {
   struct mwSametimeList *stl = g_new0(struct mwSametimeList, 1);
   stl->ver_major = LIST_VERSION_MAJOR;
   stl->ver_minor = LIST_VERSION_MINOR;
-  stl->ver_release = LIST_VERSION_RELEASE;
+  stl->ver_revision = LIST_VERSION_REVISION;
 
   stl->groups = g_hash_table_new_full(g_str_hash, g_str_equal, NULL, NULL);
 
@@ -74,6 +103,42 @@ GList *mwSametimeList_getGroups(struct mwSametimeList *l) {
 }
 
 
+void mwSametimeList_putMajor(struct mwSametimeList *l, guint v) {
+  g_return_if_fail(l != NULL);
+  l->ver_major = v;
+}
+
+
+guint mwSametimeList_getMajor(struct mwSametimeList *l) {
+  g_return_val_if_fail(l != NULL, 0x00);
+  return l->ver_major;
+}
+
+
+void mwSametimeList_putMinor(struct mwSametimeList *l, guint v) {
+  g_return_if_fail(l != NULL);
+  l->ver_minor = v;
+}
+
+
+guint mwSametimeList_getMinor(struct mwSametimeList *l) {
+  g_return_val_if_fail(l != NULL, 0x00);
+  return l->ver_minor;
+}
+
+
+void mwSametimeList_putRevision(struct mwSametimeList *l, guint v) {
+  g_return_if_fail(l != NULL);
+  l->ver_revision = v;
+}
+
+
+guint mwSametimeList_getRevision(struct mwSametimeList *l) {
+  g_return_val_if_fail(l != NULL, 0x00);
+  return l->ver_revision;
+}
+
+
 struct mwSametimeGroup *mwSametimeGroup_new(struct mwSametimeList *l,
 					    const char *name) {
   struct mwSametimeGroup *grp;
@@ -99,6 +164,30 @@ void mwSametimeGroup_free(struct mwSametimeGroup *g) {
   g_hash_table_destroy(g->users);
   g_free(g->name);
   g_free(g);
+}
+
+
+const char *mwSametimeGroup_getName(struct mwSametimeGroup *g) {
+  g_return_val_if_fail(g != NULL, NULL);
+  return g->name;
+}
+
+
+gboolean mwSametimeGroup_isOpen(struct mwSametimeGroup *g) {
+  g_return_val_if_fail(g != NULL, FALSE);
+  return g->open;
+}
+
+
+void mwSametimeGroup_setOpen(struct mwSametimeGroup *g, gboolean open) {
+  g_return_if_fail(g != NULL);
+  g->open = open;
+}
+
+
+struct mwSametimeList *mwSametimeGroup_getList(struct mwSametimeGroup *g) {
+  g_return_val_if_fail(g != NULL, NULL);
+  return g->list;
 }
 
 
@@ -136,19 +225,40 @@ void mwSametimeUser_free(struct mwSametimeUser *u) {
 }
 
 
+struct mwSametimeGroup *mwSametimeUser_getGroup(struct mwSametimeUser *u) {
+  g_return_val_if_fail(u != NULL, NULL);
+  return u->group;
+}
+
+
+const char *mwSametimeUser_getUser(struct mwSametimeUser *u) {
+  g_return_val_if_fail(u != NULL, NULL);
+  return u->id.user;
+}
+
+
+const char *mwSametimeUser_getCommunity(struct mwSametimeUser *u) {
+  g_return_val_if_fail(u != NULL, NULL);
+  return u->id.community;
+}
+
+
+const char *mwSametimeUser_getAlias(struct mwSametimeUser *u) {
+  g_return_val_if_fail(u != NULL, NULL);
+  return u->alias;
+}
+
+
 static void user_buflen(gpointer k, gpointer v, gpointer data) {
   struct mwSametimeUser *u = (struct mwSametimeUser *) v;
   gsize *l = (gsize *) data;
 
   /** @todo this doesn't know how to do user/community, only user */
 
-  gsize len = 7; /* "U 1:: \n" */
-  len += (strlen(u->id.user) * 2);
+  gsize len = 8; /* "U %s1:: %s,%s\n" */
 
-  if(u->alias) {
-    len++; /* "," */
-    len += strlen(u->alias);
-  }
+  len += (strlen(u->id.user) * 2);
+  if(u->alias) len += strlen(u->alias);
     
   *l += len;
 }
@@ -158,7 +268,7 @@ static void group_buflen(gpointer k, gpointer v, gpointer data) {
   struct mwSametimeGroup *g = (struct mwSametimeGroup *) v;
   gsize *l = (gsize *) data;
 
-  gsize len = 7; /* "G 2  O\n" */
+  gsize len = 7; /* "G %s2 %s %c\n" */
   len += (strlen(g->name) * 2);
 
   *l += len;
@@ -175,13 +285,13 @@ static gsize digit_buflen(guint d) {
 
 
 gsize mwSametimeList_buflen(struct mwSametimeList *l) {
-  gsize len = 11; /* "Version=..\n" */
+  gsize len = 11; /* "Version=%u.%u.%u\n" */
   len += digit_buflen(l->ver_major);
   len += digit_buflen(l->ver_minor);
-  len += digit_buflen(l->ver_release);
+  len += digit_buflen(l->ver_revision);
 
   g_hash_table_foreach(l->groups, group_buflen, &len);
-  return len;
+  return len + 1; /* add null termination */
 }
 
 
@@ -210,7 +320,7 @@ static int get_version(char *b, struct mwSametimeList *l) {
   
   l->ver_major = major;
   l->ver_minor = minor;
-  l->ver_release = rev;
+  l->ver_revision = rev;
 
   return ret != 3;
 }
@@ -261,8 +371,8 @@ static int get_user(char *b, struct mwSametimeList *l,
   str_replace(id, ';', ' ');
   idb.user = id;
 
-  if(! *alias) alias = name;
-  str_replace(alias, ';', ' ');
+  /* if(! *alias) alias = name; */
+  if(alias) str_replace(alias, ';', ' ');
 
   user = mwSametimeUser_new(g, &idb, alias);
 
@@ -309,6 +419,81 @@ int mwSametimeList_get(char **b, gsize *n, struct mwSametimeList *l) {
     }
     g_free(line);
   }
+
+  return 0;
+}
+
+
+static int put_group(char **b, gsize *n, struct mwSametimeGroup *group) {
+  char *name;
+  int writ;
+  
+  name = g_strdup(group->name);
+  str_replace(name, ' ', ';');
+
+  writ = g_sprintf(*b, "G %s2 %s %c\n",
+		   name, name, group->open? 'O': 'C');
+
+  g_free(name);
+
+  *b += writ;
+  *n -= writ;
+
+  return 0;
+}
+
+
+static int put_user(char **b, gsize *n, struct mwSametimeUser *user) {
+  char *name, *alias;
+  int writ;
+
+  name = g_strdup(user->id.user);
+  alias = g_strdup(user->alias);
+  str_replace(name, ' ', ';');
+  if(alias) str_replace(alias, ' ', ';');
+
+  writ = g_sprintf(*b, "U %s1:: %s,%s\n", name, name, alias? alias: "");
+
+  g_free(name);
+  g_free(alias);
+
+  *b += writ;
+  *n -= writ;
+
+  return 0;
+}
+
+
+int mwSametimeList_put(char **b, gsize *n, struct mwSametimeList *list) {
+  struct mwSametimeGroup *group;
+  struct mwSametimeUser *user;
+
+  int writ = 0;
+  GList *g, *gst, *u, *ust;
+
+  g_return_val_if_fail(list != NULL, -1);
+
+  writ = g_sprintf(*b, "Version=%u.%u.%u\n",
+		   list->ver_major, list->ver_minor, list->ver_revision);
+
+  *b += writ;
+  *n -= writ;
+
+  g = gst = mwSametimeList_getGroups(list);
+  for(; g; g = g->next) {
+    group = (struct mwSametimeGroup *) g->data;
+    put_group(b, n, group);
+
+    u = ust = mwSametimeGroup_getUsers(group);
+    for(; u; u = u->next) {
+      user = (struct mwSametimeUser *) u->data;
+      put_user(b, n, user);
+    }
+    g_list_free(ust);
+  }
+  g_list_free(gst);
+
+  **b = '\0';
 
   return 0;
 }

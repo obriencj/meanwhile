@@ -5,41 +5,31 @@
 
 
 #include <glib.h>
-#include <glib/ghash.h>
 #include <glib/glist.h>
 #include "common.h"
 
 
-#define LIST_VERSION_MAJOR    3
-#define LIST_VERSION_MINOR    1
-#define LIST_VERSION_RELEASE  3
+#define LIST_VERSION_MAJOR     3
+#define LIST_VERSION_MINOR     1
+#define LIST_VERSION_REVISION  3
 
 
-struct mwSametimeList {
-  guint ver_major;
-  guint ver_minor;
-  guint ver_release;
-
-  GHashTable *groups;
-};
+/** @struct mwSametimeList
+    Represents a group-based buddy list.
+*/
+struct mwSametimeList;
 
 
-struct mwSametimeGroup {
-  struct mwSametimeList *list;
-  char *name;
-  gboolean open;
-  GHashTable *users;
-};
+/** @struct mwSametimeGroup
+    Represents a group in a buddy list
+*/
+struct mwSametimeGroup;
 
 
-struct mwSametimeUser {
-  struct mwSametimeGroup *group;
-  struct mwIdBlock id;
-  char *alias;
-};
-
-
-#define MW_ST_USER_KEY(stuser) (&stuser->id)
+/** @struct mwSametimeUser
+    Represents a user in a group in a buddy list
+*/
+struct mwSametimeUser;
 
 
 /** Create a new list */
@@ -63,6 +53,24 @@ int mwSametimeList_get(char **b, gsize *n, struct mwSametimeList *l);
 int mwSametimeList_put(char **b, gsize *n, struct mwSametimeList *l);
 
 
+void mwSametimeList_putMajor(struct mwSametimeList *l, guint v);
+
+
+guint mwSametimeList_getMajor(struct mwSametimeList *l);
+
+
+void mwSametimeList_putMinor(struct mwSametimeList *l, guint v);
+
+
+guint mwSametimeList_getMinor(struct mwSametimeList *l);
+
+
+void mwSametimeList_putRevision(struct mwSametimeList *l, guint v);
+
+
+guint mwSametimeList_getRevision(struct mwSametimeList *l);
+
+
 /** Get a GList snapshot of the groups in a list */
 GList *mwSametimeList_getGroups(struct mwSametimeList *l);
 
@@ -77,6 +85,18 @@ struct mwSametimeGroup *mwSametimeGroup_new(struct mwSametimeList *l,
 void mwSametimeGroup_free(struct mwSametimeGroup *g);
 
 
+const char *mwSametimeGroup_getName(struct mwSametimeGroup *g);
+
+
+gboolean mwSametimeGroup_isOpen(struct mwSametimeGroup *g);
+
+
+void mwSametimeGroup_setOpen(struct mwSametimeGroup *g, gboolean open);
+
+
+struct mwSametimeList *mwSametimeGroup_getList(struct mwSametimeGroup *g);
+
+
 /** Get a GList snapshot of the users in a list */
 GList *mwSametimeGroup_getUsers(struct mwSametimeGroup *g);
 
@@ -89,5 +109,18 @@ struct mwSametimeUser *mwSametimeUser_new(struct mwSametimeGroup *g,
 
 /** Remove user from its group, and free it */
 void mwSametimeUser_free(struct mwSametimeUser *u);
+
+
+struct mwSametimeGroup *mwSametimeUser_getGroup(struct mwSametimeUser *u);
+
+
+const char *mwSametimeUser_getUser(struct mwSametimeUser *u);
+
+
+const char *mwSametimeUser_getCommunity(struct mwSametimeUser *u);
+
+
+const char *mwSametimeUser_getAlias(struct mwSametimeUser *u);
+
 
 #endif
