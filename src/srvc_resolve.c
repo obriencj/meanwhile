@@ -91,12 +91,12 @@ static void search_free(struct mw_search *search) {
 
 
 static const char *get_name(struct mwService *srvc) {
-  return "Resolve Service";
+  return "Identity Resolution";
 }
 
 
 static const char *get_desc(struct mwService *srvc) {
-  return "Simple implementation of the resolve service";
+  return "Resolves short IDs to full IDs";
 }
 
 

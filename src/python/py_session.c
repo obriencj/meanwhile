@@ -45,7 +45,7 @@ static int mw_io_write(struct mwSession *s, const char *buf, gsize len) {
   PyObject *pbuf;
   int ret = -1;
   
-  sobj = mwSession_getHandler(s)->data;
+  sobj = mwSession_getClientData(s);
   g_return_val_if_fail(sobj != NULL, -1);
 
   pbuf = PyBuffer_FromMemory((char *) buf, len);
@@ -66,7 +66,7 @@ static int mw_io_write(struct mwSession *s, const char *buf, gsize len) {
 static void mw_io_close(struct mwSession *s) {
   PyObject *sobj, *robj;
 
-  sobj = mwSession_getHandler(s)->data;
+  sobj = mwSession_getClientData(s);
   g_return_if_fail(sobj != NULL);
 
   robj = PyObject_CallMethod(sobj, ON_IO_CLOSE, NULL);
@@ -84,7 +84,7 @@ static void mw_on_state(struct mwSession *s,
 
   PyObject *sobj, *robj;
 
-  sobj = mwSession_getHandler(s)->data;
+  sobj = mwSession_getClientData(s);
   g_return_if_fail(sobj != NULL);
 
   robj = PyObject_CallMethod(sobj, ON_STATE_CHANGE, NULL);
@@ -95,7 +95,7 @@ static void mw_on_state(struct mwSession *s,
 static void mw_on_privacy(struct mwSession *s) {
   PyObject *sobj, *robj;
 
-  sobj = mwSession_getHandler(s)->data;
+  sobj = mwSession_getClientData(s);
   g_return_if_fail(sobj != NULL);
 
   robj = PyObject_CallMethod(sobj, ON_SET_PRIVACY, NULL);
@@ -106,7 +106,7 @@ static void mw_on_privacy(struct mwSession *s) {
 static void mw_on_user(struct mwSession *s) {
   PyObject *sobj, *robj;
 
-  sobj = mwSession_getHandler(s)->data;
+  sobj = mwSession_getClientData(s);
   g_return_if_fail(sobj != NULL);
 
   robj = PyObject_CallMethod(sobj, ON_SET_USER, NULL);
@@ -118,7 +118,7 @@ static void mw_on_admin(struct mwSession *s, const char *text) {
   PyObject *sobj, *robj;
   PyObject *a;
 
-  sobj = mwSession_getHandler(s)->data;
+  sobj = mwSession_getClientData(s);
   g_return_if_fail(sobj != NULL);
 
   a = PyString_SafeFromString(text);
@@ -133,7 +133,7 @@ static void mw_on_redirect(struct mwSession *s, const char *host) {
   PyObject *sobj, *robj;
   PyObject *a;
 
-  sobj = mwSession_getHandler(s)->data;
+  sobj = mwSession_getClientData(s);
   g_return_if_fail(sobj != NULL);
 
   a = PyString_SafeFromString(host);
@@ -338,7 +338,6 @@ static PyObject *tp_new(PyTypeObject *t, PyObject *args, PyObject *kwds) {
 
     struct mwSessionHandler *h;
     h = g_new0(struct mwSessionHandler, 1);
-    h->data = self;
 
     h->io_write = mw_io_write;
     h->io_close = mw_io_close;
@@ -352,6 +351,8 @@ static PyObject *tp_new(PyTypeObject *t, PyObject *args, PyObject *kwds) {
     self->session = s = mwSession_new(h);
     self->services = g_hash_table_new_full(g_direct_hash, g_direct_equal,
 					   NULL, (GDestroyNotify) decref);
+
+    mwSession_setClientData(s, self, NULL);
     
     mwSession_addCipher(s, mwCipher_new_RC2_40(s));
   }

@@ -70,41 +70,22 @@ struct mwSession {
 
   /** arbitrary key:value pairs */
   GHashTable *attributes;
+
+  /** optional user data */
+  struct mw_datum client_data;
 };
-
-
-struct session_property {
-  gpointer data;
-  GDestroyNotify clean;
-};
-
-
-static struct session_property *property_new(gpointer data,
-					     GDestroyNotify clean) {
-  struct session_property *p;
-  p = g_new0(struct session_property, 1);
-  p->data = data;
-  p->clean = clean;
-  return p;
-}
-
-
-static void property_free(struct session_property *p) {
-  if(p->clean) p->clean(p->data);
-  g_free(p);
-}
 
 
 static void property_set(struct mwSession *s, const char *key,
 			 gpointer val, GDestroyNotify clean) {
 
   g_hash_table_insert(s->attributes, g_strdup(key),
-		      property_new(val, clean));
+		      mw_datum_new(val, clean));
 }
 
 
 static gpointer property_get(struct mwSession *s, const char *key) {
-  struct session_property *p = g_hash_table_lookup(s->attributes, key);
+  struct mw_datum *p = g_hash_table_lookup(s->attributes, key);
   return p? p->data: NULL;
 }
 
@@ -149,7 +130,7 @@ struct mwSession *mwSession_new(struct mwSessionHandler *handler) {
   s->ciphers = map_guint_new();
 
   s->attributes = g_hash_table_new_full(g_str_hash, g_str_equal, g_free,
-					(GDestroyNotify) property_free);
+					(GDestroyNotify) mw_datum_free);
 
   session_defaults(s);
 
@@ -784,6 +765,14 @@ int mwSession_send(struct mwSession *s, struct mwMessage *msg) {
 }
 
 
+int mwSession_sendKeepalive(struct mwSession *s) {
+  const char b = 0x80;
+
+  g_return_val_if_fail(s != NULL, -1);
+  return io_write(s, &b, 1);
+}
+
+
 struct mwSessionHandler *mwSession_getHandler(struct mwSession *s) {
   g_return_val_if_fail(s != NULL, NULL);
   return s->handler;
@@ -990,4 +979,23 @@ void mwSession_removeProperty(struct mwSession *s, const char *key) {
   property_del(s, key);
 }
 
+
+void mwSession_setClientData(struct mwSession *session,
+			     gpointer data, GDestroyNotify clear) {
+
+  g_return_if_fail(session != NULL);
+  mw_datum_set(&session->client_data, data, clear);
+}
+
+
+gpointer mwSession_getClientData(struct mwSession *session) {
+  g_return_val_if_fail(session != NULL, NULL);
+  return mw_datum_get(&session->client_data);
+}
+
+
+void mwSession_removeClientData(struct mwSession *session) {
+  g_return_if_fail(session != NULL);
+  mw_datum_clear(&session->client_data);
+}
 

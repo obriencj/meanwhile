@@ -155,9 +155,6 @@ struct mwSessionHandler {
   /** triggered by mwSession_free */
   void (*clear)(struct mwSession *);
 
-  /** extra data for implementation use */
-  gpointer data;
-
   /** Called when the session has changed status.
 
       Uses of the info param:
@@ -216,6 +213,10 @@ void mwSession_recv(struct mwSession *, const char *, gsize);
     @param msg  message to serialize and send
     @returns    0 for success */
 int mwSession_send(struct mwSession *s, struct mwMessage *msg);
+
+
+/** sends the keepalive byte */
+int mwSession_sendKeepalive(struct mwSession *s);
 
 
 /** set the internal privacy information, and inform the server as
@@ -316,6 +317,16 @@ gpointer mwSession_getProperty(struct mwSession *, const char *key);
 
 
 void mwSession_removeProperty(struct mwSession *, const char *key);
+
+
+void mwSession_setClientData(struct mwSession *session,
+			     gpointer data, GDestroyNotify clear);
+
+
+gpointer mwSession_getClientData(struct mwSession *session);
+
+
+void mwSession_removeClientData(struct mwSession *session);
 
 
 #endif

@@ -30,6 +30,7 @@ UNDERSCORE_meanwhile_la_CFLAGS = \
 
 UNDERSCORE_meanwhile_la_LDFLAGS = \
 	-module -avoid-version \
+	-Wl,-rpath,${libdir} \
 	@os_ld_flags@
 
 UNDERSCORE_meanwhile_la_LIBADD = \
@@ -49,8 +50,8 @@ noinst_DATA = .libs/renamed
 	  touch renamed )
 
 
-install-exec-hook:
-	( cd $pythondir ; \
+install-data-hook:
+	( cd $(pythondir) ; \
 	  rm -f UNDERSCORE_meanwhile.*a ; \
 	  for F in UNDERSCORE_meanwhile* ; do \
 		mv $$F `echo $$F | sed s/UNDERSCORE//` ; \

@@ -23,6 +23,7 @@
 
 
 #include <glib.h>
+#include <glib/glist.h>
 
 
 struct mwSession;
@@ -50,11 +51,25 @@ struct mwAddressBook;
 struct mwDirectory;
 
 
+enum mwDirectoryMemberType {
+  mwDirectoryMember_USER   = 0x0000,
+  mwDirectoryMember_GROUP  = 0x0001,
+};
+
+
+struct mwDirectoryMember {
+  guint16 type;      /**< @see mwDirectoryMemberType */
+  char *id;          /**< proper ID for member */
+  char *long_name;   /**< full name of member (USER type only) */
+  char *short_name;  /**< short name of member */
+  guint16 foo;       /**< unknown */
+};
+
+
 /** Appropriate function signature for handling directory search results */
 typedef void (*mwSearchHandler)
      (struct mwDirectory *dir,
-      guint32 id, guint32 code, guint32 offset, GList *members,
-      gpointer data);
+      guint32 code, guint32 offset, GList *members);
 
 
 /** handles asynchronous events for a directory service instance */
@@ -136,16 +151,15 @@ struct mwAddressBook *mwDirectory_getAddressBook(struct mwDirectory *dir);
 
 
 /** initialize a directory. */
-int mwDirectory_open(struct mwDirectory *dir);
+int mwDirectory_open(struct mwDirectory *dir,
+		     gpointer data, GDestroyNotify clean);
 
 
-/** initiate a search on an open directory.
-
-    @return identifier referencing the search */
-guint32 mwDirectory_search(struct mwDirectory *dir,
-			   const char *query,
-			   mwSearchHandler *cb,
-			   gpointer data, GDestroyNotify clean);
+/** initiate a search on an open directory. A directory can only have
+    one active search at a time. */
+int mwDirectory_search(struct mwDirectory *dir,
+		       const char *query,
+		       mwSearchHandler *cb);
 
 
 /** continue a search into its next results */
@@ -154,6 +168,16 @@ guint32 mwDirectory_searchNext(struct mwDirectory *dir);
 
 /** continue a search into its previous results */
 guint32 mwDirectory_searchPrevious(struct mwDirectory *dir);
+
+
+gpointer mwDirectory_getClientData(struct mwDirectory *dir);
+
+
+void mwDirectory_setClientData(struct mwDirectory *dir,
+			       gpointer data, GDestroyNotify clean);
+
+
+void mwDirectory_removeClientData(struct mwDirectory *dir);
 
 
 /** close and free the directory, and unassociate it with its owning

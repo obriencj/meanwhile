@@ -72,7 +72,7 @@ struct mwServiceIm {
 
   enum mwImClientType features;
 
-  struct mwServiceImHandler *handler;
+  struct mwImHandler *handler;
   GList *convs;  /**< list of struct im_convo */
 };
 
@@ -240,7 +240,7 @@ void mwConversation_open(struct mwConversation *conv) {
 
 
 static void convo_opened(struct mwConversation *conv) {
-  struct mwServiceImHandler *h = NULL;
+  struct mwImHandler *h = NULL;
 
   g_return_if_fail(conv != NULL);
   g_return_if_fail(conv->service != NULL);
@@ -446,7 +446,7 @@ static void convo_recv(struct mwConversation *conv, enum mwImSendType type,
 		       gconstpointer msg) {
 
   struct mwServiceIm *srvc;
-  struct mwServiceImHandler *handler;
+  struct mwImHandler *handler;
 
   g_return_if_fail(conv != NULL);
 
@@ -577,7 +577,7 @@ static void recv(struct mwService *srvc, struct mwChannel *chan,
 
 
 static void clear(struct mwServiceIm *srvc) {
-  struct mwServiceImHandler *h;
+  struct mwImHandler *h;
 
   while(srvc->convs)
     convo_free(srvc->convs->data);
@@ -590,12 +590,12 @@ static void clear(struct mwServiceIm *srvc) {
 
 
 static const char *name(struct mwService *srvc) {
-  return "Basic Instant Messaging";
+  return "Instant Messaging";
 }
 
 
 static const char *desc(struct mwService *srvc) {
-  return "A simple IM service, with typing notification";
+  return "IM service with Standard and NotesBuddy features";
 }
 
 
@@ -614,7 +614,7 @@ static void stop(struct mwServiceIm *srvc) {
 
 
 struct mwServiceIm *mwServiceIm_new(struct mwSession *session,
-				    struct mwServiceImHandler *hndl) {
+				    struct mwImHandler *hndl) {
 
   struct mwServiceIm *srvc_im;
   struct mwService *srvc;
@@ -644,7 +644,7 @@ struct mwServiceIm *mwServiceIm_new(struct mwSession *session,
 }
 
 
-struct mwServiceImHandler *mwServiceIm_getHandler(struct mwServiceIm *srvc) {
+struct mwImHandler *mwServiceIm_getHandler(struct mwServiceIm *srvc) {
   g_return_val_if_fail(srvc != NULL, NULL);
   return srvc->handler;
 }
@@ -890,9 +890,20 @@ gpointer mwConversation_getClientData(struct mwConversation *conv) {
 }
 
 
+void mwConversation_removeClientData(struct mwConversation *conv) {
+  g_return_if_fail(conv != NULL);
+
+  if(conv->clean) {
+    conv->clean(conv->data);
+    conv->clean = NULL;
+  }
+  conv->data = NULL;
+}
+
+
 void mwConversation_close(struct mwConversation *conv, guint32 reason) {
   struct mwServiceIm *srvc;
-  struct mwServiceImHandler *h;
+  struct mwImHandler *h;
 
   g_return_if_fail(conv != NULL);
 

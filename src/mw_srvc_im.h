@@ -112,7 +112,7 @@ enum mwConversationState {
 
 /** IM Service Handler. Provides functions for events triggered from an
     IM service instance. */
-struct mwServiceImHandler {
+struct mwImHandler {
 
   /** A conversation has been successfully opened */
   void (*conversation_opened)(struct mwConversation *conv);
@@ -130,10 +130,10 @@ struct mwServiceImHandler {
 
 
 struct mwServiceIm *mwServiceIm_new(struct mwSession *session,
-				    struct mwServiceImHandler *handler);
+				    struct mwImHandler *handler);
 
 
-struct mwServiceImHandler *mwServiceIm_getHandler(struct mwServiceIm *srvc);
+struct mwImHandler *mwServiceIm_getHandler(struct mwServiceIm *srvc);
 
 
 /** reference an existing conversation to target, or create a new
@@ -233,6 +233,9 @@ void mwConversation_setClientData(struct mwConversation *conv,
 
 /** Reference associated client data */
 gpointer mwConversation_getClientData(struct mwConversation *conv);
+
+
+void mwConversation_removeClientData(struct mwConversation *conv);
 
 
 /** close and destroy the conversation and its backing channel, and

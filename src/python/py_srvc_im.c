@@ -597,7 +597,7 @@ static PyObject *tp_new(PyTypeObject *t, PyObject *args, PyObject *kwds) {
   mwPyService *self;
   mwPySession *sessobj;
   struct mwSession *session;
-  struct mwServiceImHandler *handler;
+  struct mwImHandler *handler;
   struct mwServiceIm *srvc_im;
   
   if(! PyArg_ParseTuple(args, "O", &sessobj))
@@ -615,7 +615,7 @@ static PyObject *tp_new(PyTypeObject *t, PyObject *args, PyObject *kwds) {
   session = sessobj->session;
 
   /* handler with our call-backs */
-  handler = g_new0(struct mwServiceImHandler, 1);
+  handler = g_new0(struct mwImHandler, 1);
   handler->conversation_recv = mw_conversation_recv;
   handler->conversation_opened = mw_conversation_opened;
   handler->conversation_closed = mw_conversation_closed;

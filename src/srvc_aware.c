@@ -433,7 +433,7 @@ static const char *name(struct mwService *srvc) {
 
 
 static const char *desc(struct mwService *srvc) {
-  return "A simple Buddy List service";
+  return "Buddy list service with support for server-side groups";
 }
 
 

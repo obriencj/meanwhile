@@ -192,7 +192,7 @@ static const char *get_name(struct mwService *srvc) {
 
 
 static const char *get_desc(struct mwService *srvc) {
-  return "Simple implementation of the storage service";
+  return "Stores user data and settings on the server";
 }
 
 

@@ -95,6 +95,7 @@ def _cbStore(who, kstr):
     pass
 
 
+
 def _cbResolved(who, id, code, results):
     tSrvcIm.sendText(who, "resolve request 0x%04x returned code 0x%08x\n%s" %
                      (id, code, results))

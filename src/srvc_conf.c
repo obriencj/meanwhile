@@ -569,7 +569,7 @@ static const char *name(struct mwService *srvc) {
 
 
 static const char *desc(struct mwService *srvc) {
-  return "A simple multi-user conference service";
+  return "Multi-user plain-text conferencing";
 }
 
 

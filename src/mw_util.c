@@ -46,3 +46,35 @@ GList *map_collect_values(GHashTable *ht) {
   return ret;
 }
 
+
+struct mw_datum *mw_datum_new(gpointer data, GDestroyNotify clear) {
+  struct mw_datum *d = g_new(struct mw_datum, 1);
+  mw_datum_set(d, data, clear);
+  return d;
+}
+
+
+void mw_datum_set(struct mw_datum *d, gpointer data, GDestroyNotify clear) {
+  d->data = data;
+  d->clear = clear;
+}
+
+
+gpointer mw_datum_get(struct mw_datum *d) {
+  return d->data;
+}
+
+
+void mw_datum_clear(struct mw_datum *d) {
+  if(d->clear) {
+    d->clear(d->data);
+    d->clear = NULL;
+  }
+  d->data = NULL;
+}
+
+
+void mw_datum_free(struct mw_datum *d) {
+  mw_datum_clear(d);
+  g_free(d);
+}

@@ -11,12 +11,17 @@
     information/token
 
 - Debugging
-  - Add debugging message for "strange" or "unsure" protocol data, with
-    copy/paste segment of opaque message data and instructions to send it
-    to meanwhile-devel@lists.sourceforge.net
+  - Add debugging message for "strange" or "unsure" protocol data,
+    with copy/paste segment of opaque message data and instructions to
+    send it to meanwhile-devel@lists.sourceforge.net
+
+- python script
+  - Attempt to use resolve service after handshake ack, before login
+    to resolve session's user name
+
 
 - IM Service
-  - new Client Type, 0xbadf00d
+  - new Client Type, 0xbadf00d  (0x0b ad f0 0d)
   - data message type 0xbadf00d	feature negotiation
 	- subtype 0x01		offer named features
 	OPAQUE
@@ -36,12 +41,13 @@
 			STRING
 		
 	- example features:
-		"std.plaintext"
-		"std.typing"
+		"st.plaintext"
+		"st.typing"
 		"nb.html"
 		"nb.mime"
 		"nb.topic"
-		"gaim.encrypt"
+		"mw.encrypt"
+		"mw.
 
   - data message type 0xdeadbeef
 	- subtype 0x01		named feature message
