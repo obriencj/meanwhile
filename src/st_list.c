@@ -370,7 +370,7 @@ static int get_group(char *b, struct mwSametimeList *l,
 static int get_user(char *b, struct mwSametimeList *l,
 		    struct mwSametimeGroup *g) {
 
-  char *name, *alias = NULL;
+  char *id, *name, *alias = NULL;
   char *tmp;
 
   struct mwIdBlock idb = { NULL, NULL };
@@ -379,18 +379,25 @@ static int get_user(char *b, struct mwSametimeList *l,
   g_return_val_if_fail(strlen(b) > 2, -1);
   g_return_val_if_fail(g != NULL, -1);
 
-  idb.user = b + 2; /* advance past "U " */
+  id = b + 2; /* advance past "U " */
   tmp = strstr(b, "1:: "); /* backwards thinking saves overruns */
   if(! tmp) return -1;
   *tmp = '\0';
-  str_replace(idb.user, ';', ' ');
   b = tmp;
 
   name = b + 4; /* advance past the "1:: " */
-  tmp = strchr(name, ',');
+
+  tmp = strchr(name, id);
+
+  if(tmp) {
+    tmp += strlen(id);
+  } else {
+    tmp = strchr(name, ',');
+  }
+
   if(tmp) {
     *tmp = '\0';
-
+   
     tmp++;
     if(*tmp) {
       str_replace(tmp, ';', ' ');
@@ -398,6 +405,10 @@ static int get_user(char *b, struct mwSametimeList *l,
     }
   }
   
+  if(id && *id) str_replace(id, ';', ' ');
+  if(name && *name) str_replace(name, ';', ' ');
+  
+  idb.user = id;
   user = mwSametimeUser_new(g, &idb, name, alias);
 
   return 0;
