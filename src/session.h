@@ -105,7 +105,7 @@ struct mwSessionHandler {
   /** Called when the session has changed status.
 
       Uses of the info param:
-      @item STOPPING - error code causing the session to shut down
+      - <code>STOPPING</code> error code causing the session to shut down
 
       @param s      the session
       @param state  the session's state

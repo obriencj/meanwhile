@@ -127,6 +127,7 @@ static PyObject *py_aware_remove(mwPyService *self, PyObject *args) {
 
 
 static PyObject *py_on_aware(mwPyService *self, PyObject *args) {
+  /** this is just a fall-through implementation */
   Py_INCREF(Py_None);
   return Py_None;
 }

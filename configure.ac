@@ -130,7 +130,7 @@ AC_SUBST(GLIB_CFLAGS)
 AC_SUBST(GLIB_LIBS)
 
 
-AC_OUTPUT([Makefile src/Makefile src/python/Makefile meanwhile.spec meanwhile.pc test.sh])
+AC_OUTPUT([Makefile src/Makefile src/python/Makefile meanwhile.spec meanwhile.pc Doxyfile test.sh])
 
 chmod +x test.sh
 

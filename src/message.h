@@ -1,7 +1,7 @@
 
 
-#ifndef _MW_MESSAGE_
-#define _MW_MESSAGE_
+#ifndef _MW_MESSAGE
+#define _MW_MESSAGE
 
 
 #include <glib/glist.h>
@@ -41,7 +41,8 @@ enum mwMessageOption {
 
 
 /** @see mwMessageOption */
-#define MW_MESSAGE_HAS_OPTION(msg, opt) (msg->options & opt)
+#define MW_MESSAGE_HAS_OPTION(msg, opt) \
+  ((msg)->options & (opt))
 
 
 struct mwMessage {
@@ -98,7 +99,7 @@ struct mwMsgHandshakeAck {
 enum mwAuthType {
   mwAuthType_PLAIN    = 0x0000,
   mwAuthType_TOKEN    = 0x0001,
-  mwAuthType_ENCRYPT  = 0x0002
+  mwAuthType_ENCRYPT  = 0x0002,
 };
 
 

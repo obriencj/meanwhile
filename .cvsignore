@@ -5,6 +5,7 @@ compile
 config.*
 configure
 depcomp
+Doxyfile
 install-sh
 libtool
 Makefile

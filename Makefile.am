@@ -10,3 +10,6 @@ pkgconfigdir = $(libdir)/pkgconfig
 
 SUBDIRS = src
 
+docs:
+	make -C doc
+

@@ -38,7 +38,8 @@ from _meanwhile import \
 
 
 class SocketSession(Session):
-    '''
+    '''Implementation of a meanwhile session with built-in socket-handling
+    functionality.
     '''
     
     def __init__(self, where, who):

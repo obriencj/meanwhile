@@ -11,11 +11,8 @@ test_user = os.environ.get('mw_user')
 test_pass = os.environ.get('mw_pass')
 test_host = os.environ.get('mw_host')
 test_port = int(os.environ.get('mw_port'))
-
-WHO = (test_user, test_pass)
-WHERE = (test_host, test_port)
-
 allow_exec = int(os.environ.get('allow_exec'))
+
 
 
 tSession = None
@@ -116,7 +113,7 @@ class ServiceIm(meanwhile.ServiceIm):
 
 
 if __name__ == "__main__":
-    tSession = Session(WHERE, WHO)
+    tSession = Session((test_host, test_port), (test_user, test_pass))
 
     tSrvcAware = ServiceAware(tSession)
     tSrvcIm = ServiceIm(tSession)

@@ -9,42 +9,46 @@
 
 /** @file common.h
 
+    Common data types and functions for handling those types.
+
     Functions in this file all fit into similar naming conventions of
     <code>TYPE_ACTION</code> as per the activity they perform. The
     following actions are available:
 
     <code>void TYPE_put(struct mwPutBuffer *b, TYPE *val)</code>
-    marshalls val onto the buffer b. The buffer will grow as necessary
+    - marshalls val onto the buffer b. The buffer will grow as necessary
     to fit all the data put into it. For guint16, guint32, and
     gboolean, <code>TYPE val</code> is used instead of <code>TYPE
-    *val</code>.
+    \*val</code>.
 
     <code>void TYPE_get(struct mwGetBuffer *b, TYPE *val)</code>
-    unmarshals val from the buffer b. Failure (due to lack of
+    - unmarshals val from the buffer b. Failure (due to lack of
     insufficient remaining buffer) is indicated in the buffer's error
     field. A call to a _get function with a buffer in an error state
     has to effect.
 
     <code>void TYPE_clear(TYPE *val)</code>
-    zeros and frees internal members of val, but does not free val
+    - zeros and frees internal members of val, but does not free val
     itself. Needs to be called before free-ing any complex types which
     have been unmarshalled from a TYPE_get or populated from a
     TYPE_clone call to prevent memory leaks.
 
     <code>void TYPE_clone(TYPE *to, TYPE *from)</code>
-    copies/clones members of from into to. May result in memory
+    - copies/clones members of from into to. May result in memory
     allocation for some types. Note that to is not cleared
     before-hand, it must already be in a pristine condition.
 
     <code>gboolean TYPE_equal(TYPE *y, TYPE *z)</code>
-    simple equality test.
+    - simple equality test.
 */
 
 
-/** @struct mwPutBuffer a buffer to be written to */
+/** @struct mwPutBuffer
+    buffer to be written to */
 struct mwPutBuffer;
 
-/** @struct mwGetBuffer a buffer to be read from */
+/** @struct mwGetBuffer
+    buffer to be read from */
 struct mwGetBuffer;
 
 

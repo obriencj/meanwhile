@@ -1,13 +1,4 @@
 
-== General ==
-
-- White boarding
-  - use new session or use existing gaim-driven session?
-  - CORBA to communicate between session and moz plugin?
-
-
-== Meanwhile ==
-
 - License
   - add LGPL comment to all files
 
@@ -22,4 +13,12 @@
 
 - IM service
   - NotesBuddy html formatting in IM
+  - how to determine if other side supports it?
+
+- Storage service
+  - why does the server crash on some load requests??
+
+- Messages
+  - Handshake is more complex than implemented, with login
+    information/token
 

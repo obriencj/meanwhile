@@ -1,11 +1,12 @@
 
-all:	doxygen
+DOXYFILE = ../Doxyfile
 
+
+all:	doxygen
 
 doxygen:
 	mkdir doxygen
-	doxygen doxygen.conf > /dev/null
-
+	doxygen $(DOXYFILE) > /dev/null
 
 clean:
 	rm -rf doxygen/
