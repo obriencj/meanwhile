@@ -391,8 +391,8 @@ static void user_put(GString *str, struct mwSametimeUser *u) {
     alias = NULL;
   }
 
-  g_string_printf(str, "U %s%c:: %s,%s\n",
-		  id, type, (name? name: ""), (alias? alias: ""));
+  g_string_append_printf(str, "U %s%c:: %s,%s\n",
+			 id, type, (name? name: ""), (alias? alias: ""));
 
   g_free(id);
   g_free(name);
@@ -431,8 +431,8 @@ static void group_put(GString *str, struct mwSametimeGroup *g) {
   if(name) str_replace(name, ' ', ';');
   if(alias) str_replace(alias, ' ', ';');
 
-  g_string_printf(str, "G %s%c %s %c\n",
-		  name, type, alias, (g->open? 'O':'C'));
+  g_string_append_printf(str, "G %s%c %s %c\n",
+			 name, type, alias, (g->open? 'O':'C'));
 
   for(gl = g->users; gl; gl = gl->next) {
     user_put(str, gl->data);
@@ -452,8 +452,8 @@ void mwSametimeList_put(struct mwPutBuffer *b, struct mwSametimeList *l) {
   g_return_if_fail(b != NULL);
   
   str = g_string_new(NULL);
-  g_string_printf(str, "Version=%u.%u.%u\n",
-		  l->ver_major, l->ver_minor, l->ver_micro);
+  g_string_append_printf(str, "Version=%u.%u.%u\n",
+			 l->ver_major, l->ver_minor, l->ver_micro);
 
   for(gl = l->groups; gl; gl = gl->next) {
     group_put(str, gl->data);
@@ -465,7 +465,6 @@ void mwSametimeList_put(struct mwPutBuffer *b, struct mwSametimeList *l) {
 
   g_string_free(str, TRUE);
 }
-
 
 
 static void get_version(const char *line, struct mwSametimeList *l) {

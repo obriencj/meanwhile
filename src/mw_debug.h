@@ -61,7 +61,7 @@ void pretty_print(const char *buf, gsize len);
 
 
 #ifndef MW_MAILME_CUT_START
-#define MW_MAILME_CUT_START  "-------- begin copy --------\n"
+#define MW_MAILME_CUT_START  "\n-------- begin copy --------\n"
 #endif
 
 
