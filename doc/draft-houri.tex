@@ -217,6 +217,7 @@ multiple concurrent logins to the community. As shown in the example
 below, a single User-ID may have multiple Login Params, each of which
 may have multiple Login-IDs.
 
+
 \begin{verbatim}
    +-------------------+
    | User-ID           |
@@ -411,172 +412,52 @@ participant list of the chat are not encrypted.
 creating a non-encrypted channel.
 
 \chapter{Protocol Overview}
-\section{Login}
-\section{Creating a Channel}
-\section{Subscribing and Getting Notifications on Presences}
-\section{Changing Privacy List}
-\section{Initiating and Responding to IMs}
-\section{Resolving User-Names}
-\section{Sensing Services}
 
-\chapter{The Sametime Message Format}
-\section{Layering and Message Encapsulation}
-\subsection{The Sametime Message Header}
-\subsection{The Message Body}
-\subsection{Protocol Layers}
+\par{} The Sametime client protocol can be divided into several
+phases.  Following is a short description of each phase. Subsequent
+sections will detail state transitions of each phase.
 
-\chapter{Master Protocol Reference}
-\section{Basic Data Types}
-\section{Common Structures}
-\subsection{Login Info Block}
-\subsection{Privacy Info Block}
-\subsection{User Status Block}
-\subsection{ID Block}
-\subsection{Encryption Block}
+\par{} - Login - The user is authenticated with the community and is
+assigned a login-ID to be used in the login session.
 
-\section{Constants}
-\subsection{Error Codes}
-\subsubsection{General Error/Success Codes}
-\subsubsection{Connection/Disconnection Errors}
-\subsubsection{Client Error Codes}
-\subsubsection{IM Error Codes}
-\subsubsection{Resolve Error Codes}
+\par{} - Creating a channel - A channel is created to another entity
+in the community.
 
-\subsection{Service Types}
-\subsection{Protocol Types}
-\subsection{Version Constants}
-\subsection{User Status Types}
-\subsection{Login Types}
-\subsection{Authentication Types}
-\subsection{Awareness Constants}
-\subsubsection{Awareness Context Constants}
-\subsubsection{Awareness Presence Types}
+\par{} - Subscribing and getting notifications on presences - Messages
+are sent to the awareness service, requesting notification on state
+changes of certain users.
 
-\section{Messages}
-\subsection{Basic Community Messages}
-\subsubsection{Handshake}
-\subsubsection{HandshakeAck}
-\subsubsection{Login}
-\subsubsection{LoginAck}
-\subsubsection{LoginCont}
-\subsubsection{AuthPassed}
-\subsubsection{CreateCnl}
-\subsubsection{AcceptCnl}
-\subsubsection{SendOnCnl}
-\subsubsection{DestroyCnl}
-\subsubsection{SetUserStatus}
-\subsubsection{SetPrivacyList}
-\subsubsection{SetPrivacyDenied}
-\subsubsection{SenseService}
+\par{} - Changing attributes - The user (actually one of its logins)
+requests a change in an attribute of its presence.
 
-\subsection{Awareness Messages}
-\subsubsection{Awareness ID Block}
-\subsubsection{AddWatch}
-\subsubsection{RemoveWatch}
-\subsubsection{Snapshot}
-\subsubsection{Update}
-
-\subsection{Instant Messaging}
-\subsubsection{IM Channel Creation}
-\subsubsection{IM Channel Accepting}
-\subsubsection{Data Message}
-\subsubsection{Text Message}
-
-\subsection{}
-\subsubsection{Resolve Request}
-\subsubsection{Resolve Response}
-
-\chapter{Acknowledgements}
-\chapter{Author Addresses}
-
-
-\begin{verbatim}
-2. Abstract
-
-
-3. Introduction
-
-3.1. Background
-
-
-3.2. Terms & Definitions
-
-
-3.3. Sametime Community Architecture
-
-
-4. User model
-
-4.1 Persistent User Data
-
-
-4.2 Runtime User Structures
-
-
-5. Protocol Elements
-
-5.1. Community
-
-
-5.2. User-ID
-
-5.3. Login-ID
-
-5.4. Channels
-
-5.5 Master Channel
-
-5.6. Channel-ID
-
-5.7. Service Providers
-
-5.8. Encryption
-
-6. Protocol Overview
-
-The Sametime client protocol can be divided into several phases.
-Following is a short description of each phase. Subsequent sections
-will detail state transitions of each phase.
-
-- Login - The user is authenticated with the community and is assigned
-a login-ID to be used in the login session.
-
-- Creating a channel - A channel is created to another entity in the
-community.
-
-- Subscribing and getting notifications on presences - Messages are
-sent to the awareness service, requesting notification on state changes
-of certain users.
-
-- Changing attributes - The user (actually one of its logins) requests
-a change in an attribute of its presence.
-
-- Changing privacy list - The user (actually one of its logins)
+\par{} - Changing privacy list - The user (actually one of its logins)
 requests a change in the content of its privacy list. Note that change
 in privacy list is separated from a change in an attribute since the
 privacy list is stored in a persistent storage in the server and the
 request for a change may be denied when the change can not be written.
 
-- Initiating and responding to IMs - Creating or accepting a channel
-for the purpose of interchanging instant messages. This phase include
-also the messages for the actual IMs
+\par{} - Initiating and responding to IMs - Creating or accepting a
+channel for the purpose of interchanging instant messages. This phase
+include also the messages for the actual IMs
 
-- Resolving User-Names - Since the same user-name can be used by
-different users, user-names have to be resolved to user-IDs prior to
-usage. This phase describes how it is done.
+\par{} - Resolving User-Names - Since the same user-name can be used
+by different users, user-names have to be resolved to user-IDs prior
+to usage. This phase describes how it is done.
 
-- Sensing service - When a service provider can not be located, a
-client may request to be notified when the service is available. This
-method frees the client from polling on the availability of the
-service.
+\par{} - Sensing service - When a service provider can not be located,
+a client may request to be notified when the service is
+available. This method frees the client from polling on the
+availability of the service.
 
-6.1 Login
+\section{Login}
 
-This is the phase in which the client moves from being merely connected
-to the server via TCP to being a part of the community.
+\par{} This is the phase in which the client moves from being merely
+connected to the server via TCP to being a part of the community.
 
-State Transitions (assumes TCP connection is already established):
+\par{} State Transitions (assumes TCP connection is already
+established):
 
+\begin{verbatim}
 Step | Action                         |  Next
      |                                |  Step
 -----+--------------------------------+----------
@@ -588,51 +469,55 @@ Step | Action                         |  Next
 6.   | Server Destroys Master Channel |  Finish
 7.   | Client Sends LoginCont         |  8
 8.   | Server Sends HandshakeAck      |  4
+\end{verbatim}
 
-State Description
+\par{} State Description
 
-1. The client (after establishing a TCP connection), sends a Handshake
-message as described in 8.4.1.1 to the server
+\par{} 1. The client (after establishing a TCP connection), sends a
+Handshake message as described in 8.4.1.1 to the server
 
-2. The server sends a HandshakeAck message as described in
+\par{} 2. The server sends a HandshakeAck message as described in
 8.4.1.2.
 
-3. The client sends a Login message as described in 8.4.1.3
+\par{} 3. The client sends a Login message as described in 8.4.1.3
 
-4. If the user is permitted in the community and does not need to be
-redirected, the server sends the LoginAck message as described in
-8.4.1.4 .
+\par{} 4. If the user is permitted in the community and does not need
+to be redirected, the server sends the LoginAck message as described
+in 8.4.1.4 .
 
-5. If the user needs to be redirected to another server, the server
-sends the client an AuthPassed message as described in 8.4.1.6.
+\par{} 5. If the user needs to be redirected to another server, the
+server sends the client an AuthPassed message as described in 8.4.1.6.
 The client can then either issue a LoginCont message (Step 7), or
 disconnect and attempt a direct connection to the other server.
 
-6. If the user fails to authenticate, the server destroys the Master
-Channel with the appropriate error code (for values, see 8.3.1).
+\par{} 6. If the user fails to authenticate, the server destroys the
+Master Channel with the appropriate error code (for values, see
+8.3.1).
 
-7. The client chooses not to reconnect to the other server. It issues a
-LoginCont message notifying the server to go on with the login
-procedure (though redirected to the other server). LoginCont message is
-described in 8.4.1.5.
+\par{} 7. The client chooses not to reconnect to the other server. It
+issues a LoginCont message notifying the server to go on with the
+login procedure (though redirected to the other server). LoginCont
+message is described in 8.4.1.5.
 
-8. The server sends the client a HandshakeAck message, telling the
-client it is being processed by the remote server; the protocol being
-provided to it by the local server will be the remote one's (see
+\par{} 8. The server sends the client a HandshakeAck message, telling
+the client it is being processed by the remote server; the protocol
+being provided to it by the local server will be the remote one's (see
 HandshakeAck in 8.4.1.2), and proceeds to step 4.
 
-6.2 Creating a Channel
+\section{Creating a Channel}
 
-In this phase the client creates a channel (as described in CreateCnl
-on 8.4.1.7) to some other community entity.
+\par{} In this phase the client creates a channel (as described in
+CreateCnl on 8.4.1.7) to some other community entity.
 
-From the point of view of the client, the entities that participate in
-a channel creation are the creator and the acceptor. The channel path
-may traverse additional community components but the server
-architecture and protocol are beyond the scope of this document.
+\par{} From the point of view of the client, the entities that
+participate in a channel creation are the creator and the
+acceptor. The channel path may traverse additional community
+components but the server architecture and protocol are beyond the
+scope of this document.
 
-State Transitions:
+\par{} State Transitions:
 
+\begin{verbatim}
 Step | Action                             |  Next
      |                                    |  Step
 -----+------------------------------------+----------
@@ -643,29 +528,32 @@ Step | Action                             |  Next
      | message to the acceptor            |
 3.   | The acceptor sends a AcceptCnl     |  Finish
      | message to the creator             |
+\end{verbatim}
 
-State Description
+\par{} State Description
 
-1. The creator sends a CreateCnl message as described in 8.4.1.7.
+\par{} 1. The creator sends a CreateCnl message as described in
+8.4.1.7.
 
-2. The CreateCnl message is rejected either by some community component
-in the route to the acceptor or by the acceptor itself. The CreateCnl
-message may be rejected by some community components other then the
-acceptor due to various reasons as permissions or the unavailability of
-the acceptor.
+\par{} 2. The CreateCnl message is rejected either by some community
+component in the route to the acceptor or by the acceptor itself. The
+CreateCnl message may be rejected by some community components other
+then the acceptor due to various reasons as permissions or the
+unavailability of the acceptor.
 
-3. The acceptor is willing to accept the channel, and sends an
+\par{} 3. The acceptor is willing to accept the channel, and sends an
 AcceptCnl back to the creator thus establishing a channel with the
 creator.
 
-6.3 Subscribing and Getting Notifications on Presences
+\section{Subscribing and Getting Notifications on Presences}
 
-After a channel between the client and the awareness service provider
-is established, the client has to supply its awareness list to the
-awareness service in order to be notified on users in the list.
+\par{} After a channel between the client and the awareness service
+provider is established, the client has to supply its awareness list
+to the awareness service in order to be notified on users in the list.
 
-State Transitions:
+\par{} State Transitions:
 
+\begin{verbatim}
 Step | Action                               |  Next
      |                                      |  Step
 -----+--------------------------------------+----------
@@ -679,32 +567,35 @@ Step | Action                               |  Next
      | Update message to the client         |
 4.   | The client sends removeWatch with a  | ...
      | list of user-IDs
+\end{verbatim}
 
-State Description
+\par{} State Description
 
-1. The client sends AddWatch (as described in 8.4.2.2) to the
+\par{} 1. The client sends AddWatch (as described in 8.4.2.2) to the
 Awareness service provider. The message contains the list of user-IDs
 the watcher is interested in their presence status.
 
-2. On receiving the AddWatch message, the service provider synchronizes
-the client with the current status of the presences with a Snapshot
-message, as described in 8.4.2.4.
+\par{} 2. On receiving the AddWatch message, the service provider
+synchronizes the client with the current status of the presences with
+a Snapshot message, as described in 8.4.2.4.
 
-3. When a presence changes state, the Awareness service provider sends
-an Update Message (as described in 8.4.2.5) to the watcher client.
+\par{} 3. When a presence changes state, the Awareness service
+provider sends an Update Message (as described in 8.4.2.5) to the
+watcher client.
 
-4. When the watcher stops "watching" the presence, it sends a
-RemoveWatch message (as described in 8.4.2.3) to the Awareness
-service provider.
+\par{} 4. When the watcher stops "watching" the presence, it sends a
+RemoveWatch message (as described in 8.4.2.3) to the Awareness service
+provider.
 
-6.4 Changing Privacy List
+\section{Changing Privacy List}
 
-User privacy list is saved in a database at the server side for future
-logins. This is the reason the privacy change request might fail (if
-there's a problem in updating the privacy).
+\par{} User privacy list is saved in a database at the server side for
+future logins. This is the reason the privacy change request might
+fail (if there's a problem in updating the privacy).
 
-State Transitions:
+\par{} State Transitions:
 
+\begin{verbatim}
 Step | Action                                |  Next
      |                                       |  Step
 -----+---------------------------------------+----------
@@ -716,26 +607,28 @@ Step | Action                                |  Next
 3.   | If the database update succeeds, the  | Finish
      | server sends a setPrivacyList message |
      | to all the logins of the user.        |
+\end{verbatim}
 
-State Description:
+\par{} State Description:
 
-1. Whenever a client wants to change its privacy list the client sends
-a setPrivacyList message to the server as described in
-8.4.1.12. The server in turn updates the database with the
-new mode.
+\par{} 1. Whenever a client wants to change its privacy list the
+client sends a setPrivacyList message to the server as described in
+8.4.1.12. The server in turn updates the database with the new mode.
 
-2. If the database update fails, the server sends a setPrivacyDenied
-Message to the login, as described in 
+\par{} 2. If the database update fails, the server sends a
+setPrivacyDenied Message to the login, as described in
 
-3. If the database update succeeds, the server sends setPrivactList
-message to all the logins of the user, with the new Privacy List.
+\par{} 3. If the database update succeeds, the server sends
+setPrivactList message to all the logins of the user, with the new
+Privacy List.
 
-6.5 Initiating and responding to IMs
+\section{Initiating and Responding to IMs}
 
-IMs are actually messages being sent on a given channel.
+\par{} IMs are actually messages being sent on a given channel.
 
-State Transitions:
+\par{} State Transitions:
 
+\begin{verbatim}
 Step | Action                                |  Next
      |                                       |  Step
 -----+---------------------------------------+----------
@@ -745,40 +638,42 @@ Step | Action                                |  Next
 3.   | Target client accepts channel         |  4
 4.   | Either clients sends an IM message    |  4 or 5
 5.   | Either client destroys channel        |  Finish
+\end{verbatim}
 
+\par{} State Description
 
-State Description
+\par{} 1. The clients creates an IM channel to the target client, as
+described in 8.4.1.7. This channel differs from regular channel by the
+fact that it has additional data (description of the additional data
+is in 8.4.3).
 
-1. The clients creates an IM channel to the target client, as described
-in 8.4.1.7. This channel differs from regular channel by the fact
-that it has additional data (description of the additional data is in
-8.4.3).
+\par{} 2. The target client can either destroy the channel as
+described in 8.4.1.10 , or...
 
-2. The target client can either destroy the channel as described in
-8.4.1.10 , or...
+\par{} 3. The client accepts the channel, as described in 8.4.1.8.
 
-3. The client accepts the channel, as described in 8.4.1.8.
+\par{} 4. Either clients can now send and receive messages on that
+channel, as described in 8.4.3. Note that there are two types of
+messages.
 
-4. Either clients can now send and receive messages on that channel, as
-described in 8.4.3. Note that there are two types of messages.
+\par{} 5. Either client destroys the channel, as described in
+8.4.1.10.
 
-5. Either client destroys the channel, as described in 8.4.1.10.
+\section{Resolving User-Names}
 
-6.6 Resolving User-Names
+\par{} Since users may have non-unique user-names, it is necessary to
+resolve user-names to user-IDs which are unique. The client creates a
+channel to the resolve service provider and sends a list of user-names
+in a resolve message (As described in 8.4.4.1 ). The resolver resolves
+the names to user-IDs (in a message described in 8.4.4.2 ). Note that
+each user-name may be resolved to several user-IDs.
 
-Since users may have non-unique user-names, it is necessary to resolve
-user-names to user-IDs which are unique. The client creates a channel
-to the resolve service provider and sends a list of user-names in a
-resolve message (As described in 8.4.4.1 ). The resolver
-resolves the names to user-IDs (in a message described in
-8.4.4.2 ). Note that each user-name may be resolved to
-several user-IDs.
+\par{} State Transitions:
 
-State Transitions:
+\par{} It is assumed that the channel to the resolve service provider
+is already established.
 
-It is assumed that the channel to the resolve service provider is
-already established.
-
+\begin{verbatim}
 Step | Action                         |  Next
      |                                |  Step
 -----+--------------------------------+----------
@@ -791,23 +686,25 @@ Step | Action                         |  Next
      | answer contains the name that  |
      | was resolved, an error code    |
      | and the list of matching names.|
+\end{verbatim}
 
-6.7 Sensing Services
+\section{Sensing Services}
 
-Services are provided by service providers that connect to the server.
-When a user logs into a community it might be that not all service
-providers are present. Therefore as an optimization, instead of polling
-the server, the login may request to be notified when a certain service
-is available.
+\par{} Services are provided by service providers that connect to the
+server.  When a user logs into a community it might be that not all
+service providers are present. Therefore as an optimization, instead
+of polling the server, the login may request to be notified when a
+certain service is available.
 
-In this phase the login requests its server to be notified when a
-certain service provider is active. It is done once per notification,
-meaning once a notification has been sent to the client about a
-service, the client has to re-issue the message in order to sense it
-again.
+\par{} In this phase the login requests its server to be notified when
+a certain service provider is active. It is done once per
+notification, meaning once a notification has been sent to the client
+about a service, the client has to re-issue the message in order to
+sense it again.
 
-State Transitions :
+\par{} State Transitions :
 
+\begin{verbatim}
 Step | Action                         |  Next
      |                                |  Step
 -----+--------------------------------+----------
@@ -816,41 +713,43 @@ Step | Action                         |  Next
 2.   | [When the service is up] The   |  Finish
      | server sends SenseService to   |
      | the client                     |
+\end{verbatim}
 
-State Description:
+\par{} State Description:
 
-1. The client sends a SenseService message to the server as described
-in 8.4.1.14.
+\par{} 1. The client sends a SenseService message to the server as
+described in 8.4.1.14.
 
-2. When (and if) the service being sensed is activated, the server
-sends the SenseService message back to the client, as described in
-8.4.1.14
+\par{} 2. When (and if) the service being sensed is activated, the
+server sends the SenseService message back to the client, as described
+in 8.4.1.14
 
-7. The Sametime Message format
+\chapter{The Sametime Message Format}
 
-Every Sametime message is preceded by an extra single byte. This byte
-is a counter, which is incremented by one for each message on a
-connection from 0x81-0xFF and then starting again at 0x81 (MSB is
-always 1). This extra byte is used as additional assurance of order
-preservation and reliable transfer of messages on TCP connections. A
-single byte with the MSB set to 1 and the other bits set to 0 (0x80) is
-used as a keep-alive byte. A Sametime system may be configured to send
-a keep-alive byte at regular intervals. This allows the system to close
-connections that are no longer in use and keep connections open where
-necessary. When an application receives a leading byte from 0x81-0xFF,
-it understands that a Sametime message follows. When an entity receives
-0x80, it recognizes it as a single keep-alive byte.
+\par{} Every Sametime message is preceded by an extra single
+byte. This byte is a counter, which is incremented by one for each
+message on a connection from 0x81-0xFF and then starting again at 0x81
+(MSB is always 1). This extra byte is used as additional assurance of
+order preservation and reliable transfer of messages on TCP
+connections. A single byte with the MSB set to 1 and the other bits
+set to 0 (0x80) is used as a keep-alive byte. A Sametime system may be
+configured to send a keep-alive byte at regular intervals. This allows
+the system to close connections that are no longer in use and keep
+connections open where necessary. When an application receives a
+leading byte from 0x81-0xFF, it understands that a Sametime message
+follows. When an entity receives 0x80, it recognizes it as a single
+keep-alive byte.
 
-7.1 Layering and message encapsulation
+\section{Layering and Message Encapsulation}
 
-The Sametime communication layer handles the routing of messages
-between logins in a community. The communication layer is one layer
-above the TCP layer and it relies on underlying TCP connections.
+\par{} The Sametime communication layer handles the routing of
+messages between logins in a community. The communication layer is one
+layer above the TCP layer and it relies on underlying TCP connections.
 
-The following figure illustrates the use of layering and encapsulation
-in Sametime:
+\par{} The following figure illustrates the use of layering and
+encapsulation in Sametime:
 
-
+\begin{verbatim}
                                                      +--------------+
 Service Protocols ...............................    |Service Fields|
                                                      +--------------+
@@ -869,13 +768,13 @@ Sametime Message .. |Sametime Header|         Message Body          |
         +-----------+-----------------------------------------------+
 TCP ... |TCP Header |         TCP Data Area                         |
 Message +-----------+-----------------------------------------------+
+\end{verbatim}
 
+\subsection{The Sametime Message Header}
 
+\par{} The message header has the following format:
 
-7.1.1 The Sametime Message Header
-
-The message header has the following format:
-
+\begin{verbatim}
 0         8         16        24      31
 +---------+---------+---------+---------+
 |            Length (4 bytes)           |
@@ -889,126 +788,134 @@ The message header has the following format:
 +-------------------+-------------------+
 |Attributes (optional) [AttributeLength]...
 +-------------------+-------------------+
+\end{verbatim}
 
-Fields Description:
+\par{} Fields Description:
 
-Length
-  A 4-byte field containing the size of the message in bytes.
+\par{}Length
 
-Message Type
-  A 2-byte field containing the type of the message. This field
-  specifies the Master protocol (8) message type to be
-  used to interpret the message body.
+\subpar{} A 4-byte field containing the size of the message in bytes.
 
-Options
-  A 2-byte field containing options. Various options are specified
-  by setting bits to zero or one. The following bits are currently in
-  use (LSB is numbered as zero):
-    * Bit 0 - If set to 1 indicates the presence of an attribute
-      section in the message.
-    * Bit 1 - Indicates encryption of the message.
+\par{} Message Type
 
-Channel-ID
-  A 4-byte field that specifies the channel on which the message is
-  sent. Depending on the type of message, the ID represents either a
-  master channel or a regular channel.
+\subpar{} A 2-byte field containing the type of the message. This
+field specifies the Master protocol (8) message type to be used to
+interpret the message body.
 
-Attributes Length
-  A 4-byte field that specifies the length of the attributes part of
-  the message. This field exists only if the Options field indicates
-  that the message contains attributes.
+\par{} Options
 
-Attributes
-  Varies in content according to message type. The length of this
-  field is specified by the Attributes Length field.
+\subpar{} A 2-byte field containing options. Various options are
+specified by setting bits to zero or one. The following bits are
+currently in use (LSB is numbered as zero): * Bit 0 - If set to 1
+indicates the presence of an attribute section in the message.  * Bit
+1 - Indicates encryption of the message.
 
+\par{} Channel-ID
 
-7.1.2 The Message Body
+\subpar{} A 4-byte field that specifies the channel on which the
+message is sent. Depending on the type of message, the ID represents
+either a master channel or a regular channel.
 
-Message body format is dependent on the message type. See "Master
-Protocol Reference" (8) for a description of each message
-type and its body format. A message type may also have subtypes. The
+\par{} Attributes Length
+
+\subpar{} A 4-byte field that specifies the length of the attributes
+part of the message. This field exists only if the Options field
+indicates that the message contains attributes.
+
+\par{} Attributes
+
+\subpar{} Varies in content according to message type. The length of
+this field is specified by the Attributes Length field.
+
+\subsection{The Message Body}
+
+\par{} Message body format is dependent on the message type. See
+"Master Protocol Reference" (8) for a description of each message type
+and its body format. A message type may also have subtypes. The
 message subtype may determine how the message data is interpreted.
 
-7.1.3 Protocol Layers
+\subsection{Protocol Layers}
 
-The Sametime protocol is built on a model of message encapsulation and
-protocol layering. The following figure shows the order of the Sametime
-protocol layers in relation to the TCP layer:
+\par{} The Sametime protocol is built on a model of message
+encapsulation and protocol layering. The following figure shows the
+order of the Sametime protocol layers in relation to the TCP layer:
 
+\begin{verbatim}
 +------------------------+
 | Service Protocol Layer |
 +------------------------+
 |  Master Protocol Layer |
-
 +------------------------+
 |    Communication Layer |
 +------------------------+
+\end{verbatim}
 
-- Communication Layer - Responsible for routing messages between
+\par{} - Communication Layer - Responsible for routing messages between
 community elements through the use of channels on top of TCP. Messages
 at the Communication layer have a Sametime header and a message body.
 
-Master Protocol Layer - Interprets the data in the message body
+\par{} Master Protocol Layer - Interprets the data in the message body
 according to the message type specified in the Sametime header. The
 Master Protocol is used to interpret all Sametime messages. The
 following   activities are handled at the Master protocol level:
-    * Handshake
-    * Login and authentication
-    * Channel creation and destruction
-    * Sending messages on other channels. These messages are not
+
+\par{}     * Handshake
+\par{}     * Login and authentication
+\par{}     * Channel creation and destruction
+\par{}     * Sending messages on other channels. These messages are not
       interpreted at the master protocol. They are interpreted by
       the particular service protocol associated with the channel
       on which the message was sent.
-    * Sending broadcast messages
-    * Sending one time messages
-    * Sending utility messages (such as, "service up" and "service
+\par{}     * Sending broadcast messages
+\par{}     * Sending one time messages
+\par{}     * Sending utility messages (such as, "service up" and "service
       down")
-    * Sending privacy and status messages
+\par{}     * Sending privacy and status messages
 
-- Service Protocol Layer - Interprets the message data that is sent
+\par{} - Service Protocol Layer - Interprets the message data that is sent
 within certain master protocol messages on established channels. The
 particular service protocol used is determined for all communication on
 that channel when the channel is created.
 
-8. Master Protocol Reference
+\chapter{Master Protocol Reference}
 
+\par{} Each message type is described separately in this section. For
+each message type, there is a description of its function and a
+diagram of the message body. All messages have the Sametime header, as
+described above (see "Sametime Header" on 7.1.1).
 
-Each message type is described separately in this section. For each
-message type, there is a description of its function and a diagram of
-the message body. All messages have the Sametime header, as described
-above (see "Sametime Header" on 7.1.1).
+\par{} Note: Unless explicitly specified, fields do not necessarily
+start at a word boundry as can be understood from the following
+diagrams.
 
-Note: Unless explicitly specified, fields do not necessarily start at
-a word boundry as can be understood from the following diagrams.
+\section{Basic Data Types}
 
-8.1 Basic Data Types
+\par{} The following types are used in field descriptions:
 
-The following types are used in field descriptions:
-
-Flag (Boolean) - 1 byte
-char           - 1 byte
-Ulong          - 4 bytes
-Ushort         - 2 bytes
-Opaque         - A large binary object, with its length in the header,
+\par{} Flag (Boolean) - 1 byte
+\par{} char           - 1 byte
+\par{} Ulong          - 4 bytes
+\par{} Ushort         - 2 bytes
+\par{} Opaque         - A large binary object, with its length in the header,
                  the length is an unsigned long ( = 4 bytes)
-String         - A null terminated string, with its length in the
+\par{} String         - A null terminated string, with its length in the
                  header, the length is short (= 2 bytes), The length
                  does not include the null character terminating the
                  string.
 
-8.2 Common Structures
+\section{Common Structures}
 
-The following blocks of fields appear in several message types. These
-blocks are described separately for reasons of clarity, conciseness,
-and improved understanding of their purpose.
+\par{} The following blocks of fields appear in several message
+types. These blocks are described separately for reasons of clarity,
+conciseness, and improved understanding of their purpose.
 
-8.2.1 Login Info block
+\subsection{Login Info Block}
 
-The Login Info block appears in messages when a complete description of
-an entity is passed. The portion of the block following the Full Flag
-is optionally present depending on the message type.
+\par{} The Login Info block appears in messages when a complete
+description of an entity is passed. The portion of the block following
+the Full Flag is optionally present depending on the message type.
 
+\begin{verbatim}
 Message Body
 0         8         16        24      31
 +---------+---------+---------+---------+
@@ -1025,67 +932,65 @@ Message Body
 |Full Flag|                                          ^
 |    [1]  |                                          |
 +---------+-------------------+---------+
-
-page 18  Sametime Community - Client Protocol   Page 18
-
 | Description [String]                       optional segment
 +-------------------+-------------------+
 |            IP Address [4]             |            |
 +-------------------+-------------------+            |
 | Server ID [String]                                 v
 +----------------------------------------          -----
+\end{verbatim}
 
-Description of Fields:
+\par{} Description of Fields:
 
-Login ID
-  A string containing the unique (within the community) ID of the
+\par{} Login ID
+\par{}   A string containing the unique (within the community) ID of the
   login described.
 
-Login Type
-  A 2-byte field. Specifies the type of Sametime login described. See
+\par{} Login Type
+\par{}   A 2-byte field. Specifies the type of Sametime login described. See
   "User Model" on 8.3.6 for a list of established constants.
 
-User ID
-  A string containing the unique (within the community) ID of the
+\par{} User ID
+\par{}   A string containing the unique (within the community) ID of the
   user.
 
-User Name
-  A string containing the name of the user. This is the string that
+\par{} User Name
+\par{}   A string containing the name of the user. This is the string that
   appears as the user's name on the screen. It is stored in a
   database and is looked up according to the login name.
 
-Community-Name
-  A string containing the name of the community. The community name
+\par{} Community-Name
+\par{}   A string containing the name of the community. The community name
   can be any string, but the Internet domain name is usually used.
 
-Full Flag
-  A single byte. If the value equals 1, the rest of the Login Info
+\par{} Full Flag
+\par{}   A single byte. If the value equals 1, the rest of the Login Info
   block (Description, IP Address, and Server ID fields) is
   transmitted. If the value equals 0, the rest of the block is not
   present.
 
-Description
-  A string field. The description can be any string data. The current
+\par{} Description
+\par{}   A string field. The description can be any string data. The current
   implementation does not place any information in this field.
 
-IP Address
-  A 4-byte field containing the IP address of the login described.
+\par{} IP Address
+\par{}   A 4-byte field containing the IP address of the login described.
 
-Server ID
-  A string containing the unique ID of the login's server
+\par{} Server ID
+\par{}   A string containing the unique ID of the login's server
   (where the login is held).
 
+\subsection{Privacy Info Block}
 
-8.2.2 Privacy Info Block
+\par{} The Privacy Info block consists of a list of user-IDs. The
+portion following the "Count of List" represents one item (user item)
+in the user-ID list. This portion is repeated the number of times
+equal to "Count."
 
-The Privacy Info block consists of a list of user-IDs. The portion
-following the "Count of List" represents one item (user item) in the
-user-ID list. This portion is repeated the number of times equal to
-"Count."
+\par{} The User Name portion of each User Item is an optional segment,
+which appears depending on the Full flag.
 
-The User Name portion of each User Item is an optional segment, which
-appears depending on the Full flag.
-
+\begin{verbatim}
 Message Body
 0         8         16        24      31
 +---------+---------+---------+---------+
@@ -1099,21 +1004,22 @@ Message Body
 +-------------------+-------------------+     |
 | User Name [String]                          v   Optional
 +-------------------+-------------------+   -----
+\end{verbatim}
 
-Description of Fields
+\par{} Description of Fields
 
-Internal Use Byte
-  Reserved for internal use
+\par{} Internal Use Byte
+\par{}   Reserved for internal use
 
-Excluding Flag
-  A single byte. If the value equals 1, the list of users that follows
+\par{} Excluding Flag
+\par{}   A single byte. If the value equals 1, the list of users that follows
   represents the users who are excluded from seeing the user whose
   privacy is described (all other users are permitted).
   If the value equals 0, the list contains the users who may see the
   user whose privacy is described (all others are excluded).
 
-User List
-  A list of users representing either the users who are excluded from
+\par{} User List
+\par{}   A list of users representing either the users who are excluded from
   seeing the user whose privacy is described or the users who are
   permitted to see the user whose privacy is described. The list
   begins with a 4-byte field specifying the number of items in the
@@ -1125,11 +1031,12 @@ User List
   user, which is the name displayed on the screen in the user
   interface.
 
-8.2.3 User Status Block
+\subsection{User Status Block}
 
-This block contains information about the user's status. It is used in
-messages that contain user status information.
+\par{} This block contains information about the user's status. It is
+used in messages that contain user status information.
 
+\begin{verbatim}
 Message Body
 0         8         16        24      31
 +---------+---------+---------+---------+
@@ -1140,73 +1047,73 @@ Message Body
 +-------------------+-------------------+
 |   Description [String]
 +----------------------------------------
+\end{verbatim}
 
-page 20  Sametime Community - Client Protocol   Page 20
+\par{} Description of Fields
 
-
-Description of Fields
-
-User Status Type
-  A 2-byte field indicating the status of the user. See 
+\par{} User Status Type
+\par{}   A 2-byte field indicating the status of the user. See 
   8.3.5 for a list of established constants.
 
-Time
-  A 4-byte field containing the time of the last change in the user's
+\par{} Time
+\par{}   A 4-byte field containing the time of the last change in the user's
   status in minutes. Not set by Sametime 1.0 and 1.5 servers.
 
-Description
-  A string containing the message associated with the status type for
+\par{} Description
+\par{}   A string containing the message associated with the status type for
   this user. The user's server saves the message customized by the user
   for certain status types.
 
-8.2.4 ID Block
+\subsection{ID Block}
 
-This block is used for addressing messages. This combination of two
-strings uniquely identifies a user or login in a multi-community
+\par{} This block is used for addressing messages. This combination of
+two strings uniquely identifies a user or login in a multi-community
 environment.
 
+\begin{verbatim}
 0         8         16        24      31
 +---------+---------+---------+---------+
 | User or Login ID [String]
 +---------+---------+---------+---------+
 | Community Name [String]
 +----------------------------------------
+\end{verbatim}
 
-Description of Fields:
+\par{} Description of Fields:
 
-Target ID
-  A string that can be either a User ID or a Login ID or an empty
+\par{} Target ID
+\par{}   A string that can be either a User ID or a Login ID or an empty
   string.
-    * If it is a User ID, the ID block specifies a user. A user may
+\par{}     * If it is a User ID, the ID block specifies a user. A user may
       have more than one associated login. The server may decide which
       login will be the ultimate target.
-    * If it is an Login ID, the ID block specifies a single login.
-    * If it is an empty string, the message target will be decided on
+\par{}     * If it is an Login ID, the ID block specifies a single login.
+\par{}     * If it is an empty string, the message target will be decided on
       the basis of alternative criteria - service type.
 
-Community Name
-  A string specifying the community name. This may be an empty string
+\par{} Community Name
+\par{}   A string specifying the community name. This may be an empty string
   if the target is on the same community.
 
-8.2.5 Encryption Block
+\subsection{Encryption Block}
 
-This document does not contain description of how to create encrypted
-channels. Following are the values that are sent on non-encrypted
-channel creation.
+\par{} This document does not contain description of how to create
+encrypted channels. Following are the values that are sent on
+non-encrypted channel creation.
 
+\begin{verbatim}
 0         8         16        24      31
 +---------+---------+---------+---------+
 | No-Encryption [Opaque]
 +---------+---------+---------+---------+
+\end{verbatim}
 
-The No-Encryption opaque contains only a short (2-byte) of value zero.
+\par{} The No-Encryption opaque contains only a short (2-byte) of
+value zero.
 
-8.3 Constants
-
-8.3.1 Error Codes
-
-
-8.3.1.1 General error/success codes
+\section{Constants}
+\subsection{Error Codes}
+\subsubsection{General Error/Success Codes}
 
 operation succeeded                               --- 0x00000000
 
@@ -1287,7 +1194,7 @@ is made connect elsewhere
 the channel has been redirected to another        --- 0x00000023
 destination
 
-8.3.1.2 Connection/disconnection errors
+\subsubsection{Connection/Disconnection Errors}
 
 versions don't match                              --- 0x80000200
 
@@ -1387,7 +1294,7 @@ the applet was logged out with this reason.       --- 0x8000022D
 Perform relogin and you will return to the
 former state.
 
-8.3.1.3 Client error codes
+\subsubsection{Client Error Codes}
 
 the user is not online                            --- 0x80002000
 
@@ -1396,7 +1303,7 @@ the user is in do not disturb mode                --- 0x80002001
 can not login because already logged in           --- 0x80002002
 with a different user name (Java only)
 
-8.3.1.4 IM error codes
+\subsubsection{IM Error Codes}
 
 cannot register a reserved type                   --- 0x80002003
 
@@ -1404,7 +1311,7 @@ the requested type is already registered          --- 0x80002004
 
 the requested type is not registered              --- 0x80002005
 
-8.3.1.5 Resolve error codes
+\subsubsection{Resolve Error Codes}
 
 the resolve process was not completed, but        --- 0x00010000
 a partial response is available
@@ -1415,7 +1322,7 @@ was for unique only)
 the name is not resolvable due to its format, for --- 0x80030000
 example an Internet email address
 
-8.3.2 Service Types
+\subsection{Service Types}
 
 The service type of the buddylist server          --- 0x00000011
 application
@@ -1425,7 +1332,7 @@ application
 
 The service type of the IM channel                --- 0x00001000
 
-8.3.3 Protocol Types
+\subsection{Protocol Types}
 
 The protocol type of the buddylist server         --- 0x00000011
 application
@@ -1435,7 +1342,7 @@ application
 
 The protocol type of the IM channel               --- 0x00001000
 
-8.3.4 Version Constants
+\subsection{Version Constants}
 
 Major Version value                               --- 0x001E
 
@@ -1445,7 +1352,7 @@ Buddy List Protocol Version                          --- 0x00030005
 
 Resolve Protocol Version                          --- 0x0
 
-8.3.5 User Status Types
+\subsection{User Status Types}
 
 User is active                                    --- 0x0020
 
@@ -1455,7 +1362,7 @@ User is away                                      --- 0x0060
 
 User request not to be desturbed                  --- 0x0080
 
-8.3.6 Login Types
+\subsection{Login Types}
 
 Login is using a C++ Component (i.e. ActiveX)     --- 0x1000
 
@@ -1465,7 +1372,7 @@ Login is using a binary executable                --- 0x1002
 
 Login is using a Java Application                 --- 0x1003
 
-8.3.7 Authentication Types
+\subsection{Authentication Types}
 
 Plain Password Authentication                     --- 0x0000
 
@@ -1473,9 +1380,8 @@ Notes Token Authentication                        --- 0x0001
 
 Encrpyted Password Authentication                 --- 0x0002
 
-8.3.8 Awareness Constants
-
-8.3.8.1 Awareness Context Constants
+\subsection{Awareness Constants}
+\subsubsection{Awareness Context Constants}
 
 The following are Awareness context constants (all are 2 byte unsigned
 short) :
@@ -1490,18 +1396,16 @@ UPDATE     0x01F5
 
 UPDATE_ID  0x01F7
 
-8.3.8.2 Awareness Presence Types
+\subsubsection{Awareness Presence Types}
 
 The following are Awareness presence types (all are 2 byte unsigned
 short) :
 
 User       0x0002
 
-8.4 Messages
-
-8.4.1 Basic Community Messages
-
-8.4.1.1 Handshake
+\section{Messages}
+\subsection{Basic Community Messages}
+\subsubsection{Handshake}
 
 This message is sent by the initiator of a TCP connection when the TCP
 connection is created. This message creates a new master channel from
@@ -1558,8 +1462,7 @@ Local-calculated Client IP Address
   A 4-byte field containing the IP address of the originator as
   calculated locally.
 
-
-8.4.1.2 HandshakeAck
+\subsubsection{HandshakeAck}
 
 This message is sent from the server to the initiator of the
 connection. It is an acknowledgement of a successful handshake and the
@@ -1593,8 +1496,7 @@ server-calculated Client IP Address
   seen by the server may be different than that calculated locally by
   the originator (for example, when the client uses a proxy).
 
-
-8.4.1.3 Login
+\subsubsection{Login}
 
 This message provides login data to the server. The Login Type field
 determines the format and interpretation of the remainder of the
@@ -1639,7 +1541,7 @@ Authentication Data
   a password or a token). The meaning of this data is determined by
   the authentication type.
 
-8.4.1.4 LoginAck
+\subsubsection{LoginAck}
 
 This message is sent by the server to the login that requested a
 login after a successful login has been accomplished. It returns
@@ -1676,14 +1578,14 @@ User Status Block
   send the user's status information. This information is based on
   other (current) logins of the same user.
 
-8.4.1.5 LoginCont
+\subsubsection{LoginCont}
 
 This message has no body. It just notifies the server that the client
 wishes to be redirected (by the current server) to the remote server.
 This message is a response to a AuthPassed message sent to the client
 by the server, as described in 8.4.1.6.
 
-8.4.1.6 AuthPassed
+\subsubsection{AuthPassed}
 
 When a client logs into a server, and the server decides to redirect
 the client to another server, for any reason (the home server of the
@@ -1713,7 +1615,7 @@ Home Server ID
 Home Server Version
   A 4-byte long describing the version of the remote server.
 
-8.4.1.7 CreateCnl
+\subsubsection{CreateCnl}
 
 All interactions between community entities take place over channels
 (that is, additional channels on top of the master channel). When a
@@ -1807,8 +1709,7 @@ Login Info Block
 Encryption Block
   See "Encryption Block" in 5.8.
 
-
-8.4.1.8 AcceptCnl
+\subsubsection{AcceptCnl}
 
 This message is sent from the channel acceptor to the channel creator
 as an acknowledgement of the channel creation. The message may also
@@ -1871,8 +1772,7 @@ Login Info Block
 Encryption Block
   See "Encryption Block" on 5.8.
 
-
-8.4.1.9 SendOnCnl
+\subsubsection{SendOnCnl}
 
 This message sends enclosed message data from one login to another on
 an existing channel. The Message Data field is interpreted using the
@@ -1907,8 +1807,7 @@ Message Data
   Opaque data (preceded by a 4-byte length field), which is
   interpreted by the service protocol established for the channel.
 
-
-8.4.1.10 DestroyCnl
+\subsubsection{DestroyCnl}
 
 This is the last message on a channel. It contains enclosed message
 data.
@@ -1934,7 +1833,7 @@ Message Data
   Opaque data (preceded by a 4-byte length field), which is
   interpreted by the service protocol established for the channel.
 
-8.4.1.11 setUserStatus
+\subsubsection{SetUserStatus}
 
 This message informs the server of any changes in the user's status.
 This same message is also used by the server to inform other logins
@@ -1953,7 +1852,7 @@ User Status Block
   Describes the new user status. For details about this block, see
   "User Status Block" on 8.2.3.
 
-8.4.1.12 SetPrivacyList
+\subsubsection{SetPrivacyList}
 
 This message is sent from a client to request that the server set new
 privacy list options for the user. The privacy list is a list of users
@@ -1982,9 +1881,6 @@ Message Body
 | User ID [String]                                        |
 +-------------------+-------------------+      x Length of User
 | Community Name [String]                           ID List
-
-page 35  Sametime Community - Client Protocol   Page 35
-
 +-------------------+-------------------+  -----          |
 | User Name [String]                       if Full Flag   v
 +----------------------------------------  ----------------
@@ -2011,8 +1907,7 @@ User List
   Name is a string containing the name of the user, which is the name
   displayed on the screen in the user interface.
 
-
-8.4.1.13 SetPrivacyDenied
+\subsubsection{SetPrivacyDenied}
 
 This message is sent by the server to notify the client that a previous
 SetPrivacyList action (see 8.4.1.12) was not successful
@@ -2034,8 +1929,7 @@ Error Code
   request. This error code is understood at the Master protocol
   level. For code reference, see 8.3.1.
 
-
-8.4.1.14 SenseService
+\subsubsection{SenseService}
 
 This message is sent by a client to a server to request a notification
 when a specified service becomes available. This same message is sent
@@ -2058,13 +1952,13 @@ Service Type
   requesting notification. For a list of all service types, see 
   8.3.2.
 
-8.4.2 Awareness Messages
+\subsection{Awareness Messages}
 
 Awareness messages are "transported" over an Awareness channel. These
 messages are used to subscribe (addWatch) to, and unsubscribe
 (removeWatch) from other users.
 
-8.4.2.1 Awareness ID Block
+\subsubsection{Awareness ID Block}
 
 This block is used as the IDs in the Awareness context. It is a 
 combination of a presence type and a regular ID Block (see 
@@ -2083,7 +1977,7 @@ combination of a presence type and a regular ID Block (see
 |   Community Name (cont.) ...
 +----------------------------------------
 
-8.4.2.2 AddWatch
+\subsubsection{AddWatch}
 
 This message "subscribes" the initiator to a presence. It is sent
 from the client to the Awareness server application.
@@ -2108,7 +2002,7 @@ Awareness ID Block
   The presence to subscribe to. See "Awareness ID Block" on
 8.4.2.1.
 
-8.4.2.3 RemoveWatch
+\subsubsection{RemoveWatch}
 
 This message "unsubscribes" the initiator from a presence. It is sent 
 from the client to the Awareness server application.
@@ -2138,8 +2032,7 @@ Awareness ID Block
   The presence to see subscribe to. See "Awareness ID Block" on
   8.4.2.1.
 
-
-8.4.2.4 Snapshot
+\subsubsection{Snapshot}
 
 This is sent from the Awareness service application to the clients.
 For each subscribe request, the Awareness service synchronizes the
@@ -2200,7 +2093,7 @@ User Name
   The display name of the user. Should not be used; this information
   should be known to the client.
 
-8.4.2.5 Update
+\subsubsection{Update}
 
 Every time the presence changes it's status, or logs off, an update is
 sent to it's subscribers. It is sent from the awareness service
@@ -2256,15 +2149,14 @@ User Name
   The display name of the user. Should not be used, this information
   should be usually known to the client.
 
-
-8.4.3 Instant Messaging
+\subsection{Instant Messaging}
 
 Instant Messages are sent over an "Instant Message Channel". Messages
 are typed in order to convey various types of data. When the IM channel
 is created, certain values should be sent in the opaque that is
 contained in the channel creation.
 
-8.4.3.1 IM channel creation
+\subsubsection{IM Channel Creation}
 
 When creating an IM channel, the opaque that is sent as part of the 
 channel creation should contain two 4-byte words each of them 
@@ -2274,7 +2166,7 @@ Create IM channel requests that contain other values are beyond the
 scope of this document and should be rejected by clients that their
 implementation is based on this document.
 
-8.4.3.2 IM channel accepting
+\subsubsection{IM Channel Accepting}
 
 When accepting an IM channel, the opaque that is sent as part of the
 channel acceptance should contain the following:
@@ -2293,7 +2185,7 @@ channel acceptance should contain the following:
 User Status Block should be filled with the current status of the user
 to whome the IM channel was created.
 
-8.4.3.3 Data Message
+\subsubsection{Data Message}
 
 Message Body
 0         8         16        24      31
@@ -2325,7 +2217,7 @@ Data Length
 Data
   The raw data.
 
-8.4.3.4 Text Message
+\subsubsection{Text Message}
 
 Message Body
 0         8         16        24      31
@@ -2347,11 +2239,11 @@ Text Length
 Text
   The message itself.
 
-8.4.4
+\subsection{}
 
 start talking - data with 0 bytes.
 
-8.4.4.1 Resolve Request
+\subsubsection{Resolve Request}
 
 Used to request the Resolver Service to resolve user name(s) to user
 ID(s).
@@ -2397,7 +2289,7 @@ Options
 
     0x00000008 - Users bit (should always be on).
 
-8.4.4.2 Resolve Response
+\subsubsection{Resolve Response}
 
 The response for the clients ResolveRequest. This message is a list of
 results, each result being a list of matches.
@@ -2468,13 +2360,10 @@ Description
 
 Match Type Should always be 0x00000001.
 
-9. Acknowledgements
+\chapter{Acknowledgements}
 
 The authors of this document wish to acknowledge the following that
 contirbuted to this document: Mark Day, Alon Kleinman, Maxim Kovalenko
 & Marjorie Schejter.
-
-10. Authors Addresses
-\end{verbatim}
 
 \end{document}
