@@ -1,4 +1,12 @@
 
+version 0.3  Chris O'Brien  <siege@preoccupied.net>
+	
+	2004-06-15: Reworking services to follow a start/stop
+	system. Moving service structures into a non-visible space. Added
+	support for the storage service. Meanwhile now has its own client
+	type identifier, 0x1700, and defaults to using that rather than
+	the Java App identifier of 0x1003
+	
 version 0.2  Chris O'Brien  <siege@preoccupied.net>
 
 	2004-05-17: Refactoring service and channel related code out of

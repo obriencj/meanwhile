@@ -1,19 +1,21 @@
 
 
-#include <glist.h>
+#include <glib/glist.h>
+
 #include "channel.h"
+#include "error.h"
 #include "message.h"
 #include "service.h"
 #include "session.h"
-#include "srvc_storage.h"
+#include "srvc_store.h"
 
 
 
 enum storage_action {
-  action_load   = 0x04,
-  action_loaded = 0x05,
-  action_save   = 0x06,
-  action_saved  = 0x07
+  action_load   = 0x0004,
+  action_loaded = 0x0005,
+  action_save   = 0x0006,
+  action_saved  = 0x0007
 };
 
 
@@ -99,30 +101,39 @@ static void stop(struct mwService *srvc) {
   /* - close the channel.
      - Reset all pending requests to a an "unsent" state. */
 
-  struct mwServiceStorge *srv_store;
+  struct mwServiceStorage *srvc_store;
+  GList *l;
 
   g_return_if_fail(srvc != NULL);
-  srv_store = (struct mwServiceStore *) srvc;
+  srvc_store = (struct mwServiceStorage *) srvc;
 
-  mwChannel_destroyQuick(srvc->channel, ERR_ABORT);
-  
+  mwChannel_destroyQuick(srvc_store->channel, ERR_ABORT);
+
+  for(l = srvc_store->pending; l; l = l->next) {
+    struct mwStorageReq *req = (struct mwStorageReq *) l->data;
+    if(req->action == action_loaded) {
+      req->action = action_load;
+    } else if(req->action == action_saved) {
+      req->action = action_save;
+    }
+  }
 }
 
 
 static void clear(struct mwService *srvc) {
   stop(srvc);
-  /* free all pending */
+  /** @todo free all pending */
 }
 
 
 struct mwServiceStorage *mwServiceStorage_new(struct mwSession *session) {
-  struct mwServiceStorage *srvc_stor;
+  struct mwServiceStorage *srvc_store;
   struct mwService *srvc;
 
-  srvc_stor = g_new0(struct mwServiceStorage, 1);
+  srvc_store = g_new0(struct mwServiceStorage, 1);
 
-  srvc = MW_SERVICE(srvc_stor);
-  mwService_init(srvc, session, Service_STORAGE);
+  srvc = MW_SERVICE(srvc_store);
+  mwService_init(srvc, session, mwService_STORAGE);
   srvc->get_name = get_name;
   srvc->get_desc = get_desc;
   srvc->recv_channelCreate = recv_channelCreate;
@@ -132,6 +143,8 @@ struct mwServiceStorage *mwServiceStorage_new(struct mwSession *session) {
   srvc->start = start;
   srvc->stop = stop;
   srvc->clear = clear;
+
+  return srvc_store;
 }
 
 
@@ -149,8 +162,7 @@ struct mwStorageUnit *mwStorageUnit_newData(guint32 key,
   u = g_new0(struct mwStorageUnit, 1);
   u->key = key;
 
-  if(data)
-    mwOpaque_clone(&u->data, data);
+  if(data) mwOpaque_clone(&u->data, data);
 
   return u;
 }
@@ -163,8 +175,8 @@ struct mwStorageUnit *mwStorageUnit_newBoolean(guint32 key,
   u->key = key;
 
   u->data.len = 4;
-  u->data = g_malloc0(4);
-  if(val) u->data[3] = 0x01;
+  u->data.data = g_malloc0(4);
+  if(val) u->data.data[3] = 0x01;
 
   return u;
 }
@@ -180,7 +192,7 @@ struct mwStorageUnit *mwStorageUnit_newString(guint32 key,
   u->key = key;
 
   n = u->data.len = mwString_buflen(str);
-  b = u->data = g_malloc0(n);
+  b = u->data.data = (char *) g_malloc0(n);
   mwString_put(&b, &n, str);
 
   return u;
