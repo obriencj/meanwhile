@@ -1,6 +1,6 @@
 
 AC_INIT
-AM_INIT_AUTOMAKE(meanwhile, 0.2)
+AM_INIT_AUTOMAKE(meanwhile, 0.3)
 
 AC_PREREQ([2.50])
 
