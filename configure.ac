@@ -9,7 +9,7 @@ m4_define(glib_required_version,	2.0.0)
 AC_INIT
 AM_INIT_AUTOMAKE(meanwhile, meanwhile_version)
 
-RELEASE=1
+RELEASE=0
 AC_SUBST(RELEASE)
 
 AC_PREREQ([2.50])
