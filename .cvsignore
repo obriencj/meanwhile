@@ -13,6 +13,7 @@ missing
 *.pc
 *.rpm
 *.spec
+*.swp
 *.tar.gz
 test.conf
 test.sh
