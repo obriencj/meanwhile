@@ -8,7 +8,7 @@ m4_define(glib_required_version,	2.0.0)
 # this is just to generate the requirement in the specfile. It would
 # be useful to make it check the available python version here as
 # well...
-m4_define(python_required_version,	2.3)
+m4_define(python_required_version,	2.2)
 
 
 AC_INIT
