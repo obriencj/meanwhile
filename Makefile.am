@@ -1,6 +1,6 @@
 
 
-SUBDIRS = src
+SUBDIRS = src doc
 
 
 EXTRA_DIST =	meanwhile.spec \
@@ -12,5 +12,5 @@ pkgconfigdir = $(libdir)/pkgconfig
 
 
 docs:
-	make -C doc
+	make -C doc docs
 

@@ -57,7 +57,7 @@ AC_SUBST(GLIB_LIBS)
 
 
 AC_CONFIG_FILES(
-	[Makefile src/Makefile]
+	[Makefile doc/Makefile src/Makefile]
 	[doc/Doxyfile]
 	[meanwhile.spec meanwhile.pc]
 )
