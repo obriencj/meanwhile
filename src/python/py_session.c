@@ -194,7 +194,7 @@ static PyObject *py_find_channel(mwPySession *self, PyObject *args) {
   guint32 id = 0;
   struct mwChannel *c;
 
-  if(! PyArg_ParseTuple(args, "i", &id))
+  if(! PyArg_ParseTuple(args, "l", &id))
     return NULL;
 
   c = mwChannel_find(mwSession_getChannels(self->session), id);
@@ -238,7 +238,7 @@ static PyObject *py_get_service(mwPySession *self, PyObject *args) {
   struct mwService *srvc;
   mwPyService *srvcobj;
 
-  if(! PyArg_ParseTuple(args, "i", &id))
+  if(! PyArg_ParseTuple(args, "l", &id))
     return NULL;
 
   srvc = mwSession_getService(self->session, id);
@@ -259,7 +259,7 @@ static PyObject *py_rem_service(mwPySession *self, PyObject *args) {
   struct mwService *srvc;
   mwPyService *srvcobj;
 
-  if(! PyArg_ParseTuple(args, "i", &id))
+  if(! PyArg_ParseTuple(args, "l", &id))
     return NULL;
 
   srvc = mwSession_removeService(self->session, id);

@@ -397,6 +397,12 @@ struct mwDirectory *mwDirectory_new(struct mwAddressBook *book) {
 }
 
 
+enum mwDirectoryState mwDirectory_getState(struct mwDirectory *dir) {
+  g_return_val_if_fail(dir != NULL, mwDirectory_UNKNOWN);
+  return dir->state;
+}
+
+
 void mwDirectory_setClientData(struct mwDirectory *dir,
 			       gpointer data, GDestroyNotify clear) {
 
