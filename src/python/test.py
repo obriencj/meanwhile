@@ -21,13 +21,11 @@ tSrvcIm = None
 tSrvcStore = None
 
 
-def _cbShutdown():
-    tSession.stop()
-
 
 def _cbExec(text):
     print "executing code %s" % text
-    exec text in globals()    
+    # exec text in globals()    
+
 
 
 def _cbLoadStr(who, key, result, value):
@@ -46,7 +44,12 @@ def _cbLoadStr(who, key, result, value):
     tSession.stop()
 
 
+
 def _cbLoad(who, kstr):
+    if not tSrvcStore:
+        tSrvcIm.sendText(who, "storage service not initialized")
+        return
+    
     try:
         key = int(kstr)
         l = lambda k,r,v,w=who: _cbLoadStr(w, k, r, v)
@@ -69,7 +72,8 @@ class ServiceIm(meanwhile.ServiceIm):
         print '%s: "%s"' % (who[0], text)
 
         if text == 'shutdown':
-            _cbShutdown()
+            self.sendText(who, "good-bye")
+            tSession.stop()
 
         elif text.startswith('~ '):
             _cbExec(text[2:])
@@ -77,16 +81,20 @@ class ServiceIm(meanwhile.ServiceIm):
         elif text.startswith('load '):
             _cbLoad(who, text[5:])
             
-        else:
-            self.sendText(who, 'you said "%s"' % text)
+        elif text.startswith('echo '):
+            self.sendText(who, text[5:])
+
 
 
 if __name__ == "__main__":
     tSession = Session(WHERE, WHO)
     tSrvcIm = ServiceIm(tSession)
-    tSrvcStore = meanwhile.ServiceStorage(tSession)
+    #tSrvcStore = meanwhile.ServiceStorage(tSession)
     
     tSession.addService(tSrvcIm)
-    tSession.addService(tSrvcStore)
+    #tSession.addService(tSrvcStore)
 
-    tSession.start(daemon=True)
+    tSession.start(background=False, daemon=False)
+
+    tSession.removeService(tSrvcIm.type)
+    #tSession.removeService(tSrvcStore.type)
