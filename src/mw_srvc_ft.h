@@ -84,7 +84,7 @@ mwServiceFileTransfer_getHandler(struct mwServiceFileTransfer *srvc);
 
 struct mwFileTransfer *
 mwFileTransfer_new(struct mwServiceFileTransfer *srvc,
-		   struct mwIdBlock *who, const char *msg,
+		   const struct mwIdBlock *who, const char *msg,
 		   const char *filename, guint32 filesize);
 
 

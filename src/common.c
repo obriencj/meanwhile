@@ -390,7 +390,7 @@ void mwString_get(struct mwGetBuffer *b, char **val) {
 }
 
 
-void mwOpaque_put(struct mwPutBuffer *b, struct mwOpaque *o) {
+void mwOpaque_put(struct mwPutBuffer *b, const struct mwOpaque *o) {
   gsize len;
 
   g_return_if_fail(b != NULL);
@@ -453,7 +453,7 @@ void mwOpaque_free(struct mwOpaque *o) {
 }
 
 
-void mwOpaque_clone(struct mwOpaque *to, struct mwOpaque *from) {
+void mwOpaque_clone(struct mwOpaque *to, const struct mwOpaque *from) {
   g_return_if_fail(to != NULL);
 
   to->len = 0;
@@ -471,7 +471,7 @@ void mwOpaque_clone(struct mwOpaque *to, struct mwOpaque *from) {
 /* 8.2.1 Login Info block */
 
 
-void mwLoginInfo_put(struct mwPutBuffer *b, struct mwLoginInfo *login) {
+void mwLoginInfo_put(struct mwPutBuffer *b, const struct mwLoginInfo *login) {
   g_return_if_fail(b != NULL);
   g_return_if_fail(login != NULL);
 
@@ -525,7 +525,9 @@ void mwLoginInfo_clear(struct mwLoginInfo *login) {
 }
 
 
-void mwLoginInfo_clone(struct mwLoginInfo *to, struct mwLoginInfo *from) {
+void mwLoginInfo_clone(struct mwLoginInfo *to,
+		       const struct mwLoginInfo *from) {
+
   g_return_if_fail(to != NULL);
   g_return_if_fail(from != NULL);
 
@@ -546,7 +548,7 @@ void mwLoginInfo_clone(struct mwLoginInfo *to, struct mwLoginInfo *from) {
 /* 8.2.2 Private Info Block */
 
 
-void mwUserItem_put(struct mwPutBuffer *b, struct mwUserItem *user) {
+void mwUserItem_put(struct mwPutBuffer *b, const struct mwUserItem *user) {
   g_return_if_fail(b != NULL);
   g_return_if_fail(user != NULL);
 
@@ -582,7 +584,8 @@ void mwUserItem_clear(struct mwUserItem *user) {
 }
 
 
-void mwPrivacyInfo_put(struct mwPutBuffer *b, struct mwPrivacyInfo *info) {
+void mwPrivacyInfo_put(struct mwPutBuffer *b,
+		       const struct mwPrivacyInfo *info) {
   guint32 c;
 
   g_return_if_fail(b != NULL);
@@ -644,7 +647,9 @@ void mwPrivacyInfo_clear(struct mwPrivacyInfo *info) {
 /* 8.2.3 User Status Block */
 
 
-void mwUserStatus_put(struct mwPutBuffer *b, struct mwUserStatus *stat) {
+void mwUserStatus_put(struct mwPutBuffer *b,
+		      const struct mwUserStatus *stat) {
+
   g_return_if_fail(b != NULL);
   g_return_if_fail(stat != NULL);
 
@@ -673,7 +678,9 @@ void mwUserStatus_clear(struct mwUserStatus *stat) {
 }
 
 
-void mwUserStatus_clone(struct mwUserStatus *to, struct mwUserStatus *from) {
+void mwUserStatus_clone(struct mwUserStatus *to,
+			const struct mwUserStatus *from) {
+
   g_return_if_fail(to != NULL);
   g_return_if_fail(from != NULL);
 
@@ -686,7 +693,7 @@ void mwUserStatus_clone(struct mwUserStatus *to, struct mwUserStatus *from) {
 /* 8.2.4 ID Block */
 
 
-void mwIdBlock_put(struct mwPutBuffer *b, struct mwIdBlock *id) {
+void mwIdBlock_put(struct mwPutBuffer *b, const struct mwIdBlock *id) {
   g_return_if_fail(b != NULL);
   g_return_if_fail(id != NULL);
 
@@ -717,7 +724,7 @@ void mwIdBlock_clear(struct mwIdBlock *id) {
 }
 
 
-void mwIdBlock_clone(struct mwIdBlock *to, struct mwIdBlock *from) {
+void mwIdBlock_clone(struct mwIdBlock *to, const struct mwIdBlock *from) {
   g_return_if_fail(to != NULL);
   g_return_if_fail(from != NULL);
 
@@ -726,12 +733,14 @@ void mwIdBlock_clone(struct mwIdBlock *to, struct mwIdBlock *from) {
 }
 
 
-guint mwIdBlock_hash(struct mwIdBlock *idb) {
+guint mwIdBlock_hash(const struct mwIdBlock *idb) {
   return (idb)? g_str_hash(idb->user): 0;
 }
 
 
-gboolean mwIdBlock_equal(struct mwIdBlock *a, struct mwIdBlock *b) {
+gboolean mwIdBlock_equal(const struct mwIdBlock *a,
+			 const struct mwIdBlock *b) {
+
   g_return_val_if_fail(a != NULL, FALSE);
   g_return_val_if_fail(b != NULL, FALSE);
 
@@ -744,7 +753,9 @@ gboolean mwIdBlock_equal(struct mwIdBlock *a, struct mwIdBlock *b) {
 
 /** @todo I think this can be put into cipher */
 
-void mwEncryptItem_put(struct mwPutBuffer *b, struct mwEncryptItem *ei) {
+void mwEncryptItem_put(struct mwPutBuffer *b,
+		       const struct mwEncryptItem *ei) {
+
   g_return_if_fail(b != NULL);
   g_return_if_fail(ei != NULL);
   
@@ -777,7 +788,9 @@ void mwEncryptItem_clear(struct mwEncryptItem *ei) {
 
 /** @todo move this into srvc_aware */
 
-void mwAwareIdBlock_put(struct mwPutBuffer *b, struct mwAwareIdBlock *idb) {
+void mwAwareIdBlock_put(struct mwPutBuffer *b,
+			const struct mwAwareIdBlock *idb) {
+
   g_return_if_fail(b != NULL);
   g_return_if_fail(idb != NULL);
 
@@ -800,7 +813,7 @@ void mwAwareIdBlock_get(struct mwGetBuffer *b, struct mwAwareIdBlock *idb) {
 
 
 void mwAwareIdBlock_clone(struct mwAwareIdBlock *to,
-			  struct mwAwareIdBlock *from) {
+			  const struct mwAwareIdBlock *from) {
 
   g_return_if_fail(to != NULL);
   g_return_if_fail(from != NULL);
@@ -819,13 +832,13 @@ void mwAwareIdBlock_clear(struct mwAwareIdBlock *idb) {
 }
 
 
-guint mwAwareIdBlock_hash(struct mwAwareIdBlock *a) {
+guint mwAwareIdBlock_hash(const struct mwAwareIdBlock *a) {
   return (a)? g_str_hash(a->user): 0;
 }
 
 
-gboolean mwAwareIdBlock_equal(struct mwAwareIdBlock *a,
-			      struct mwAwareIdBlock *b) {
+gboolean mwAwareIdBlock_equal(const struct mwAwareIdBlock *a,
+			      const struct mwAwareIdBlock *b) {
 
   g_return_val_if_fail(a != NULL, FALSE);
   g_return_val_if_fail(b != NULL, FALSE);
@@ -861,7 +874,7 @@ void mwAwareSnapshot_get(struct mwGetBuffer *b, struct mwAwareSnapshot *idb) {
 
 
 void mwAwareSnapshot_clone(struct mwAwareSnapshot *to,
-			   struct mwAwareSnapshot *from) {
+			   const struct mwAwareSnapshot *from) {
 
   g_return_if_fail(to != NULL);
   g_return_if_fail(from != NULL);

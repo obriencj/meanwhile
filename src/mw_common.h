@@ -95,6 +95,8 @@ enum mwLoginType {
   mwLogin_JAVA_WEB      = 0x1001,  /**< official Lotus Java applet */
   mwLogin_BINARY        = 0x1002,  /**< official Lotus binary application */
   mwLogin_JAVA_APP      = 0x1003,  /**< official Lotus Java application */
+
+  /* now we're getting crazy */
   mwLogin_NOTES_6_5        = 0x1200,
   mwLogin_NOTES_7_0        = 0x1210,
   mwLogin_ICT              = 0x1300,
@@ -322,7 +324,7 @@ void mwString_put(struct mwPutBuffer *b, const char *str);
 void mwString_get(struct mwGetBuffer *b, char **str);
 
 
-void mwOpaque_put(struct mwPutBuffer *b, struct mwOpaque *o);
+void mwOpaque_put(struct mwPutBuffer *b, const struct mwOpaque *o);
 
 void mwOpaque_get(struct mwGetBuffer *b, struct mwOpaque *o);
 
@@ -330,7 +332,7 @@ void mwOpaque_clear(struct mwOpaque *o);
 
 void mwOpaque_free(struct mwOpaque *o);
 
-void mwOpaque_clone(struct mwOpaque *to, struct mwOpaque *from);
+void mwOpaque_clone(struct mwOpaque *to, const struct mwOpaque *from);
 
 
 /*@}*/
@@ -340,16 +342,16 @@ void mwOpaque_clone(struct mwOpaque *to, struct mwOpaque *from);
 /*@{*/
 
 
-void mwLoginInfo_put(struct mwPutBuffer *b, struct mwLoginInfo *info);
+void mwLoginInfo_put(struct mwPutBuffer *b, const struct mwLoginInfo *info);
 
 void mwLoginInfo_get(struct mwGetBuffer *b, struct mwLoginInfo *info);
 
 void mwLoginInfo_clear(struct mwLoginInfo *info);
 
-void mwLoginInfo_clone(struct mwLoginInfo *to, struct mwLoginInfo *from);
+void mwLoginInfo_clone(struct mwLoginInfo *to, const struct mwLoginInfo *from);
 
 
-void mwUserItem_put(struct mwPutBuffer *b, struct mwUserItem *user);
+void mwUserItem_put(struct mwPutBuffer *b, const struct mwUserItem *user);
 
 void mwUserItem_get(struct mwGetBuffer *b, struct mwUserItem *user);
 
@@ -371,12 +373,13 @@ void mwUserStatus_get(struct mwGetBuffer *b, struct mwUserStatus *stat);
 
 void mwUserStatus_clear(struct mwUserStatus *stat);
 
-void mwUserStatus_clone(struct mwUserStatus *to, struct mwUserStatus *from);
+void mwUserStatus_clone(struct mwUserStatus *to,
+			const struct mwUserStatus *from);
 
 
 void mwIdBlock_put(struct mwPutBuffer *b, const struct mwIdBlock *id);
 
-void mwIdBlock_get(struct mwGetBuffer *b, const struct mwIdBlock *id);
+void mwIdBlock_get(struct mwGetBuffer *b, struct mwIdBlock *id);
 
 void mwIdBlock_clear(struct mwIdBlock *id);
 
@@ -389,19 +392,20 @@ gboolean mwIdBlock_equal(const struct mwIdBlock *a,
 			 const struct mwIdBlock *b);
 
 
-void mwAwareIdBlock_put(struct mwPutBuffer *b, struct mwAwareIdBlock *idb);
+void mwAwareIdBlock_put(struct mwPutBuffer *b,
+			const struct mwAwareIdBlock *idb);
 
 void mwAwareIdBlock_get(struct mwGetBuffer *b, struct mwAwareIdBlock *idb);
 
 void mwAwareIdBlock_clear(struct mwAwareIdBlock *idb);
 
 void mwAwareIdBlock_clone(struct mwAwareIdBlock *to,
-			  struct mwAwareIdBlock *from);
+			  const struct mwAwareIdBlock *from);
 
-guint mwAwareIdBlock_hash(struct mwAwareIdBlock *a);
+guint mwAwareIdBlock_hash(const struct mwAwareIdBlock *a);
 
-gboolean mwAwareIdBlock_equal(struct mwAwareIdBlock *a,
-			      struct mwAwareIdBlock *b);
+gboolean mwAwareIdBlock_equal(const struct mwAwareIdBlock *a,
+			      const struct mwAwareIdBlock *b);
 
 
 void mwAwareSnapshot_get(struct mwGetBuffer *b,
@@ -410,10 +414,11 @@ void mwAwareSnapshot_get(struct mwGetBuffer *b,
 void mwAwareSnapshot_clear(struct mwAwareSnapshot *idb);
 
 void mwAwareSnapshot_clone(struct mwAwareSnapshot *to,
-			   struct mwAwareSnapshot *from);
+			   const struct mwAwareSnapshot *from);
 
 
-void mwEncryptItem_put(struct mwPutBuffer *b, struct mwEncryptItem *item);
+void mwEncryptItem_put(struct mwPutBuffer *b,
+		       const struct mwEncryptItem *item);
 
 void mwEncryptItem_get(struct mwGetBuffer *b, struct mwEncryptItem *item);
 
