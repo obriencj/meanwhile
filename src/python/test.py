@@ -91,9 +91,7 @@ class ServiceAware(meanwhile.ServiceAware):
 
 
 class ServiceIm(meanwhile.ServiceIm):
-    def onText(self, who, text):
-        print '%s: "%s"' % (who[0], text)
-
+    def processCmd(self, who, text):
         if text == 'shutdown':
             self.sendText(who, "good-bye")
             self.session.stop()
@@ -109,6 +107,29 @@ class ServiceIm(meanwhile.ServiceIm):
 
         elif text.startswith('echo '):
             self.sendText(who, text[5:])
+
+        elif text.startswith('subj '):
+            self.sendSubject(who, text[5:])
+
+    
+    def onText(self, who, text):
+        print '<text>%s: "%s"' % (who[0], text)
+        self.processCmd(who, text)
+
+
+    def onHtml(self, who, text):
+        print '<html>%s: "%s"' % (who[0], text)
+        self.processCmd(who, text)
+
+
+    def onSubject(self, who, subj):
+        print '<subject>%s: "%s"' % (who[0], subj)
+            
+
+    def onError(self, who, err):
+        print '<error>%s: 0x%x' % (who[0], text)
+
+
 
 
 

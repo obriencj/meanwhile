@@ -1,12 +1,22 @@
 
 
-#ifndef _MW_ERROR_
-#define _MW_ERROR_
-
+#ifndef _MW_ERROR
+#define _MW_ERROR
 
 #include <glib.h>
 
 
+/** @file error.h
+
+    Common error code constants used by Meanwhile.
+
+    Not all of these error codes (or even many, really) will ever
+    actually appear from Meanwhile. These are taken directly from the
+    houri draft, along with the minimal explanation for each.
+*/
+
+
+/** reference to a new string appropriate for the given error code.*/
 char* mwError(guint32 code);
 
 
@@ -14,6 +24,8 @@ char* mwError(guint32 code);
 /* 8.3.1 Error Codes */
 /* 8.3.1.1 General error/success codes */
 
+/** @enum ERR_GENERAL
+    general error codes */
 enum ERR_GENERAL {
   ERR_SUCCESS                = 0x00000000,
   ERR_FAILURE                = 0x80000000,
@@ -96,29 +108,37 @@ enum ERR_GENERAL {
 #define CONNECTION_TIMED     0x80000225
 #define CONNECTION_CLOSED    0x80000226
 #define MULTI_SERVER_LOGIN   0x80000227
-#define MULTI_SERVER_LOGIN2  0x80000228 /* maps to 0x80000227 for compat */
+#define MULTI_SERVER_LOGIN2  0x80000228
 #define MULTI_LOGIN_COMP     0x80000229
 #define MUTLI_LOGIN_ALREADY  0x8000022A
 #define SERVER_BROKEN        0x8000022B
 #define SERVER_PATH_OLD      0x8000022C
-#define APPLET_LOGOUT        0x8000022D /* what??? */
+#define APPLET_LOGOUT        0x8000022D
 
 
 /* 8.3.1.3 Client error codes */
 
+/** @enum ERR_CLIENT
+    Client error codes */
 enum ERR_CLIENT {
   ERR_CLIENT_USER_GONE       = 0x80002000, /* user isn't here */
   ERR_CLIENT_USER_DND        = 0x80002001, /* user is DND */
-  ERR_CLIENT_USER_ELSEWHERE  = 0x80002002  /* already logged in elsewhere */
+  ERR_CLIENT_USER_ELSEWHERE  = 0x80002002, /* already logged in elsewhere */
 };
 
 
 /* 8.3.1.4 IM error codes */
 
+/** @enum ERR_IM
+    IM error codes */
 enum ERR_IM {
   ERR_IM_COULDNT_REGISTER    = 0x80002003,
   ERR_IM_ALREADY_REGISTERED  = 0x80002004,
-  ERR_IM_NOT_REGISTERED      = 0x80002005
+
+  /** apparently, this is used to mean that the requested feature (per
+      the channel create addtl data) is not supported by the client on
+      the other end of the IM channel */
+  ERR_IM_NOT_REGISTERED      = 0x80002005,
 };
 
 

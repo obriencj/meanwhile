@@ -17,11 +17,11 @@
 #define g_info(format...) g_log(G_LOG_DOMAIN, G_LOG_LEVEL_INFO, format)
 
 
-/** define MW_PRETTY as 1 to have buf printed in hex pairs to stdout */
+/** define DEBUG to have buf printed in hex pairs to stdout */
 void pretty_print(const char *buf, gsize len);
 
 #define pretty_opaque(opaque) \
-  pretty_print(opaque->data, opaque->len)
+  pretty_print((opaque)->data, (opaque)->len)
 
 
 #endif

@@ -1,10 +1,16 @@
 
 version 0.4 (cvs)
-	
-	- Closed RFE [] support for server-side groups to aware service
-	- Closed RFE [] Python wrappers
-	- Fix []
 
+	Features
+	- RFE #994716 Support for Server-side Groups to Aware Service
+	- RFE #1043848 Python wrappers
+	- Added support for Subjects and HTML messages to IM service ala
+	  NotesBuddy)
+
+	Bug Fixes
+	- Bug #1008335 Error in common.c when compiling on x86_64
+	- Bug #1036056 meanwhile-CRITICAL - when add a buddy to my list
+	
 version 0.3-1 (2004-08-05)
 
 	- Fix [989872] Version incompatibility (0x80000200 errors)

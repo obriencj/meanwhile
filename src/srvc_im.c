@@ -24,6 +24,13 @@
 #define PROTOCOL_VER   0x00000003
 
 
+#define IM_MAGIC_A  0x00000001
+#define IM_MAGIC_B  0x00000001
+
+#define NB_MAGIC_A  0x00000001
+#define NB_MAGIC_B  0x00033453
+
+
 enum send_actions {
   msg_MESSAGE = 0x0064, /* im */
 };
@@ -36,8 +43,9 @@ enum mwImType {
 
 
 enum mwImDataType {
-  mwImData_TYPING  = 0x00000001,
-  mwImData_HTML    = 0x00000004,
+  mwImData_TYPING   = 0x00000001,  /** common use */
+  mwImData_SUBJECT  = 0x00000003,  /** notesbuddy IM topic */
+  mwImData_HTML     = 0x00000004,  /** notesbuddy html message */
 };
 
 
@@ -154,8 +162,8 @@ static void convo_create_chan(struct mwServiceIm *srvc,
 
   /* compose the addtl create */
   b = mwPutBuffer_new();
-  guint32_put(b, 0x01);
-  guint32_put(b, 0x01);
+  guint32_put(b, NB_MAGIC_A);
+  guint32_put(b, NB_MAGIC_B);
   mwPutBuffer_finalize(mwChannel_getAddtlCreate(chan), b);
 
   c->chan = mwChannel_create(chan)? NULL: chan;
@@ -182,8 +190,8 @@ static int send_accept(struct mwChannel *chan) {
   struct mwUserStatus *stat = mwSession_getUserStatus(s);
   struct mwPutBuffer *b = mwPutBuffer_new();
 
-  guint32_put(b, 0x01);
-  guint32_put(b, 0x01);
+  guint32_put(b, NB_MAGIC_A);
+  guint32_put(b, NB_MAGIC_B);
   guint32_put(b, 0x02);
   mwUserStatus_put(b, stat);
 
@@ -269,7 +277,7 @@ static void recv_channelDestroy(struct mwService *srvc, struct mwChannel *chan,
   struct mwServiceImHandler *h = srvc_im->handler;
   struct im_convo *c;
 
-  if(CHANNEL_IS_STATE(chan, mwChannel_WAIT)) {
+  if(CHANNEL_IS_STATE(chan, mwChannel_ERROR)) {
     /* we were trying to create a channel to this person, but it failed. */
     if(h->got_error)
       h->got_error(srvc_im, CHAN_ID_BLOCK(chan), msg->reason);
@@ -340,9 +348,23 @@ static void recv_data(struct mwServiceIm *srvc, struct mwChannel *chan,
     }
     break;
 
+  case mwImData_SUBJECT:
+    if(h->got_subject) {
+      char *x;
+
+      x = (char *) g_malloc(o.len + 1);
+      x[o.len] = '\0';
+      if(o.len) memcpy(x, o.data, o.len);
+
+      h->got_subject(srvc, CHAN_ID_BLOCK(chan), x);
+      g_free(x);
+    }
+    break;
+
   default:
     g_warning("unknown data message type in IM service:"
 	      " 0x%08x, 0x%08x", type, subtype);
+    pretty_opaque(&o);
   }
 
   mwOpaque_clear(&o);
@@ -499,11 +521,45 @@ int mwServiceIm_sendHtml(struct mwServiceIm *srvc,
 
   guint32_put(b, mwIm_DATA);
   guint32_put(b, mwImData_HTML);
-  guint32_put(b, 0x00);  /* what does notesbuddy send? */
+  guint32_put(b, 0x00);
 
   /* use o first as a shell of an opaque for the text */
   o.len = strlen(html);
   o.data = (char *) html;
+  mwOpaque_put(b, &o);
+
+  /* use o again as the holder of the buffer's finalized data */
+  mwPutBuffer_finalize(&o, b);
+  ret = mwChannel_send(c->chan, msg_MESSAGE, &o);
+  mwOpaque_clear(&o);
+
+  return ret;
+}
+
+
+int mwServiceIm_sendSubject(struct mwServiceIm *srvc,
+			    struct mwIdBlock *target,
+			    const char *subject) {
+  struct im_convo *c;
+  struct mwPutBuffer *b;
+  struct mwOpaque o;
+  int ret;
+
+  g_return_val_if_fail(srvc != NULL, -1);
+  g_return_val_if_fail(target != NULL, -1);
+  
+  c = convo_out_new(srvc, target);
+  if(! c->chan) convo_create_chan(srvc, c);
+
+  b = mwPutBuffer_new();
+
+  guint32_put(b, mwIm_DATA);
+  guint32_put(b, mwImData_SUBJECT);
+  guint32_put(b, 0x00);
+
+  /* use o first as a shell of an opaque for the text */
+  o.len = strlen(subject);
+  o.data = (char *) subject;
   mwOpaque_put(b, &o);
 
   /* use o again as the holder of the buffer's finalized data */

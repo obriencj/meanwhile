@@ -3,10 +3,7 @@
 #include "mw_debug.h"
 
 
-#define MW_PRETTY 1
-
-
-#if (MW_PRETTY == 1)
+#ifdef DEBUG
 
 #define FRM               "%02x"
 #define FRMT              "%02x%02x "

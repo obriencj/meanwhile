@@ -38,6 +38,10 @@ struct mwServiceImHandler {
   void (*got_html)(struct mwServiceIm *srvc,
 		   struct mwIdBlock *from, const char *html);
 
+  /** The subject of the conversation */
+  void (*got_subject)(struct mwServiceIm *srvc,
+		      struct mwIdBlock *from, const char *subject);
+
   /** Received typing notification */
   void (*got_typing)(struct mwServiceIm *srvc,
 		     struct mwIdBlock *from, gboolean typing);
@@ -71,6 +75,11 @@ int mwServiceIm_sendText(struct mwServiceIm *srvc,
     and the message should be manually resent as plain text */
 int mwServiceIm_sendHtml(struct mwServiceIm *srvc,
 			 struct mwIdBlock *target, const char *html);
+
+
+/** sets the conversation subject */
+int mwServiceIm_sendSubject(struct mwServiceIm *srvc,
+			    struct mwIdBlock *target, const char *subj);
 
 
 int mwServiceIm_sendTyping(struct mwServiceIm *srvc,

@@ -11,4 +11,4 @@ Requires: glib-2.0 >= @GLIB_VERSION@
 
 Libs: -L${libdir} -lmeanwhile
 Cflags: -I${includedir}/meanwhile
-Libs: -L${libdir} -lmeanwhile
+

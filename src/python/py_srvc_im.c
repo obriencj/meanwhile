@@ -12,10 +12,11 @@
 #include "../srvc_im.h"
 
 
-#define ON_TEXT    "onText"
-#define ON_HTML    "onHtml"
-#define ON_TYPING  "onTyping"
-#define ON_ERROR   "onError"
+#define ON_TEXT     "onText"
+#define ON_HTML     "onHtml"
+#define ON_SUBJECT  "onSubject"
+#define ON_TYPING   "onTyping"
+#define ON_ERROR    "onError"
 
 
 /*
@@ -28,7 +29,7 @@
 
 
 static void mw_got_text(struct mwServiceIm *srvc,
-		      struct mwIdBlock *from, const char *text) {
+			struct mwIdBlock *from, const char *text) {
 
   struct mwServiceImHandler *h;
   struct pyObj_mwService *self;
@@ -49,7 +50,7 @@ static void mw_got_text(struct mwServiceIm *srvc,
 
 
 static void mw_got_html(struct mwServiceIm *srvc,
-		      struct mwIdBlock *from, const char *html) {
+			struct mwIdBlock *from, const char *html) {
 
   struct mwServiceImHandler *h;
   struct pyObj_mwService *self;
@@ -69,8 +70,29 @@ static void mw_got_html(struct mwServiceIm *srvc,
 }
 
 
+static void mw_got_subject(struct mwServiceIm *srvc,
+			   struct mwIdBlock *from, const char *subj) {
+
+  struct mwServiceImHandler *h;
+  struct pyObj_mwService *self;
+  PyObject *robj = NULL;
+  PyObject *a, *b, *c;
+
+  h = mwServiceIm_getHandler(srvc);
+  self = h->data;
+
+  a = PyString_SafeFromString(from->user);
+  b = PyString_SafeFromString(from->community);
+  c = PyString_SafeFromString(subj);
+
+  robj = PyObject_CallMethod((PyObject *) self, ON_SUBJECT,
+			     "(NN)N", a, b, c);
+  Py_XDECREF(robj);
+}
+
+
 static void mw_got_typing(struct mwServiceIm *srvc,
-			struct mwIdBlock *from, gboolean typing) {
+			  struct mwIdBlock *from, gboolean typing) {
 
   struct mwServiceImHandler *h;
   struct pyObj_mwService *self;
@@ -79,9 +101,6 @@ static void mw_got_typing(struct mwServiceIm *srvc,
 
   h = mwServiceIm_getHandler(srvc);
   self = h->data;
-
-  g_message("mw_got_typing (%s,%s)%i",
-	    from->user, from->community, typing);
 
   a = PyString_SafeFromString(from->user);
   b = PyString_SafeFromString(from->community);
@@ -127,6 +146,12 @@ static PyObject *py_got_text(mwPyService *self, PyObject *args) {
 
 
 static PyObject *py_got_html(mwPyService *self, PyObject *args) {
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+
+static PyObject *py_got_subject(mwPyService *self, PyObject *args) {
   Py_INCREF(Py_None);
   return Py_None;
 }
@@ -190,12 +215,38 @@ static PyObject *py_send_html(mwPyService *self, PyObject *args) {
 }
 
 
+static PyObject *py_send_subject(mwPyService *self, PyObject *args) {
+  struct mwIdBlock id = { 0, 0 };
+  const char *text = NULL;
+  struct mwServiceIm *srvc_im;
+  int ret;
+
+  PyObject *a, *b, *c;
+
+  if(! PyArg_ParseTuple(args, "(OO)O", &a, &b, &c))
+    return NULL;
+
+  id.user = (char *) PyString_SafeAsString(a);
+  id.community = (char *) PyString_SafeAsString(b);
+  text = PyString_SafeAsString(c);
+
+  srvc_im = (struct mwServiceIm *) self->wrapped;
+  ret = mwServiceIm_sendSubject(srvc_im, &id, text);
+  /* don't free text or clear id, those strings are borrowed */
+
+  return PyInt_FromLong(ret);
+}
+
+
 static struct PyMethodDef tp_methods[] = {
   { ON_TEXT, (PyCFunction) py_got_text,
     METH_VARARGS, "override to receive text messages" },
 
   { ON_HTML, (PyCFunction) py_got_html,
     METH_VARARGS, "override to receive HTML formatted messages" },
+
+  { ON_SUBJECT, (PyCFunction) py_got_subject,
+    METH_VARARGS, "override to handle conversation subjects" },
 
   { ON_TYPING, (PyCFunction) py_got_typing,
     METH_VARARGS, "override to receive typing notification" },
@@ -208,6 +259,9 @@ static struct PyMethodDef tp_methods[] = {
 
   { "sendHtml", (PyCFunction) py_send_html,
     METH_VARARGS, "send an HTML formatted message" },
+
+  { "sendSubject", (PyCFunction) py_send_subject,
+    METH_VARARGS, "send the conversation subject" },
 
   {NULL}
 };
@@ -238,6 +292,7 @@ static PyObject *tp_new(PyTypeObject *t, PyObject *args, PyObject *kwds) {
   handler = g_new0(struct mwServiceImHandler, 1);
   handler->got_text = mw_got_text;
   handler->got_html = mw_got_html;
+  handler->got_subject = mw_got_subject;
   handler->got_typing = mw_got_typing;
   handler->got_error = mw_got_error;
   handler->clear = mw_clear;
