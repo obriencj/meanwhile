@@ -43,7 +43,7 @@ fi
 
 
 cd src/python
-export LD_LIBRARY_PATH=$PYLIBDIR/../:$PWD/.libs/
+export LD_LIBRARY_PATH=$PYLIBDIR/../:../.libs/
 
 
 if test "$1" = "debug" ; then

@@ -14,6 +14,7 @@
 
 #define ON_TEXT     "onText"
 #define ON_HTML     "onHtml"
+#define ON_MIME     "onMime"
 #define ON_SUBJECT  "onSubject"
 #define ON_TYPING   "onTyping"
 #define ON_CLOSED   "onClosed"
@@ -60,6 +61,25 @@ static void mw_got_html(struct mwServiceIm *srvc,
   a = PyString_SafeFromString(from->user);
   b = PyString_SafeFromString(from->community);
   c = PyString_SafeFromString(html);
+
+  robj = PyObject_CallMethod((PyObject *) self, ON_HTML,
+			     "(NN)N", a, b, c);
+  Py_XDECREF(robj);
+}
+
+
+static void mw_got_mime(struct mwServiceIm *srvc,
+			struct mwIdBlock *from, struct mwOpaque *mime) {
+
+  struct pyObj_mwService *self;
+  PyObject *robj = NULL;
+  PyObject *a, *b, *c;
+
+  self = mwService_getClientData(MW_SERVICE(srvc));
+
+  a = PyString_SafeFromString(from->user);
+  b = PyString_SafeFromString(from->community);
+  c = PyBuffer_FromMemory(mime->data, mime->len);
 
   robj = PyObject_CallMethod((PyObject *) self, ON_HTML,
 			     "(NN)N", a, b, c);
@@ -121,6 +141,9 @@ static void mw_conversation_recv(struct mwConversation *conv,
     break;
   case mwImSend_HTML:
     mw_got_html(srvc, idb, msg);
+    break;
+  case mwImSend_MIME:
+    mw_got_mime(srvc, idb, msg);
     break;
   case mwImSend_SUBJECT:
     mw_got_subject(srvc, idb, msg);
@@ -419,6 +442,9 @@ static struct PyMethodDef tp_methods[] = {
 
   { ON_HTML, MW_METH_VARARGS_NONE,
     METH_VARARGS, "override to receive HTML formatted messages" },
+
+  { ON_MIME, MW_METH_VARARGS_NONE,
+    METH_VARARGS, "override to receive MIME encoded messages" },
 
   { ON_SUBJECT, MW_METH_VARARGS_NONE,
     METH_VARARGS, "override to handle conversation subjects" },

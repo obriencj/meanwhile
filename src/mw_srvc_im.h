@@ -44,6 +44,7 @@ enum mwImSendType {
   mwImSend_HTML,    /**< char *, html formatted message */
   mwImSend_SUBJECT, /**< char *, conversation subject */
   mwImSend_TYPING,  /**< gboolean, typing status */
+  mwImSend_MIME,    /**< mwOpaque *, mime-encoded message */
 };
 
 

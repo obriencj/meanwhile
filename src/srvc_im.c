@@ -40,9 +40,10 @@ enum mwImType {
 
 /* which type of data im? */
 enum mwImDataType {
-  mwImData_TYPING   = 0x00000001,  /**< common use */
+  mwImData_TYPING   = 0x00000001,  /**< common use typing indicator */
   mwImData_SUBJECT  = 0x00000003,  /**< notesbuddy IM topic */
-  mwImData_HTML     = 0x00000004,  /**< notesbuddy html message */
+  mwImData_HTML     = 0x00000004,  /**< notesbuddy HTML message */
+  mwImData_MIME     = 0x00000005,  /**< notesbuddy MIME message, w/image */
 };
 
 
@@ -483,6 +484,10 @@ static void recv_data(struct mwServiceIm *srvc, struct mwChannel *chan,
     g_free(x);
     break;
 
+  case mwImData_MIME:
+    convo_recv(conv, mwImSend_MIME, &o);
+    break;
+
   default:
     g_warning("unknown data message type in IM service:"
 	      " (0x%08x, 0x%08x)", type, subtype);
@@ -689,6 +694,14 @@ static int convo_sendTyping(struct mwConversation *conv, gboolean typing) {
 }
 
 
+static int convo_sendMime(struct mwConversation *conv,
+			  struct mwOpaque *mime) {
+
+  /** @todo actually implement */
+  return 0;
+}
+
+
 int mwConversation_send(struct mwConversation *conv, enum mwImSendType type,
 			 gconstpointer msg) {
 
@@ -699,12 +712,14 @@ int mwConversation_send(struct mwConversation *conv, enum mwImSendType type,
   switch(type) {
   case mwImSend_PLAIN:
     return convo_sendText(conv, msg);
-  case mwImSend_HTML:
-    return convo_sendHtml(conv, msg);
-  case mwImSend_SUBJECT:
-    return convo_sendSubject(conv, msg);
   case mwImSend_TYPING:
     return convo_sendTyping(conv, GPOINTER_TO_INT(msg));
+  case mwImSend_SUBJECT:
+    return convo_sendSubject(conv, msg);
+  case mwImSend_HTML:
+    return convo_sendHtml(conv, msg);
+  case mwImSend_MIME:
+    return convo_sendMime(conv, msg);
 
   default:
     g_warning("unsupported IM Send Type, 0x%x", type);
@@ -734,8 +749,9 @@ gboolean mwConversation_supports(struct mwConversation *conv,
   case mwImSend_TYPING:
     return TRUE;
 
-  case mwImSend_HTML:
   case mwImSend_SUBJECT:
+  case mwImSend_HTML:
+  case mwImSend_MIME:
     return conv->fancy;
 
   default:
