@@ -350,6 +350,7 @@ void mwSametimeUser_free(struct mwSametimeUser *u) {
 
 
 static void str_replace(char *str, char from, char to) {
+  if(! str) return;
   for(; *str; str++) if(*str == from) *str = to;
 }
 
@@ -428,8 +429,8 @@ static void group_put(GString *str, struct mwSametimeGroup *g) {
   alias = g_strdup(g->alias);
   type = group_type_to_char(g->type);
 
-  if(name) str_replace(name, ' ', ';');
-  if(alias) str_replace(alias, ' ', ';');
+  str_replace(name, ' ', ';');
+  str_replace(alias, ' ', ';');
 
   g_string_append_printf(str, "G %s%c %s %c\r\n",
 			 name, type, alias, (g->open? 'O':'C'));
@@ -500,6 +501,9 @@ static struct mwSametimeGroup *get_group(const char *line,
     g_warning("strange sametime list group line:\n%s", line);
   }
   
+  str_replace(name, ';', ' ');
+  str_replace(alias, ';', ' ');
+
   if(name && *name) {
     int l = strlen(name)-1;
     type = name[l];
@@ -537,6 +541,9 @@ static void get_user(const char *line, struct mwSametimeGroup *g) {
     g_warning("strange sametime list user line:\n%s", line);
   }
 
+  str_replace(idb.user, ';', ' ');
+  str_replace(name, ';', ' ');
+
   if(idb.user && *idb.user) {
     int l = strlen(idb.user) - 3;
     type = idb.user[l];
@@ -545,8 +552,6 @@ static void get_user(const char *line, struct mwSametimeGroup *g) {
 
   if(name && *name) {
     char *tmp;
-
-    str_replace(name, ';', ' ');
 
     tmp = strrchr(name, ',');
     if(tmp) {
