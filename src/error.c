@@ -57,6 +57,7 @@ char* mwError(guint32 code) {
     CASE(ERR_VERSION_NO_SUPPORT, "Version is not supported");
     CASE(ERR_USER_SKETCHY, "User is invalid or not trusted");
     CASE(ERR_ALREADY_INITIALIZED, "Already initialized");
+    CASE(ERR_ENCRYPT_NO_SUPPORT, "Encryption method not supported");
     CASE(ERR_NO_COMMON_ENCRYPT, "No common encryption method");
     
     /* 8.3.1.2 Connection/disconnection errors */
