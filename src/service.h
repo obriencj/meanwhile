@@ -45,7 +45,7 @@ enum mwServiceState {
 
 
 /** Casts a concrete service (such as mwServiceAware) into a mwService */
-#define MW_SERVICE(srv) (&srv->service)
+#define MW_SERVICE(srv) ((struct mwService *) srv)
 
 
 #define MW_SERVICE_STOPPED(srvc)  ((srvc)->state == mwServiceState_STOPPED)
