@@ -1,13 +1,11 @@
 
-DOXYFILE = ../Doxyfile
+DOXYGEN_BIN = doxygen
+DOXYGEN_CONF = Doxyfile
 
 
-all:	doxygen
-
-doxygen:
-	mkdir doxygen
-	doxygen $(DOXYFILE) > /dev/null
+all:
+	$(DOXYGEN_BIN) $(DOXYGEN_CONF) > /dev/null
 
 clean:
-	rm -rf doxygen/
+	rm -rf html latex man
 

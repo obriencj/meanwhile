@@ -16,6 +16,10 @@ struct mwSession;
    understood types of events */
 
 
+/** Type identifier for the IM service */
+#define SERVICE_IM  0x00001000
+
+
 /** @struct mwServiceIm
     An instance of the IM service. This service provides simple
     instant messaging functionality */

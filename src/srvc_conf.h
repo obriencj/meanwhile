@@ -13,6 +13,10 @@ struct mwChannel;
 struct mwSession;
 
 
+/** Type identifier for the conference service */
+#define SERVICE_CONF  0x80000010
+
+
 enum mwConferenceState {
   mwConference_NEW      = 0x00,  /**< new conference */
   mwConference_PENDING  = 0x01,  /**< conference pending creation */

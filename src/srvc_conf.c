@@ -21,8 +21,7 @@
 
 /* This thing needs a re-write. More than anything else, I need to
    re-examine the conferencing service protocol from more modern
-   clients
-*/
+   clients */
 
 
 /** @see mwMsgChannelSend::type
@@ -461,7 +460,7 @@ struct mwServiceConf *mwServiceConf_new(struct mwSession *session,
   struct mwServiceConf *srvc_conf = g_new0(struct mwServiceConf, 1);
   struct mwService *srvc = &srvc_conf->service;
 
-  mwService_init(srvc, session, mwService_CONF);
+  mwService_init(srvc, session, SERVICE_CONF);
   srvc->recv_channelCreate = recv_channelCreate;
   srvc->recv_channelAccept = recv_channelAccept;
   srvc->recv_channelDestroy = recv_channelDestroy;
@@ -523,8 +522,8 @@ int mwConference_create(struct mwConference *conf) {
 
   chan = mwChannel_newOutgoing(mwSession_getChannels(session));
   mwChannel_setService(chan, MW_SERVICE(conf->service));
-  mwChannel_setProtoType(chan, mwProtocol_CONF);
-  mwChannel_setProtoVer(chan, 0x02);
+  mwChannel_setProtoType(chan, 0x00000010);
+  mwChannel_setProtoVer(chan, 0x00000002);
 
   /* this is wrong, I think */
   b = mwPutBuffer_new();

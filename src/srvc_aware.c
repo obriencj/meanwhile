@@ -436,7 +436,7 @@ static struct mwChannel *make_blist(struct mwServiceAware *srvc,
   struct mwChannel *chan = mwChannel_newOutgoing(cs);
 
   mwChannel_setService(chan, MW_SERVICE(srvc));
-  mwChannel_setProtoType(chan, mwProtocol_AWARE);
+  mwChannel_setProtoType(chan, 0x00000011);
   mwChannel_setProtoVer(chan, 0x00030005);
 
   return mwChannel_create(chan)? NULL: chan;
@@ -476,7 +476,7 @@ struct mwServiceAware *mwServiceAware_new(struct mwSession *session) {
   srvc_aware = g_new0(struct mwServiceAware, 1);
   srvc = &srvc_aware->service;
 
-  mwService_init(srvc, session, mwService_AWARE);
+  mwService_init(srvc, session, SERVICE_AWARE);
 
   srvc->recv_channelCreate = recv_channelCreate;
   srvc->recv_channelAccept = recv_channelAccept;

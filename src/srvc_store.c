@@ -12,6 +12,7 @@
 #include "session.h"
 
 
+
 enum storage_action {
   action_load    = 0x0004,
   action_loaded  = 0x0005,
@@ -185,8 +186,8 @@ static struct mwChannel *make_channel(struct mwServiceStorage *srvc) {
   chan = mwChannel_newOutgoing(cs);
  
   mwChannel_setService(chan, MW_SERVICE(srvc));
-  mwChannel_setProtoType(chan, mwProtocol_STORAGE);
-  mwChannel_setProtoVer(chan, 0x01);
+  mwChannel_setProtoType(chan, 0x00000025);
+  mwChannel_setProtoVer(chan, 0x00000001);
 
   return mwChannel_create(chan)? NULL: chan;
 }
@@ -360,7 +361,7 @@ struct mwServiceStorage *mwServiceStorage_new(struct mwSession *session) {
   srvc_store = g_new0(struct mwServiceStorage, 1);
   srvc = MW_SERVICE(srvc_store);
 
-  mwService_init(srvc, session, mwService_STORAGE);
+  mwService_init(srvc, session, SERVICE_STORAGE);
   srvc->get_name = get_name;
   srvc->get_desc = get_desc;
   srvc->recv_channelCreate = recv_channelCreate;

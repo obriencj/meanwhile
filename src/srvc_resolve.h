@@ -7,9 +7,18 @@
 #include "common.h"
 
 
+/* place-holder */
 struct mwSession;
 
+
+/** Type identifier for the conference service */
+#define SERVICE_RESOLVE  0x00000015
+
+
+/** @struct mwServiceResolve
+    User name lookup service */
 struct mwServiceResolve;
+
 
 /**
    @param srvc   the resolve service
@@ -20,7 +29,7 @@ struct mwServiceResolve;
 typedef void (*mwResolveHandler)(struct mwServiceResolve *srvc,
 				 guint32 id, guint32 count,
 				 struct mwResolveResult *results,
-				 gpointer data);
+				 gpointer data, GDestroyNotify data_free);
 
 
 enum mwResolveFlags {

@@ -11,6 +11,10 @@
 struct mwSession;
 
 
+/** Type identifier for the aware service */
+#define SERVICE_AWARE  0x00000011
+
+
 /** @struct mwServiceAware
     Instance of an Aware Service. The members of this structure are
     not made available. Accessing the parts of an aware service should

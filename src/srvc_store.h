@@ -11,6 +11,10 @@
 struct mwSession;
 
 
+/** Type identifier for the storage service */
+#define SERVICE_STORAGE  0x00000018
+
+
 /** @struct mwServiceStorage
     @see mwServiceStorage_new
 

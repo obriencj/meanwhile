@@ -14,28 +14,6 @@ struct mwMsgChannelAccept;
 struct mwMsgChannelDestroy;
 
 
-/** Identification numbers for the basic services
-    @relates mwService::type */
-enum mwBaseServiceTypes {
-  mwService_AWARE    = 0x00000011,  /**< buddy list */
-  mwService_RESOLVE  = 0x00000015,  /**< name resolution */
-  mwService_STORAGE  = 0x00000018,  /**< storage */
-  mwService_IM       = 0x00001000,  /**< instant messaging */
-  mwService_CONF     = 0x80000010,  /**< conferencing */
-};
-
-
-/** Identification numbers for the basic service protocols
-    @todo remove this */
-enum mwBaseProtocolTypes {
-  mwProtocol_AWARE    = 0x00000011,
-  mwProtocol_RESOLVE  = 0x00000015,
-  mwProtocol_STORAGE  = 0x00000025,
-  mwProtocol_IM       = 0x00001000,
-  mwProtocol_CONF     = 0x00000010,
-};
-
-
 /** State-tracking for a service */
 enum mwServiceState {
   mwServiceState_STOPPED,   /**< the service is not active */
@@ -82,8 +60,9 @@ enum mwServiceState {
     sent over those channels */
 struct mwService {
 
-  /** the unique identifier by which this service is registered.
-      @relates BaseServiceTypes  */
+  /** the unique identifier by which this service is registered. The
+      type value also relates to those channels which will be directed
+      to this service */
   guint32 type;
 
   /** the state of this service. Determines whether or not the session

@@ -20,6 +20,10 @@
 */
 
 
+#define PROTOCOL_TYPE  0x00001000
+#define PROTOCOL_VER   0x00000003
+
+
 enum send_actions {
   msg_MESSAGE = 0x0064, /* im */
 };
@@ -137,8 +141,8 @@ static void convo_create_chan(struct mwServiceIm *srvc,
   chan = mwChannel_newOutgoing(cs);
 
   mwChannel_setService(chan, MW_SERVICE(srvc));
-  mwChannel_setProtoType(chan, mwProtocol_IM);
-  mwChannel_setProtoVer(chan, 0x03);
+  mwChannel_setProtoType(chan, 0x00001000);
+  mwChannel_setProtoVer(chan, 0x00000003);
 
   /* offer all known ciphers */
   mwChannel_populateSupportedCipherInstances(chan);
@@ -213,7 +217,7 @@ static void recv_channelCreate(struct mwService *srvc,
   y = mwChannel_getProtoType(chan);
   z = mwChannel_getProtoVer(chan);
 
-  if( (x != mwService_IM) || (y != mwProtocol_IM) || (z != 0x03) ) {
+  if( (x != SERVICE_IM) || (y != PROTOCOL_TYPE) || (z != PROTOCOL_VER) ) {
     g_warning("unacceptable service, proto, ver:"
 	      " 0x%08x, 0x%08x, 0x%08x", x, y, z);
     mwChannel_destroy(chan, ERR_SERVICE_NO_SUPPORT, NULL);
@@ -428,7 +432,7 @@ struct mwServiceIm *mwServiceIm_new(struct mwSession *session,
   srvc_im = g_new0(struct mwServiceIm, 1);
   srvc = &srvc_im->service;
 
-  mwService_init(srvc, session, mwService_IM);
+  mwService_init(srvc, session, SERVICE_IM);
   srvc->recv_channelCreate = recv_channelCreate;
   srvc->recv_channelAccept = recv_channelAccept;
   srvc->recv_channelDestroy = recv_channelDestroy;

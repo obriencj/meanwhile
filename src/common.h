@@ -111,7 +111,7 @@ enum mwStatusType {
   mwStatus_ACTIVE  = 0x0020,
   mwStatus_IDLE    = 0x0040,
   mwStatus_AWAY    = 0x0060,
-  mwStatus_BUSY    = 0x0080
+  mwStatus_BUSY    = 0x0080,
 };
 
 
