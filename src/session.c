@@ -176,6 +176,7 @@ static void LOGIN_recv(struct mwSession *s, struct mwMsgLogin *msg) {
 }
 
 
+/* I really, REALLY need to set up a second community to test this */
 /*
 static void LOGIN_REDIRECT_recv(struct mwSession *s,
 				struct mwMsgLoginRedirect *msg) {
