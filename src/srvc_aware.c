@@ -30,6 +30,7 @@
 #include "mw_service.h"
 #include "mw_session.h"
 #include "mw_srvc_aware.h"
+#include "mw_util.h"
 
 
 struct mwServiceAware {
@@ -204,26 +205,17 @@ static int remove_unused(struct mwServiceAware *srvc) {
 }
 
 
-/** fill a GList with living memberships */
-static void collect_aware(gpointer key, gpointer val, gpointer data) {
-  struct aware_entry *aware = (struct aware_entry *) val;
-  GList **list = (GList **) data;
-
-  if(aware->membership != NULL)
-    *list = g_list_append(*list, aware);
-}
-
-
 static void recv_accept(struct mwServiceAware *srvc,
 			struct mwChannel *chan,
 			struct mwMsgChannelAccept *msg) {
 
+  g_return_if_fail(srvc->channel != NULL);
   g_return_if_fail(srvc->channel == chan);
 
   if(MW_SERVICE_IS_STARTING(MW_SERVICE(srvc))) {
     GList *list = NULL;
 
-    g_hash_table_foreach(srvc->entries, collect_aware, &list);
+    list = map_collect_values(srvc->entries);
     send_add(chan, list);
     g_list_free(list);
 
@@ -239,8 +231,9 @@ static void recv_destroy(struct mwServiceAware *srvc,
 			 struct mwChannel *chan,
 			 struct mwMsgChannelDestroy *msg) {
 
+  srvc->channel = NULL;
   mwService_stop(MW_SERVICE(srvc));
-  /** @todo: session sense service. */
+  /** @todo session sense service */
 }
 
 
@@ -643,11 +636,15 @@ void mwServiceAware_setStatus(struct mwServiceAware *srvc,
   idb.id.user = user->user;
   idb.id.community = user->community;
 
+  idb.group = NULL;
   idb.online = TRUE;
+  idb.alt_id = NULL;
 
   idb.status.status = stat->status;
   idb.status.time = stat->time;
   idb.status.desc = stat->desc;
+
+  idb.name = NULL;
 
   status_recv(srvc, &idb);
 }

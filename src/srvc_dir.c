@@ -121,7 +121,6 @@ static struct mwDirectory *dir_new(struct mwAddressBook *book, guint32 id) {
 
 /** called when book is removed from the service book map. Removed all
     directories as well */
-__attribute__((used))
 static void book_free(struct mwAddressBook *book) {
   g_hash_table_destroy(book->dirs);
   g_free(book->name);
@@ -135,11 +134,14 @@ static void book_remove(struct mwAddressBook *book) {
 }
 
 
-__attribute__((used))
-static struct mwAddressBook *book_new(struct mwServiceDirectory *srvc) {
+static struct mwAddressBook *book_new(struct mwServiceDirectory *srvc,
+				      const char *name, guint32 id) {
   struct mwAddressBook *book = g_new0(struct mwAddressBook, 1);
   book->service = srvc;
+  book->id = id;
+  book->name = g_strdup(name);
   book->dirs = map_guint_new_full((GDestroyNotify) dir_free);
+  g_hash_table_insert(srvc->books, book->name, book);
   return book;
 }
 
@@ -210,44 +212,90 @@ static void clear(struct mwServiceDirectory *srvc) {
 }
 
 
-static void recvCreate(struct mwServiceDirectory *srvc,
-		       struct mwChannel *chan,
-		       struct mwMsgChannelCreate *msg) {
+static void recv_create(struct mwServiceDirectory *srvc,
+			struct mwChannel *chan,
+			struct mwMsgChannelCreate *msg) {
 
   /* no way man, we call the shots around here */
   mwChannel_destroy(chan, ERR_FAILURE, NULL);
 }
 
 
-static void recvAccept(struct mwServiceDirectory *srvc,
-		       struct mwChannel *chan,
-		       struct mwMsgChannelAccept *msg) {
-  
+static void recv_accept(struct mwServiceDirectory *srvc,
+			struct mwChannel *chan,
+			struct mwMsgChannelAccept *msg) {
+
+  g_return_if_fail(srvc->channel != NULL);
+  g_return_if_fail(srvc->channel == chan);
+
+  if(MW_SERVICE_IS_STARTING(srvc)) {
+    mwService_started(MW_SERVICE(srvc));
+      
+  } else {
+    mwChannel_destroy(chan, ERR_FAILURE, NULL);
+  }
 }
 
 
-static void recvDestroy(struct mwServiceDirectory *srvc,
-			struct mwChannel *chan,
-			struct mwMsgChannelDestroy *msg) {
-  
+static void recv_destroy(struct mwServiceDirectory *srvc,
+			 struct mwChannel *chan,
+			 struct mwMsgChannelDestroy *msg) {
+
+  srvc->channel = NULL;
+  mwService_stop(MW_SERVICE(srvc));
+  /** @todo session sense service */
 }
 
 
 static void recv_list(struct mwServiceDirectory *srvc,
 		      struct mwOpaque *data) {
+
+  struct mwGetBuffer *b;
+  guint32 request, code, count;
+  gboolean foo_1;
+  guint16 foo_2;
   
+  b = mwGetBuffer_wrap(data);
+  
+  guint32_get(b, &request);
+  guint32_get(b, &code);
+  guint32_get(b, &count);
+
+  gboolean_get(b, &foo_1);
+  guint16_get(b, &foo_2);
+
+  if(foo_1 || foo_2) {
+    mw_debug_mailme(data, "received strange address book list");
+    mwGetBuffer_free(b);
+    return;
+  }
+
+  while(!mwGetBuffer_error(b) && count--) {
+    guint32 id;
+    char *name = NULL;
+
+    guint32_get(b, &id);
+    mwString_get(b, &name);
+
+    book_new(srvc, name, id);
+    g_free(name);
+  }
 }
 
 
 static void recv_open(struct mwServiceDirectory *srvc,
 		      struct mwOpaque *data) {
 
+  /* look up the directory associated with this request id, 
+     mark it as open, and trigger the event */
 }
 
 
 static void recv_search(struct mwServiceDirectory *srvc,
 			struct mwOpaque *data) {
 
+  /* look up the directory associated with this request id,
+     trigger the event */
 }
 
 
@@ -302,9 +350,9 @@ mwServiceDirectory_new(struct mwSession *session,
   service->start = (mwService_funcStart) start;
   service->stop = (mwService_funcStop) stop;
   service->clear = (mwService_funcClear) clear;
-  service->recv_create = (mwService_funcRecvCreate) recvCreate;
-  service->recv_accept = (mwService_funcRecvAccept) recvAccept;
-  service->recv_destroy = (mwService_funcRecvDestroy) recvDestroy;
+  service->recv_create = (mwService_funcRecvCreate) recv_create;
+  service->recv_accept = (mwService_funcRecvAccept) recv_accept;
+  service->recv_destroy = (mwService_funcRecvDestroy) recv_destroy;
   service->recv = (mwService_funcRecv) recv;
 
   srvc->handler = handler;

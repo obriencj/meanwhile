@@ -458,10 +458,11 @@ static void SET_USER_STATUS_recv(struct mwSession *s,
 				 struct mwMsgSetUserStatus *msg) {
   struct mwSessionHandler *sh = s->handler;
 
+  mwUserStatus_clear(&s->status);
+  mwUserStatus_clone(&s->status, &msg->status);
+
   if(sh && sh->on_setUserStatus)
     sh->on_setUserStatus(s);
-
-  mwUserStatus_clone(&s->status, &msg->status);
 }
 
 
