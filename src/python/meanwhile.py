@@ -1,5 +1,13 @@
 
 
+# todo: add more documentation for the base classes and their
+# call-back methods
+
+# todo: the meanwhile library isn't actually thread-safe. Need to put
+# some sort of synchronization wrapper around the feed thread, or
+# remove it. Maybe I can do that in the base type C implementations.
+
+
 import _meanwhile
 from _meanwhile import Channel
 from _meanwhile import Service
@@ -70,16 +78,4 @@ class Session(_meanwhile.Session):
 
     def getThread(self):
         return self._thread
-
-    def onStateChange(self):
-        pass
-
-    def onSetPrivacy(self):
-        pass
-
-    def onSetUserStatus(self):
-        pass
-
-    def onAdmin(self):
-        pass
 
