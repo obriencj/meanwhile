@@ -358,7 +358,15 @@ static void HANDSHAKE_ACK_recv(struct mwSession *s,
   g_return_if_fail(mwSession_isState(s, mwSession_HANDSHAKE) ||
 		   mwSession_isState(s, mwSession_LOGIN_CONT));
 
-  state(s, mwSession_HANDSHAKE_ACK, 0);
+  if(mwSession_isState(s, mwSession_LOGIN_CONT)) {
+    state(s, mwSession_HANDSHAKE_ACK, 0);
+    /* this is a login continuation, don't re-send the login. We
+       should receive a login ack in a moment */
+    return;
+
+  } else {
+    state(s, mwSession_HANDSHAKE_ACK, 0);
+  }
 
   /* record the major/minor versions from the server */
   property_set(s, mwSession_SERVER_VER_MAJOR, GPOINTER(msg->major), NULL);
