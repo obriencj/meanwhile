@@ -486,6 +486,8 @@ static void LOGIN_REDIRECT_recv(struct mwSession *s,
 				struct mwMsgLoginRedirect *msg) {
   struct mwSessionHandler *sh = s->handler;
 
+  state(s, mwSession_LOGIN_REDIR, 0);
+
   if(sh && sh->on_loginRedirect)
     sh->on_loginRedirect(s, msg->host);
 }
