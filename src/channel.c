@@ -230,6 +230,10 @@ int mwChannel_destroy(struct mwChannel *chan,
 
   s = chan->session;
 
+  if(msg) {
+    g_message("destroy: channel 0x%08x, reason 0x%08x", chan->id, msg->reason);
+  }
+
   if(s->on_channelClose)
     s->on_channelClose(chan);
 
@@ -263,8 +267,6 @@ int mwChannel_destroyQuick(struct mwChannel *chan, guint32 reason) {
 
   msg->head.channel = chan->id;
   msg->reason = reason;
-
-  g_message("destroyQuick: channel 0x%08x, reason 0x%08x", chan->id, reason);
   
   ret = mwChannel_destroy(chan, msg);
   mwMessage_free(MW_MESSAGE(msg));
@@ -292,7 +294,9 @@ static int channel_send(struct mwChannel *chan,
 
   if(chan->status == mwChannel_OPEN) {
 
-    g_message("sending %u bytes on channel 0x%08x", msg->data.len, chan->id);
+    /*
+      g_info("sending %u bytes on channel 0x%08x", msg->data.len, chan->id);
+    */
     ret = mwSession_send(chan->session, (struct mwMessage *) msg);
     mwMessage_free(MW_MESSAGE(msg));
 

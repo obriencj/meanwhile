@@ -571,7 +571,7 @@ int mwSession_send(struct mwSession *s, struct mwMessage *msg) {
   char *buf, *b;
   int ret = 0;
 
-  g_return_val_if_fail(s->handler, -1);
+  g_return_val_if_fail(s->handler!= NULL, -1);
 
   /* ensure we could determine the required buflen */
   n = len = mwMessage_buflen(msg);

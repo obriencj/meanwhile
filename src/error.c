@@ -38,8 +38,11 @@ char* mwError(guint32 code) {
     CASE(ERR_VERSION_NO_SUPPORT, "Version is not supported");
     CASE(ERR_USER_SKETCHY, "User is invalid or not trusted");
     CASE(ERR_ALREADY_INITIALIZED, "Already initialized");
+    CASE(ERR_NO_COMMON_ENCRYPT, "No common encryption method");
     
     /* 8.3.1.2 Connection/disconnection errors */
+    CASE(VERSION_MISMATCH, "Version mismatch");
+    CASE(FAT_MESSAGE, "Message is too large");
     CASE(CONNECTION_BROKEN, "Connection broken");
     CASE(CONNECTION_ABORTED, "Connection aborted");
     CASE(CONNECTION_REFUSED, "Connection refused");
@@ -48,6 +51,9 @@ char* mwError(guint32 code) {
     CASE(CONNECTION_CLOSED, "Connection closed");
     CASE(INCORRECT_LOGIN, "Incorrect Username/Password");
     CASE(VERIFICATION_DOWN, "Login verification down or unavailable");
+    CASE(GUEST_IN_USE, "The guest name is currently being used");
+    CASE(MULTI_SERVER_LOGIN, "Login to two different servers concurrently");
+    CASE(MULTI_SERVER_LOGIN2, "Login to two different servers concurrently");
 
     /* 8.3.1.3 Client error codes */
     CASE(ERR_CLIENT_USER_GONE, "User is not online");
