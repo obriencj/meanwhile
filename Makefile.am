@@ -1,8 +1,6 @@
 
 
-EXTRA_DIST =	Makefile.mingw \
-		Makefile.darwin \
-		meanwhile.spec \
+EXTRA_DIST =	meanwhile.spec \
 		meanwhile.pc
 
 

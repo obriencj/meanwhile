@@ -1,60 +1,45 @@
 
-
 #include <stdio.h>
 #include "mw_debug.h"
 
 
-#if (MW_DEBUG == 1)
-#include <stdarg.h>
-
-void debug_printf(const char *c, ...) {
-  va_list args;
-  va_start(args, c);
-  vprintf(c, args);
-  va_end(args);
-}
-
-#else
-
-void debug_printf(const char *c, ...) { ; }
-
-#endif
+#define MW_PRETTY 1
 
 
 #if (MW_PRETTY == 1)
 
-#define frmt "%02x%02x "
-#define buf(n) (unsigned char)buf[n] 
+#define FRM               "%02x"
+#define FRMT              "%02x%02x "
+#define BUF(n)            ((unsigned char) buf[n])
+#define ADVANCE(b, n, c)  {b += c; n -= c;}
 
-void pretty_print(const char *buf, unsigned int len) {
-  while(len > 0) {
+void pretty_print(const char *buf, gsize len) {
+  while(len) {
     if(len >= 16) {
-      printf(frmt frmt frmt frmt frmt frmt frmt frmt "\n",
-             buf(0), buf(1), buf(2), buf(3),
-             buf(4), buf(5), buf(6), buf(7),
-             buf(8), buf(9), buf(10), buf(11),
-             buf(12), buf(13), buf(14), buf(15));
-      buf += 16;
-      len -= 16;
-             
-    } else if(len >= 2) {
-      printf(frmt, buf(0), buf(1));
-      buf += 2;
-      len -= 2;
-      if(!len) putchar('\n');
+      printf(FRMT FRMT FRMT FRMT FRMT FRMT FRMT FRMT "\n",
+             BUF(0),  BUF(1),  BUF(2),  BUF(3),
+             BUF(4),  BUF(5),  BUF(6),  BUF(7),
+             BUF(8),  BUF(9),  BUF(10), BUF(11),
+             BUF(12), BUF(13), BUF(14), BUF(15));
+      ADVANCE(buf, len, 16);
+      continue;
+      
+    } else if(len > 1) {
+      printf(FRMT, BUF(0), BUF(1));
+      ADVANCE(buf, len, 2);
 
     } else {
-      printf("%02x", buf(0));
-      buf++;
-      len--;
-      if(!len) putchar('\n');
+      printf(FRM, BUF(0));
+      ADVANCE(buf, len, 1);
     }
+
+    if(! len) putchar('\n');
   }
 }
 
 #else
 
-void pretty_print(const char *buf, unsigned int len) { ; }
+void pretty_print(const char *buf, gsize len) { ; }
 
 #endif
 

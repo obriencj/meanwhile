@@ -1,16 +1,25 @@
 
-#ifndef _MW_SRVC_STORE_H_
-#define _MW_SRVC_STORE_H_
+#ifndef _MW_SRVC_STORE_H
+#define _MW_SRVC_STORE_H
 
 
 #include <glib.h>
 #include "common.h"
 
 
+/* place-holder */
+struct mwSession;
+
+
 /** @struct mwServiceStorage
     @see mwServiceStorage_new
     Instance of the storage service handler. */
 struct mwServiceStorage;
+
+
+/** @struct mwStorageUnit
+ */
+struct mwStorageUnit;
 
 
 /** These are some of the common keys determined from packet dumps that
@@ -27,25 +36,14 @@ enum mwStorageKey {
 };
 
 
-struct mwStorageUnit {
-  /** key by which data is referenced in service
-      @see mwStorageKey */
-  guint32 key;
-
-  /** Data associated with key in service */
-  struct mwOpaque data;
-};
-
-
 /** Appropriate function type for load and store callbacks.
-    @param srvc the storage service
-    @param result the result value of the load or store call
-    @param item the storage unit loaded or saved
-    @param data user data
- */
+    @param srvc    the storage service
+    @param result  the result value of the load or store call
+    @param item    the storage unit loaded or saved
+    @param data    user data  */
 typedef void (*mwStorageCallback)
      (struct mwServiceStorage *srvc,
-      guint result, struct mwStorageUnit *item, gpointer data);
+      guint32 result, struct mwStorageUnit *item, gpointer data);
 
 
 /** Allocates and initializes a storage service instance for use on
@@ -74,6 +72,10 @@ struct mwStorageUnit *mwStorageUnit_newString(guint32 key,
 					      const char *str);
 
 
+/** get the key for the given storage unit */
+guint32 mwStorageUnit_getKey(struct mwStorageUnit *);
+
+
 /** attempts to obtain a boolean value from a storage unit. If the
     unit is empty, or does not contain the type in a recongnizable
     format, val is returned instead */
@@ -87,6 +89,10 @@ gboolean mwStorageUnit_asBoolean(struct mwStorageUnit *, gboolean val);
 char *mwStorageUnit_asString(struct mwStorageUnit *);
 
 
+/** direct access to the opaque data backing the storage unit */
+struct mwOpaque *mwStorageUnit_asData(struct mwStorageUnit *);
+
+
 /** clears and frees a storage unit */
 void mwStorageUnit_free(struct mwStorageUnit *);
 
@@ -94,10 +100,9 @@ void mwStorageUnit_free(struct mwStorageUnit *);
 /** Initiates a load call to the storage service. If the service is
     not currently available, the call will be cached and processed
     when the service is started.
-    @param item storage unit to load
-    @param cb callback function when the load call completes
-    @param data user data for callback
-*/
+    @param item  storage unit to load
+    @param cb    callback function when the load call completes
+    @param data  user data for callback */
 void mwServiceStorage_load(struct mwServiceStorage *srvc,
 			   struct mwStorageUnit *item,
 			   mwStorageCallback cb, gpointer data);
@@ -106,10 +111,9 @@ void mwServiceStorage_load(struct mwServiceStorage *srvc,
 /** Initiates a store call to the storage service. If the service is
     not currently available, the call will be cached and processed
     when the service is started.
-    @param item storage unit to save
-    @param cb callback function when the load call completes
-    @param data user data for callback
-*/
+    @param item  storage unit to save
+    @param cb    callback function when the load call completes
+    @param data  user data for callback */
 void mwServiceStorage_save(struct mwServiceStorage *srvc,
 			   struct mwStorageUnit *item,
 			   mwStorageCallback cb, gpointer data);

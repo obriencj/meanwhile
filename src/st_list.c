@@ -18,7 +18,9 @@ struct mwSametimeList {
 
 struct mwSametimeGroup {
   struct mwSametimeList *list;
+  char *group;
   char *name;
+  enum mwSametimeGroupType type;
   gboolean open;
   GHashTable *users;
 };
@@ -361,7 +363,7 @@ static char *fetch_line(char **buf, gsize *len) {
 
 
 static int get_version(char *b, struct mwSametimeList *l) {
-  unsigned int major = 0, minor = 0, rev = 0;
+  guint major = 0, minor = 0, rev = 0;
   int ret;
 
   ret = sscanf(b, "Version=%u.%u.%u", &major, &minor, &rev);

@@ -1,0 +1,17 @@
+# Meanwhile Python Test Script Configuration File
+#
+# test.conf is read by the test shell script and used to provide login
+# information to Python.
+
+# User name
+export mw_user=MyTestUser
+
+# Password
+export mw_pass=MyPassword
+
+# Host to connect to.
+export mw_host=server.domain.net
+
+# Port to connect to. Default is normally 1533
+export mw_port=1533
+

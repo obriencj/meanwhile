@@ -1,16 +1,16 @@
 
 
-#include <glib.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 
+#include "channel.h"
 #include "cipher.h"
+#include "mw_debug.h"
+#include "session.h"
 
 
 /** From RFC2268 */
-
-
 static char PT[] = {
   0xD9, 0x78, 0xF9, 0xC4, 0x19, 0xDD, 0xB5, 0xED,
   0x28, 0xE9, 0xFD, 0x79, 0x4A, 0xA0, 0xD8, 0x9D,
@@ -47,7 +47,7 @@ static char PT[] = {
 };
 
 
-void rand_key(char *key, unsigned int keylen) {
+void rand_key(char *key, gsize keylen) {
   srand(clock());
   while(keylen--) key[keylen] = rand() & 0xff;
 }
@@ -74,6 +74,11 @@ void mwIV_init(char *iv) {
 void mwKeyExpand(int *ekey, const char *key, gsize keylen) {
   char tmp[128];
   int i, j;
+
+  /*
+  g_message("expanding key from:");
+  pretty_print(key, keylen);
+  */
 
   if(keylen > 128) keylen = 128;
   memcpy(tmp, key, keylen);
@@ -136,29 +141,33 @@ static void mwEncryptBlock(const int *ekey, char *out) {
 
 
 void mwEncryptExpanded(const int *ekey, char *iv,
-		       const char *in, gsize i_len,
-		       char **out, gsize *o_len) {
-  int x, y;
+		       struct mwOpaque *in_data,
+		       struct mwOpaque *out_data) {
+
+  char *i = in_data->data;
+  gsize i_len = in_data->len;
+
   char *o;
-  int o_l;
+  gsize o_len;
 
-  if(*out == NULL) {
-    o_l = *o_len = (i_len & -8) + 8;
-    o = *out = (char *) g_malloc(o_l);
-    
-  } else {
-    o_l = *o_len;
-    o = *out;
-  }
+  int x, y;
 
-  y = o_l - i_len;
+  /* pad upwards to a multiple of 8 */
+  o_len = (i_len & -8) + 8;
+  o = g_malloc(o_len);
 
-  /* copy in to out, and add padding bytes */
-  memcpy(o, in, i_len);
+  out_data->data = o;
+  out_data->len = o_len;
+
+  /* figure out the amount of padding */
+  y = o_len - i_len;
+
+  /* copy in to out, and write padding bytes */
+  memcpy(o, i, i_len);
   memset(o + i_len, y, y);
 
   /* encrypt in blocks */
-  for(x = o_l; x > 0; x -= 8) {
+  for(x = o_len; x > 0; x -= 8) {
     for(y = 8; y--; o[y] ^= iv[y]);
     mwEncryptBlock(ekey, o);
     memcpy(iv, o, 8);
@@ -168,12 +177,11 @@ void mwEncryptExpanded(const int *ekey, char *iv,
 
 
 void mwEncrypt(const char *key, gsize keylen, char *iv,
-	       const char *in, gsize i_len,
-	       char **out, gsize *o_len) {
+	       struct mwOpaque *in, struct mwOpaque *out) {
 
   int ekey[64];
   mwKeyExpand(ekey, key, keylen);
-  mwEncryptExpanded(ekey, iv, in, i_len, out, o_len);
+  mwEncryptExpanded(ekey, iv, in, out);
 }
 
 
@@ -220,49 +228,353 @@ static void mwDecryptBlock(const int *ekey, char *out) {
 
 
 void mwDecryptExpanded(const int *ekey, char *iv,
-		       const char *in, gsize i_len,
-		       char **out, gsize *o_len) {
-  int x, y;
+		       struct mwOpaque *in_data,
+		       struct mwOpaque *out_data) {
+
+  char *i = in_data->data;
+  gsize i_len = in_data->len;
+
   char *o;
-  int o_l;
+  gsize o_len;
 
-  if(*out == NULL) {
-    o_l = *o_len = i_len;
-    o = *out = (char *) g_malloc(o_l);
-    
-  } else {
-    o_l = *o_len;
-    o = *out;
-  }
+  int x, y;
 
-  memcpy(o, in, i_len);
+  /* this doesn't check to ensure that in_data->len is a multiple of
+     8, which is damn well ought to be. */
 
-  for(x = o_l; x > 0; x -= 8) {
+  o = g_malloc(i_len);
+  o_len = i_len;
+  memcpy(o, i, i_len);
+
+  out_data->data = o;
+  out_data->len = o_len;
+
+  for(x = o_len; x > 0; x -= 8) {
     /* decrypt a block */
     mwDecryptBlock(ekey, o);
-    for(y = 8; y--; o[y] ^= iv[y]);
 
     /* modify the initialization vector */
-    memcpy(iv, in, 8);
-    in += 8;
-
-    /* move ahead along the buffer, but only while there's more */
+    for(y = 8; y--; o[y] ^= iv[y]);
+    memcpy(iv, i, 8);
+    i += 8;
     o += 8;
   }
 
-  /* remove the padding from the length count */
-  x = *(o-1);
-  *o_len -= x;
+  /* shorten the length by the value of the filler in the padding
+     bytes */
+  out_data->len -= *(o - 1);
 }
 
 
 void mwDecrypt(const char *key, gsize keylen, char *iv,
-	       const char *in, gsize i_len,
-	       char **out, gsize *o_len) {
+	       struct mwOpaque *in, struct mwOpaque *out) {
 
   int ekey[64];
   mwKeyExpand(ekey, key, keylen);
-  mwDecryptExpanded(ekey, iv, in, i_len, out, o_len);
+  mwDecryptExpanded(ekey, iv, in, out);
 }
 
+
+struct mwCipher_RC2_40 {
+  struct mwCipher cipher;
+  int session_key[64];
+  gboolean ready;
+};
+
+
+struct mwCipherInstance_RC2_40 {
+  struct mwCipherInstance instance;
+  int incoming_key[64];
+  char outgoing_iv[8];
+  char incoming_iv[8];
+};
+
+
+static const char *get_name_RC2_40() {
+  return "RC2/40 Cipher";
+}
+
+
+static const char *get_desc_RC2_40() {
+  return "RC2, 40-bit effective key";
+}
+
+
+static int encrypt_RC2_40(struct mwCipherInstance *ci,
+			  struct mwOpaque *data) {
+
+  struct mwCipherInstance_RC2_40 *cir;
+  struct mwCipher_RC2_40 *cr;
+  struct mwOpaque o = { 0, 0 };
+
+  cir = (struct mwCipherInstance_RC2_40 *) ci;
+  cr = (struct mwCipher_RC2_40 *) ci->cipher;
+
+  mwEncryptExpanded(cr->session_key, cir->outgoing_iv, data, &o);
+
+  mwOpaque_clear(data);
+  data->data = o.data;
+  data->len = o.len;
+
+  return 0;
+}
+
+
+static int decrypt_RC2_40(struct mwCipherInstance *ci,
+			  struct mwOpaque *data) {
+  
+  struct mwCipherInstance_RC2_40 *cir;
+  struct mwCipher_RC2_40 *cr;
+  struct mwOpaque o = { 0, 0 };
+
+  cir = (struct mwCipherInstance_RC2_40 *) ci;
+  cr = (struct mwCipher_RC2_40 *) ci->cipher;
+
+  mwDecryptExpanded(cir->incoming_key, cir->incoming_iv, data, &o);
+
+  mwOpaque_clear(data);
+  data->data = o.data;
+  data->len = o.len;
+
+  return 0;
+}
+
+
+static struct mwCipherInstance *new_instance_RC2_40(struct mwCipher *cipher,
+						    struct mwChannel *chan) {
+  struct mwCipher_RC2_40 *cr;
+  struct mwCipherInstance_RC2_40 *cir;
+  struct mwCipherInstance *ci;
+
+  cr = (struct mwCipher_RC2_40 *) cipher;
+
+  cir = g_new0(struct mwCipherInstance_RC2_40, 1);
+  ci = &cir->instance;
+
+  ci->cipher = cipher;
+  ci->channel = chan;
+
+  /* a bit of lazy initialization here */
+  if(! cr->ready) {
+    struct mwLoginInfo *info = mwSession_getLoginInfo(cipher->session);
+    mwKeyExpand(cr->session_key, info->login_id, 5);
+    cr->ready = TRUE;
+  }
+
+  mwIV_init(cir->incoming_iv);
+  mwIV_init(cir->outgoing_iv);
+
+  return ci;
+}
+
+
+static struct mwEncryptItem *new_item_RC2_40(struct mwCipherInstance *ci) {
+  struct mwEncryptItem *e = g_new0(struct mwEncryptItem, 1);
+  e->id = mwCipher_RC2_40;
+  return e;
+}
+
+
+static void accept_RC2_40(struct mwCipherInstance *ci) {
+  struct mwCipherInstance_RC2_40 *cir;
+  struct mwLoginInfo *info = mwChannel_getUser(ci->channel);
+
+  cir = (struct mwCipherInstance_RC2_40 *) ci;
+  mwKeyExpand(cir->incoming_key, info->login_id, 5);
+}
+
+
+static void accepted_RC2_40(struct mwCipherInstance *ci,
+			    struct mwEncryptItem *item) {
+  accept_RC2_40(ci);
+}
+
+
+struct mwCipher *mwCipher_new_RC2_40(struct mwSession *s) {
+  struct mwCipher_RC2_40 *cr = g_new0(struct mwCipher_RC2_40, 1);
+  struct mwCipher *c = &cr->cipher;
+
+  c->session = s;
+  c->type = mwCipher_RC2_40;
+  c->get_name = get_name_RC2_40;
+  c->get_desc = get_desc_RC2_40;
+  c->new_instance = new_instance_RC2_40;
+  c->new_item = new_item_RC2_40;
+
+  c->accepted = accepted_RC2_40;
+  c->accept = accept_RC2_40;
+
+  c->encrypt = encrypt_RC2_40;
+  c->decrypt = decrypt_RC2_40;
+
+  return c;
+}
+
+
+struct mwSession *mwCipher_getSession(struct mwCipher *cipher) {
+  g_return_val_if_fail(cipher != NULL, NULL);
+  return cipher->session;
+}
+
+
+guint16 mwCipher_getType(struct mwCipher *cipher) {
+  /* oh man, this is a bad failover... who the hell decided to make
+     zero a real cipher id?? */
+  g_return_val_if_fail(cipher != NULL, 0x00);
+  return cipher->type;
+}
+
+
+const char *mwCipher_getName(struct mwCipher *cipher) {
+  g_return_val_if_fail(cipher != NULL, NULL);
+  g_return_val_if_fail(cipher->get_name != NULL, NULL);
+  return cipher->get_name();
+}
+
+
+const char *mwCipher_getDesc(struct mwCipher *cipher) {
+  g_return_val_if_fail(cipher != NULL, NULL);
+  g_return_val_if_fail(cipher->get_desc != NULL, NULL);
+  return cipher->get_desc();
+}
+
+
+void mwCipher_free(struct mwCipher *cipher) {
+  if(! cipher) return;
+
+  if(cipher->clear)
+    cipher->clear(cipher);
+
+  g_free(cipher);
+}
+
+
+struct mwCipherInstance *mwCipher_newInstance(struct mwCipher *cipher,
+					      struct mwChannel *chan) {
+  g_return_val_if_fail(cipher != NULL, NULL);
+  g_return_val_if_fail(chan != NULL, NULL);
+  g_return_val_if_fail(cipher->new_instance != NULL, NULL);
+  return cipher->new_instance(cipher, chan);
+}
+
+
+struct mwCipher *mwCipherInstance_getCipher(struct mwCipherInstance *ci) {
+  g_return_val_if_fail(ci != NULL, NULL);
+  return ci->cipher;
+}
+
+
+struct mwChannel *mwCipherInstance_getChannel(struct mwCipherInstance *ci) {
+  g_return_val_if_fail(ci != NULL, NULL);
+  return ci->channel;
+}
+
+
+struct mwEncryptItem *mwCipherInstance_newItem(struct mwCipherInstance *ci) {
+  struct mwCipher *cipher;
+
+  g_return_val_if_fail(ci != NULL, NULL);
+  cipher = ci->cipher;
+
+  g_return_val_if_fail(cipher != NULL, NULL);
+  g_return_val_if_fail(cipher->new_item != NULL, NULL);
+
+  return cipher->new_item(ci);
+}
+
+
+void mwCipherInstance_offered(struct mwCipherInstance *ci,
+			      struct mwEncryptItem *item) {
+  struct mwCipher *cipher;
+
+  g_return_if_fail(ci != NULL);
+
+  cipher = ci->cipher;
+  g_return_if_fail(cipher != NULL);
+
+  if(cipher->offered) cipher->offered(ci, item);
+}
+
+
+void mwCipherInstance_offer(struct mwCipherInstance *ci) {
+  struct mwCipher *cipher;
+
+  g_return_if_fail(ci != NULL);
+
+  cipher = ci->cipher;
+  g_return_if_fail(cipher != NULL);
+
+  if(cipher->offer) cipher->offer(ci);
+}
+
+
+void mwCipherInstance_accepted(struct mwCipherInstance *ci,
+			       struct mwEncryptItem *item) {
+  struct mwCipher *cipher;
+
+  g_return_if_fail(ci != NULL);
+
+  cipher = ci->cipher;
+  g_return_if_fail(cipher != NULL);
+
+  if(cipher->accepted) cipher->accepted(ci, item);
+}
+
+
+void mwCipherInstance_accept(struct mwCipherInstance *ci) {
+  struct mwCipher *cipher;
+
+  g_return_if_fail(ci != NULL);
+
+  cipher = ci->cipher;
+  g_return_if_fail(cipher != NULL);
+
+  if(cipher->accept) cipher->accept(ci);
+}
+
+
+int mwCipherInstance_encrypt(struct mwCipherInstance *ci,
+			     struct mwOpaque *data) {
+  struct mwCipher *cipher;
+
+  g_return_val_if_fail(data != NULL, 0);
+
+  if(! ci) return 0;
+  cipher = ci->cipher;
+
+  g_return_val_if_fail(cipher != NULL, -1);
+
+  return (cipher->encrypt)?
+    cipher->encrypt(ci, data): 0;
+}
+
+
+int mwCipherInstance_decrypt(struct mwCipherInstance *ci,
+			     struct mwOpaque *data) {
+  struct mwCipher *cipher;
+
+  g_return_val_if_fail(data != NULL, 0);
+
+  if(! ci) return 0;
+  cipher = ci->cipher;
+
+  g_return_val_if_fail(cipher != NULL, -1);
+
+  return (cipher->decrypt)?
+    cipher->decrypt(ci, data): 0;
+}
+
+
+void mwCipherInstance_free(struct mwCipherInstance *ci) {
+  struct mwCipher *cipher;
+
+  if(! ci) return;
+
+  cipher = ci->cipher;
+
+  if(cipher && cipher->clear_instance)
+    cipher->clear_instance(ci);
+
+  g_free(ci);
+}
 

@@ -4,8 +4,11 @@
 #define _MW_SRVC_AWARE_H_
 
 
-#include <glib/ghash.h>
 #include "common.h"
+
+
+/* place-holder */
+struct mwSession;
 
 
 /** @struct mwServiceAware
@@ -26,13 +29,13 @@ struct mwAwareList;
 
 
 /** Appropriate function type for the on-aware signal
-    @param list mwAwareList emiting the signal
-    @param id awareness status information
-    @param data user-specified data
+    @param list  mwAwareList emiting the signal
+    @param id    awareness status information
+    @param data  user-specified data
 */
 typedef void (*mwAwareList_onAwareHandler)
      (struct mwAwareList *list,
-      struct mwSnapshotAwareIdBlock *id,
+      struct mwAwareSnapshot *id,
       gpointer data);
 
 
@@ -48,30 +51,26 @@ void mwAwareList_free(struct mwAwareList *list);
 
 
 /** Add a collection of user IDs to an aware list.
-    @param list mwAwareList to add user ID to
-    @param id_list array of user IDs to add
-    @param count number of members in id_list
-    @return zero for success, non-zero to indicate an error.
+    @param list     mwAwareList to add user ID to
+    @param id_list  mwAwareIdBlock list of user IDs to add
+    @return         0 for success, non-zero to indicate an error.
 */
-int mwAwareList_addAware(struct mwAwareList *list,
-			 struct mwAwareIdBlock *id_list, guint count);
+int mwAwareList_addAware(struct mwAwareList *list, GList *id_list);
 
 
 /** Remove a collection of user IDs from an aware list.
-    @param list mwAwareList to add user ID to
-    @param id_list array of user IDs to add
-    @param count number of members in id_list
-    @return zero for success, non-zero to indicate an error.
+    @param list     mwAwareList to remove user ID from
+    @param id_list  mwAwareIdBlock list of user IDs to remove
+    @return  0      for success, non-zero to indicate an error.
 */
-int mwAwareList_removeAware(struct mwAwareList *list,
-			    struct mwAwareIdBlock *id_list, guint count);
+int mwAwareList_removeAware(struct mwAwareList *list, GList *id_list);
 
 
 /** Utility function for registering a subscriber to the on-aware signal
     emitted by an aware list.
-    @param list mwAwareList to listen for
-    @param cb callback function
-    @param data user-specific data to be passed along to cb
+    @param list  mwAwareList to listen for
+    @param cb    callback function
+    @param data  user-specific data to be passed along to cb
  */
 void mwAwareList_setOnAware(struct mwAwareList *list,
 			    mwAwareList_onAwareHandler cb, gpointer data);

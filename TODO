@@ -1,21 +1,13 @@
 
-This file updated regularly between snapshots.
-
-
 == General ==
-
-- automake/autoconf tools
-  - look for gaim-devel version?
 
 - mozilla plugin for whiteboard?
   - get tcp dumps from ICT
   - use new session or use existing gaim-driven session?
   - CORBA to communicate between session and moz plugin?
 
-- pybot
 
-
-== libMeanwhile ==
+== Meanwhile ==
 
 - License
   - add LGPL comment to all files
@@ -23,31 +15,10 @@ This file updated regularly between snapshots.
 - Session
   - add support for privacy controls
   - implement LoginRedirect and LoginContinue
-  - add sense service to trigger service init
 
 - Resolve requests
   - mwServiceResolve
   - submit the query with a call-back function
   - on receipt of a reponse, lookup id and call function with results
 
-- Aware service
-  - add support for server-stored buddy list
-
-
-== gaim plugin ==
-
-- License
-  - add GPL comment to all files
-
-- Session
-  - settings for channel cache inactive threshold
-
-
-=== refactoring ===
-
-- service & session
-- channel & session
-- debugging
-- authentication
-- cipher
 

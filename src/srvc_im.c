@@ -21,95 +21,68 @@
 
 
 enum send_actions {
-  mwChannelSend_CHAT_MESSAGE    = 0x0064, /* im */
+  msg_MESSAGE = 0x0064, /* im */
 };
 
 
-enum mwIMType {
-  mwIM_TEXT  = 0x00000001, /* text message */
-  mwIM_DATA  = 0x00000002  /* status message (usually) */
+enum mwImType {
+  mwIm_TEXT  = 0x00000001,  /* text message */
+  mwIm_DATA  = 0x00000002,  /* status message (usually) */
 };
 
 
-enum mwIMDataType {
-  mwIMData_TYPING   = 0x00000001,
-  mwIMData_MESSAGE  = 0x00000004
+enum mwImDataType {
+  mwImData_TYPING  = 0x00000001,
+  mwImData_HTML    = 0x00000004,
 };
 
 
-static int send_create(struct mwChannel *chan) {
-  struct mwMsgChannelCreate *msg;
-  char *b;
-  gsize n;
+struct mwServiceIm {
+  struct mwService service;
+  struct mwServiceImHandler *handler;
+  GList *convs;
+};
 
-  int ret;
 
-  msg = (struct mwMsgChannelCreate *)
-    mwMessage_new(mwMessage_CHANNEL_CREATE);
+struct im_convo {
+  struct mwChannel *chan;
+  struct mwIdBlock target;
+};
 
-  mwIdBlock_clone(&msg->target, &chan->user);
-  msg->channel = chan->id;
-  msg->service = chan->service;
-  msg->proto_type = chan->proto_type;
-  msg->proto_ver = chan->proto_ver;
 
-  msg->addtl.len = n = 8;
-  msg->addtl.data = b = (char *) g_malloc(n);
-  guint32_put(&b, &n, 0x01);
-  guint32_put(&b, &n, 0x01);
-
-  msg->encrypt.type = chan->encrypt.type;
-  msg->encrypt.opaque.len = n = 10;
-  msg->encrypt.opaque.data = b = (char *) g_malloc(n);
-   
-  /* I really want to know what this opaque means. Every client seems
-     to send it or something similar, and it doesn't work without it */
-  guint32_put(&b, &n, 0x00000001);
-  guint32_put(&b, &n, 0x00000000);
-  guint16_put(&b, &n, 0x0000);
-
-  ret = mwChannel_create(chan, msg);
-  mwMessage_free(MW_MESSAGE(msg));
-
-  if(ret) mwChannel_destroy(chan, NULL);
-
-  return ret;
+/** momentarily places a mwLoginInfo into a mwIdBlock */
+static struct mwIdBlock *login_as_id(struct mwLoginInfo *info) {
+  static struct mwIdBlock idb;
+  if(! info) return NULL;
+  idb.user = info->user_id;
+  idb.community = info->community;
+  return &idb;
 }
 
 
-static struct mwChannel *make_channel(struct mwChannelSet *cs,
-				      struct mwIdBlock *user) {
-
-  int ret = 0;
-  struct mwChannel *chan = mwChannel_newOutgoing(cs);
-
-  chan->status = mwChannel_INIT;
-
-  mwIdBlock_clone(&chan->user, user);
-
-  chan->service = mwService_IM;
-  chan->proto_type = mwProtocol_IM;
-  chan->proto_ver = 0x03;
-  chan->encrypt.type = mwEncrypt_RC2_40;
-
-  ret = send_create(chan);
-  return ret? NULL: chan;
-}
+#define CHAN_ID_BLOCK(channel) \
+  (login_as_id(mwChannel_getUser(channel)))
 
 
-static struct mwChannel *find_channel(struct mwChannelSet *cs,
-				      struct mwIdBlock *user) {
+static struct im_convo *convo_find_by_user(struct mwServiceIm *srvc,
+					   struct mwIdBlock *to) {
   GList *l;
-
-  for(l = cs->incoming; l; l = l->next) {
-    struct mwChannel *c = (struct mwChannel *) l->data;
-    if( (c->service == mwService_IM) && mwIdBlock_equal(user, &c->user) )
-      return c;
+  for(l = srvc->convs; l; l = l->next) {
+    struct im_convo *c = l->data;
+    if(mwIdBlock_equal(&c->target, to))
+       return c;
   }
 
-  for(l = cs->outgoing; l; l = l->next) {
-    struct mwChannel *c = (struct mwChannel *) l->data;
-    if( (c->service == mwService_IM) && mwIdBlock_equal(user, &c->user) )
+  return NULL;
+}
+
+
+static struct im_convo *convo_find_by_chan(struct mwServiceIm *srvc,
+					   struct mwChannel *chan) {
+  GList *l;
+  for(l = srvc->convs; l; l = l->next) {
+    struct im_convo *c = l->data;
+    if(c->chan == chan)
       return c;
   }
 
@@ -117,47 +90,104 @@ static struct mwChannel *find_channel(struct mwChannelSet *cs,
 }
 
 
-static int send_accept(struct mwChannel *chan) {
+static struct im_convo *convo_out_new(struct mwServiceIm *srvc,
+				      struct mwIdBlock *to) {
+  struct im_convo *c = NULL;
 
-  struct mwSession *s = chan->session;
-  struct mwMsgChannelAccept *msg;
+  c = convo_find_by_user(srvc, to);
+  if(c) return c;
 
-  char *b;
-  unsigned int n;
-  int ret;
+  c = g_new0(struct im_convo, 1);
+  c->chan = NULL;
+  mwIdBlock_clone(&c->target, to);
 
-  msg = (struct mwMsgChannelAccept *)
-    mwMessage_new(mwMessage_CHANNEL_ACCEPT);
-
-  msg->head.channel = chan->id;
-  msg->service = chan->service;
-  msg->proto_type = chan->proto_type;
-  msg->proto_ver = chan->proto_ver;
-
-  msg->addtl.len = n = 12 + mwUserStatus_buflen(&s->status);
-  msg->addtl.data = b = (char *) g_malloc(n);
-
-  guint32_put(&b, &n, 0x01);
-  guint32_put(&b, &n, 0x01);
-  guint32_put(&b, &n, 0x02);
-  mwUserStatus_put(&b, &n, &s->status);
-
-  msg->encrypt.type = mwEncrypt_RC2_40;
-  msg->encrypt.opaque.len = n = 9; /* 1 + 4 + 4 */
-  msg->encrypt.opaque.data = b = (char *) g_malloc(n);
-
-  gboolean_put(&b, &n, 0);
-  guint32_put(&b, &n, 0x00000000);
-  guint32_put(&b, &n, 0x00100000);
-
-  ret = mwChannel_accept(chan, msg);
-  mwMessage_free(MW_MESSAGE(msg));
-
-  return ret;
+  srvc->convs = g_list_prepend(srvc->convs, c);
+  return c;
 }
 
 
-static void recv_channelCreate(struct mwService *srvc, struct mwChannel *chan,
+static struct im_convo *convo_in_new(struct mwServiceIm *srvc,
+				     struct mwChannel *chan) {
+  struct im_convo *c;
+
+  c = convo_find_by_chan(srvc, chan);
+  if(c) return c;
+
+  c = convo_out_new(srvc, CHAN_ID_BLOCK(chan));
+  c->chan = chan;
+
+  return c;
+}
+
+
+static void convo_create_chan(struct mwServiceIm *srvc,
+			      struct im_convo *c) {
+
+  struct mwSession *s;
+  struct mwChannelSet *cs;
+  struct mwChannel *chan;
+  struct mwLoginInfo *login;
+  struct mwPutBuffer *b;
+
+  if(c->chan) return;
+
+  s = mwService_getSession(MW_SERVICE(srvc));
+  cs = mwSession_getChannels(s);
+
+  chan = mwChannel_newOutgoing(cs);
+
+  mwChannel_setService(chan, MW_SERVICE(srvc));
+  mwChannel_setProtoType(chan, mwProtocol_IM);
+  mwChannel_setProtoVer(chan, 0x03);
+
+  /* set the target */
+  login = mwChannel_getUser(chan);
+  login->user_id = g_strdup(c->target.user);
+  login->community = g_strdup(c->target.community);
+
+  /* compose the addtl create */
+  b = mwPutBuffer_new();
+  guint32_put(b, 0x01);
+  guint32_put(b, 0x01);
+  mwPutBuffer_finalize(mwChannel_getAddtlCreate(chan), b);
+
+  c->chan = mwChannel_create(chan)? NULL: chan;
+}
+
+
+static void convo_destroy(struct mwServiceIm *srvc,
+			  struct im_convo *c, guint32 reason) {
+
+  srvc->convs = g_list_remove_all(srvc->convs, c);
+
+  if(c->chan) {
+    mwChannel_destroy(c->chan, reason, NULL);
+    c->chan = NULL;
+  }
+
+  mwIdBlock_clear(&c->target);
+  g_free(c);
+}
+
+
+static int send_accept(struct mwChannel *chan) {
+  struct mwSession *s = mwChannel_getSession(chan);
+  struct mwUserStatus *stat = mwSession_getUserStatus(s);
+  struct mwPutBuffer *b = mwPutBuffer_new();
+
+  guint32_put(b, 0x01);
+  guint32_put(b, 0x01);
+  guint32_put(b, 0x02);
+  mwUserStatus_put(b, stat);
+
+  mwPutBuffer_finalize(mwChannel_getAddtlAccept(chan), b);
+
+  return mwChannel_accept(chan);
+}
+
+
+static void recv_channelCreate(struct mwService *srvc,
+			       struct mwChannel *chan,
 			       struct mwMsgChannelCreate *msg) {
 
   /* - ensure it's the right service,proto,and proto ver
@@ -166,173 +196,195 @@ static void recv_channelCreate(struct mwService *srvc, struct mwChannel *chan,
      - compose & send a channel accept
   */
 
+  struct mwServiceIm *srvc_im = (struct mwServiceIm *) srvc;
   struct mwSession *s;
-  struct mwChannelSet *cs;
-  unsigned int a, b;
-
-  char *buf = msg->addtl.data;
-  gsize n = msg->addtl.len;
+  struct mwUserStatus *stat;
+  guint32 x, y, z;
+  struct mwGetBuffer *b;
+  struct im_convo *c = NULL;
   
-  s = chan->session;
-  cs = s->channels;
+  s = mwChannel_getSession(chan);
+  stat = mwSession_getUserStatus(s);
 
-  if( (msg->service != mwService_IM) ||
-      (msg->proto_type != mwProtocol_IM) ||
-      (msg->proto_ver != 0x03) ) {
+  x = mwChannel_getServiceId(chan);
+  y = mwChannel_getProtoType(chan);
+  z = mwChannel_getProtoVer(chan);
 
-    g_warning(" unacceptable service/proto/ver, 0x%04x, 0x%04x, 0x%04x",
-	      msg->service, msg->proto_type, msg->proto_ver);
-    mwChannel_destroyQuick(chan, ERR_SERVICE_NO_SUPPORT);
+  if( (x != mwService_IM) || (y != mwProtocol_IM) || (z != 0x03) ) {
+    g_warning("unacceptable service, proto, ver:"
+	      " 0x%08x, 0x%08x, 0x%08x", x, y, z);
+    mwChannel_destroy(chan, ERR_SERVICE_NO_SUPPORT, NULL);
+    return;
+  }
 
-  } else if( guint32_get(&buf, &n, &a) ||
-	     guint32_get(&buf, &n, &b) ) {
+  b = mwGetBuffer_wrap(&msg->addtl);
+  guint32_get(b, &x);
+  guint32_get(b, &y);
+  z = (guint) mwGetBuffer_error(b);
+  mwGetBuffer_free(b);
 
-    g_warning(" bad/malformed addtl");
-    mwChannel_destroyQuick(chan, ERR_SERVICE_NO_SUPPORT);
+  if(z /* buffer error */ ) {
+    g_warning("bad/malformed addtl in IM service");
+    mwChannel_destroy(chan, ERR_SERVICE_NO_SUPPORT, NULL);
 
-  } else if(a != 0x01) {
-    g_message(" unknown params: param = 0x%08x, sub param = 0x%08x", a, b);
-    mwChannel_destroyQuick(chan, ERR_IM_NOT_REGISTERED);
+  } else if(x != 0x01) {
+    g_message("unknown params: 0x%08x, 0x%08x", x, y);
+    mwChannel_destroy(chan, ERR_IM_NOT_REGISTERED, NULL);
+    
+  } else if(y == 0x19) {
+    g_info("rejecting pre-conference as per normal");
+    mwChannel_destroy(chan, ERR_IM_NOT_REGISTERED, NULL);
 
-  } else if(b == 0x19) {
-    g_message(" rejecting pre-conference");
-    mwChannel_destroyQuick(chan, ERR_IM_NOT_REGISTERED);
+  } else if(stat->status == mwStatus_BUSY) {
 
-  } else if(s->status.status == mwStatus_BUSY) {
-    g_message(" rejecting chat due to DND status");
-    mwChannel_destroyQuick(chan, ERR_CLIENT_USER_DND);
-
-  } else {
-    g_message(" accepting: param = 0x01, sub_param = 0x%08x", b);
-
-    if(send_accept(chan)) {
-      g_message(" sending accept failed");
-      mwChannel_destroyQuick(chan, ERR_FAILURE);
+    c = convo_find_by_user(srvc_im, CHAN_ID_BLOCK(chan));
+    if(! c) {
+      g_info("rejecting IM channel due to DND status");
+      mwChannel_destroy(chan, ERR_CLIENT_USER_DND, NULL);
     }
   }
+
+  if(! c) c = convo_in_new(srvc_im, chan);
+  if(send_accept(chan)) g_debug("sending IM channel accept failed");
 }
 
 
 static void recv_channelAccept(struct mwService *srvc, struct mwChannel *chan,
 			       struct mwMsgChannelAccept *msg) {
-  ; /* nuttin' */
+  ; /* nuttin' needs doin' */
 }
 
 
 static void recv_channelDestroy(struct mwService *srvc, struct mwChannel *chan,
 				struct mwMsgChannelDestroy *msg) {
 
-  struct mwServiceIM *srvc_im = (struct mwServiceIM *) srvc;
+  struct mwServiceIm *srvc_im = (struct mwServiceIm *) srvc;
+  struct mwServiceImHandler *h = srvc_im->handler;
+  struct im_convo *c;
 
-  if(chan->status == mwChannel_WAIT) {
+  if(CHANNEL_IS_STATE(chan, mwChannel_WAIT)) {
     /* we were trying to create a channel to this person, but it failed. */
-    if(srvc_im->got_error)
-      srvc_im->got_error(srvc_im, &chan->user, msg->reason);
+    if(h->got_error)
+      h->got_error(srvc_im, CHAN_ID_BLOCK(chan), msg->reason);
     
   } else {
-    if(srvc_im->got_typing)
-      srvc_im->got_typing(srvc_im, &chan->user, FALSE);
+    if(h->got_typing)
+      h->got_typing(srvc_im, CHAN_ID_BLOCK(chan), FALSE);
   }
+
+  c = convo_find_by_chan(srvc_im, chan);
+  c->chan = NULL;
 }
 
 
-static int recv_text(struct mwServiceIM *srvc, struct mwChannel *chan,
-		     const char *b, unsigned int n) {
+static void recv_text(struct mwServiceIm *srvc, struct mwChannel *chan,
+		      struct mwGetBuffer *b) {
 
-  char *text;
-  if( mwString_get((char **) &b, &n, &text) )
-    return -1;
+  struct mwServiceImHandler *h;
+  char *text = NULL;
 
-  /* sometimes we receive a zero-length string. Let's ignore those */
-  if(!text || !*text) return 0;
+  mwString_get(b, &text);
 
-  /* we're active again */
-  mwChannel_markActive(chan, TRUE);
+  /* ignore empty strings */
+  if(! text) return;
 
-  if(srvc->got_text)
-    srvc->got_text(srvc, &chan->user, text);
+  h = srvc->handler;
+  if(h->got_text)
+    h->got_text(srvc, CHAN_ID_BLOCK(chan), text);
 
   g_free(text);
-  return 0;
 }
 
 
-static int recv_data(struct mwServiceIM *srvc, struct mwChannel *chan,
-		     const char *b, unsigned int n) {
+static void recv_data(struct mwServiceIm *srvc, struct mwChannel *chan,
+		      struct mwGetBuffer *b) {
 
-  unsigned int t, st;
-  struct mwOpaque o;
-  char *x;
+  struct mwServiceImHandler *h;
+  guint32 type, subtype;
+  struct mwOpaque o = { 0, 0 };
 
-  if( guint32_get((char **) &b, &n, &t) ||
-      guint32_get((char **) &b, &n, &st) ||
-      mwOpaque_get((char **) &b, &n, &o) )
-    return -1;
+  guint32_get(b, &type);
+  guint32_get(b, &subtype);
+  mwOpaque_get(b, &o);
 
-  switch(t) {
-  case mwIMData_TYPING:
-    if(srvc->got_typing)
-      srvc->got_typing(srvc, &chan->user, !st);
+  if(mwGetBuffer_error(b)) {
+    mwOpaque_clear(&o);
+    return;
+  }
+
+  h = srvc->handler;
+
+  switch(type) {
+  case mwImData_TYPING:
+    if(h->got_typing)
+      h->got_typing(srvc, CHAN_ID_BLOCK(chan), !subtype);
     break;
 
-  case mwIMData_MESSAGE:
-    /* a data message with a text message in it. what client is
-       sending these, and why? Could this be Notes Buddy sending html
-       messages? */
+  case mwImData_HTML:
+    if(o.len && h->got_html) {
+      char *x;
 
-    if(o.len) {
-      mwChannel_markActive(chan, TRUE);
+      x = (char *) g_malloc(o.len + 1);
+      x[o.len] = '\0';
+      memcpy(x, o.data, o.len);
 
-      if(srvc->got_text) {
-	x = (char *) g_malloc(o.len + 1);
-	x[o.len] = '\0';
-	memcpy(x, o.data, o.len);
-	srvc->got_text(srvc, &chan->user, x);
-	g_free(x);
-      }
+      h->got_html(srvc, CHAN_ID_BLOCK(chan), x);
+      g_free(x);
     }
     break;
 
   default:
-    g_warning("unknown data message subtype 0x%04x for im service\n", t);
+    g_warning("unknown data message type in IM service:"
+	      " 0x%08x, 0x%08x", type, subtype);
   }
 
   mwOpaque_clear(&o);
-  return 0;
 }
 
 
 static void recv(struct mwService *srvc, struct mwChannel *chan,
-		 guint16 type, const char *b, gsize n) {
+		 guint16 type, struct mwOpaque *data) {
 
   /* - ensure message type is something we want
      - parse message type into either mwIMText or mwIMData
      - handle
   */
 
-  unsigned int mt;
-  int ret = 0;
+  struct mwGetBuffer *b;
+  guint32 mt;
 
-  g_return_if_fail( type == mwChannelSend_CHAT_MESSAGE );
-  g_return_if_fail( ! (ret = guint32_get((char **) &b, &n, &mt)) );
+  g_return_if_fail(type == msg_MESSAGE);
+
+  g_message(" --> srvc_im:recv");
+
+  b = mwGetBuffer_wrap(data);
+  guint32_get(b, &mt);
+
+  if(mwGetBuffer_error(b)) {
+    g_warning("failed to parse message for IM service");
+    mwGetBuffer_free(b);
+    return;
+  }
 
   switch(mt) {
-  case mwIM_TEXT:
-    ret = recv_text((struct mwServiceIM *) srvc, chan, b, n);
+  case mwIm_TEXT:
+    recv_text((struct mwServiceIm *) srvc, chan, b);
     break;
 
-  case mwIM_DATA:
-    ret = recv_data((struct mwServiceIM *) srvc, chan, b, n);
+  case mwIm_DATA:
+    recv_data((struct mwServiceIm *) srvc, chan, b);
     break;
 
   default:
-    g_warning("unknown message type 0x%04x for im service", mt);
+    g_warning("unknown message type 0x%08x for IM service", mt);
   }
 
-  if(ret) {
-    g_warning("failed to parse message of type 0x%04x for im service", mt);
-    /* consider closing the channel */
-  }
+  if(mwGetBuffer_error(b))
+    g_warning("failed to parse message type 0x%08x for IM service", mt);
+
+  mwGetBuffer_free(b);
+
+  g_message(" <-- srvc_im:recv");
 }
 
 
@@ -341,23 +393,39 @@ static void clear(struct mwService *srvc) {
 }
 
 
-static const char *name() {
+static const char *name(struct mwService *srvc) {
   return "Basic Instant Messaging";
 }
 
 
-static const char *desc() {
+static const char *desc(struct mwService *srvc) {
   return "A simple IM service, with typing notification";
 }
 
 
-struct mwServiceIM *mwServiceIM_new(struct mwSession *session) {
-  struct mwServiceIM *srvc_im = g_new0(struct mwServiceIM, 1);
-  struct mwService *srvc = &srvc_im->service;
+static void start(struct mwService *srvc) {
+  mwService_started(srvc);
+}
 
-  srvc->session = session;
-  srvc->type = mwService_IM; /* one of the BaseSericeTypes */
 
+static void stop(struct mwService *srvc) {
+  mwService_stopped(srvc);
+}
+
+
+struct mwServiceIm *mwServiceIm_new(struct mwSession *session,
+				    struct mwServiceImHandler *hndl) {
+
+  struct mwServiceIm *srvc_im;
+  struct mwService *srvc;
+
+  g_return_val_if_fail(session != NULL, NULL);
+  g_return_val_if_fail(hndl != NULL, NULL);
+
+  srvc_im = g_new0(struct mwServiceIm, 1);
+  srvc = &srvc_im->service;
+
+  mwService_init(srvc, session, mwService_IM);
   srvc->recv_channelCreate = recv_channelCreate;
   srvc->recv_channelAccept = recv_channelAccept;
   srvc->recv_channelDestroy = recv_channelDestroy;
@@ -365,86 +433,129 @@ struct mwServiceIM *mwServiceIM_new(struct mwSession *session) {
   srvc->clear = clear;
   srvc->get_name = name;
   srvc->get_desc = desc;
+  srvc->start = start;
+  srvc->stop = stop;
+
+  srvc_im->handler = hndl;
+  srvc_im->convs = NULL;
 
   return srvc_im;
 }
 
 
-int mwServiceIM_sendText(struct mwServiceIM *srvc,
-			 struct mwIdBlock *target, const char *text) {
-  char *buf, *b;
-  gsize len, n;
+struct mwServiceImHandler *mwServiceIm_getHandler(struct mwServiceIm *srvc) {
+  g_return_val_if_fail(srvc != NULL, NULL);
+  return srvc->handler;
+}
 
+
+int mwServiceIm_sendText(struct mwServiceIm *srvc,
+			 struct mwIdBlock *target,
+			 const char *text) {
+
+  struct im_convo *c;
+  struct mwPutBuffer *b;
+  struct mwOpaque o;
   int ret;
 
-  struct mwChannelSet *cs;
-  struct mwChannel *chan;
+  g_return_val_if_fail(srvc != NULL, -1);
+  g_return_val_if_fail(target != NULL, -1);
+  
+  c = convo_out_new(srvc, target);
+  if(! c->chan) convo_create_chan(srvc, c);
 
-  g_return_val_if_fail(srvc && srvc->service.session, -1);
+  b = mwPutBuffer_new();
 
-  cs = srvc->service.session->channels;
-  chan = find_channel(cs, target);
+  guint32_put(b, mwIm_TEXT);
+  mwString_put(b, text);
 
-  if(! chan) chan = make_channel(cs, target);
-  g_return_val_if_fail(chan, -1);
+  mwPutBuffer_finalize(&o, b);
+  ret = mwChannel_send(c->chan, msg_MESSAGE, &o);
+  mwOpaque_clear(&o);
 
-  len = n = 4 + mwString_buflen(text);
-  buf = b = (char *) g_malloc(len);
-
-  if( guint32_put(&b, &n, mwIM_TEXT) ||
-      mwString_put(&b, &n, text) )
-    return -1;
-
-  ret = mwChannel_send(chan, mwChannelSend_CHAT_MESSAGE, buf, len);
-  g_free(buf);
   return ret;
 }
 
 
-int mwServiceIM_sendTyping(struct mwServiceIM *srvc,
-			   struct mwIdBlock *target, gboolean typing) {
-  char *buf, *b;
-  gsize len, n;
+int mwServiceIm_sendHtml(struct mwServiceIm *srvc,
+			 struct mwIdBlock *target,
+			 const char *html) {
 
+  struct im_convo *c;
+  struct mwPutBuffer *b;
+  struct mwOpaque o;
   int ret;
 
-  struct mwChannelSet *cs;
-  struct mwChannel *chan;
+  g_return_val_if_fail(srvc != NULL, -1);
+  g_return_val_if_fail(target != NULL, -1);
+  
+  c = convo_out_new(srvc, target);
+  if(! c->chan) convo_create_chan(srvc, c);
 
-  g_return_val_if_fail(srvc && srvc->service.session, -1);
+  b = mwPutBuffer_new();
 
-  cs = srvc->service.session->channels;
-  chan = find_channel(cs, target);
+  guint32_put(b, mwIm_DATA);
+  guint32_put(b, mwImData_HTML);
+  guint32_put(b, 0x00);  /* what does notesbuddy send? */
 
-  /* don't bother creating a channel just to send a typing notificiation */
-  if(! chan) return 0;
+  /* use o first as a shell of an opaque for the text */
+  o.len = strlen(html);
+  o.data = (char *) html;
+  mwOpaque_put(b, &o);
 
-  len = n = 16; /* im type + data type + data subtype + opaque len */
-  buf = b = (char *) g_malloc(len);
+  /* use o again as the holder of the buffer's finalized data */
+  mwPutBuffer_finalize(&o, b);
+  ret = mwChannel_send(c->chan, msg_MESSAGE, &o);
+  mwOpaque_clear(&o);
 
-  if( guint32_put(&b, &n, mwIM_DATA) ||
-      guint32_put(&b, &n, mwIMData_TYPING) ||
-      guint32_put(&b, &n, !typing) ||
-      guint32_put(&b, &n, 0x00000000) ) /* an opaque with nothing in it */
-    return -1;
-
-  ret = mwChannel_send(chan, mwChannelSend_CHAT_MESSAGE, buf, len);
-  g_free(buf);
   return ret;
 }
 
 
-void mwServiceIM_closeChat(struct mwServiceIM *srvc,
+int mwServiceIm_sendTyping(struct mwServiceIm *srvc,
+			   struct mwIdBlock *target,
+			   gboolean typing) {
+
+  struct im_convo *c;
+  struct mwPutBuffer *b;
+  struct mwOpaque o = { 0, NULL };
+  int ret;
+
+  g_return_val_if_fail(srvc != NULL, -1);
+  g_return_val_if_fail(target != NULL, -1);
+
+  c = convo_out_new(srvc, target);
+  
+  /* don't bother creating a channel just to send a typing
+     notificiation message, sheesh */
+  if(! c->chan) return 0;
+
+  b = mwPutBuffer_new();
+
+  guint32_put(b, mwIm_DATA);
+  guint32_put(b, mwImData_TYPING);
+  guint32_put(b, !typing);
+
+  /* not to be confusing, but we're re-using o first as an empty
+     opaque, and later as the contents of the finalized buffer */
+  mwOpaque_put(b, &o);
+
+  mwPutBuffer_finalize(&o, b);
+  ret = mwChannel_send(c->chan, msg_MESSAGE, &o);
+  mwOpaque_clear(&o);
+
+  return ret;
+}
+
+
+void mwServiceIm_closeChat(struct mwServiceIm *srvc,
 			   struct mwIdBlock *target) {
 
-  struct mwChannelSet *cs;
-  struct mwChannel *chan;
+  struct im_convo *c;
 
-  g_return_if_fail(srvc && srvc->service.session && target);
+  g_return_if_fail(srvc != NULL);
+  g_return_if_fail(target != NULL);
 
-  cs = srvc->service.session->channels;
-  chan = find_channel(cs, target);
-
-  if(chan) chan->inactive = time(NULL);
-  /* may want to ensure that a stopped-typing message is sent */
+  c = convo_find_by_user(srvc, target);
+  if(c) convo_destroy(srvc, c, ERR_SUCCESS);
 }

@@ -1,0 +1,12 @@
+#! /bin/sh
+
+# obtain configuration data
+. test.conf
+
+cd src/python
+if test "$1" = "debug" ; then
+	LD_LIBRARY_PATH=../.libs/ gdb --args python -v test.py
+else
+	LD_LIBRARY_PATH=../.libs/ python test.py 
+fi
+

@@ -1,17 +1,33 @@
-Summary: Meanwhile
+# Christopher (siege) O'Brien  <siege@preoccupied.net>
+
+%define with_python_subpackage  @WITH_PYTHON_SUBPACKAGE@%{nil}
+%define with_python_version     @WITH_PYTHON_VERSION@%{nil}
+
+
+Summary: Lotus Sametime Community Client library
 Name: @PACKAGE@
 Epoch: 0
 Version: @VERSION@
 Release: @RELEASE@
 License: LGPL
 Group: Applications/Internet
-URL: http://meanwhile.sf.net/
+URL: http://meanwhile.sourceforge.net/
+
+Requires: glib2 >= @GLIB_VERSION@
+
 Source0: %{name}-%{version}.tar.gz
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-buildroot
+BuildRequires: glib2-devel >= @GLIB_VERSION@
+
+%if %{with_python_subpackage}
+BuildRequires: python-devel >= %{with_python_version}
+%endif
 
 
 %description
-Lotus Sametime Community Client library
+Library for connecting as a client to a Lotus Sametime
+community. Provides a simplified interface for authentication,
+presence, messaging, conferencing, and remote preferences.
 
 
 %prep
@@ -19,61 +35,76 @@ Lotus Sametime Community Client library
 
 
 %build
-rm -rf %{buildroot}
 %configure
-make prefix=%{buildroot}%{_prefix} bindir=%{buildroot}%{_bindir} \
-     datadir=%{buildroot}%{_datadir} includedir=%{buildroot}%{_includedir} \
-     libdir=%{buildroot}%{_libdir} mandir=%{buildroot}%{_mandir} \
-     sysconfdir=%{buildroot}%{_sysconfdir} \
-     all
+%{__make} %{?_smp_mflags}
 
 
 %install
-make prefix=%{buildroot}%{_prefix} bindir=%{buildroot}%{_bindir} \
-     datadir=%{buildroot}%{_datadir} includedir=%{buildroot}%{_includedir} \
-     libdir=%{buildroot}%{_libdir} mandir=%{buildroot}%{_mandir} \
-     sysconfdir=%{buildroot}%{_sysconfdir} \
-     install
+%{__rm} -rf %{buildroot}
+%{makeinstall}
 
 
 %clean
-rm -rf %{buildroot}
+%{__rm} -rf %{buildroot}
 
 
 %files
-%defattr(-,root,root,-)
-%{_libdir}/libmeanwhile.*
+%defattr(-,root,root,0755)
+%doc AUTHORS ChangeLog COPYING INSTALL NEWS README TODO
+%{_libdir}/libmeanwhile.so*
 
 
 %package devel
 Group: Applications/Internet
-Summary: Development packages for the Meanwhile library
+Summary: Development package for the Meanwhile library
 License: LGPL
-Requires: meanwhile = %{epoch}:%{version}-%{release}
-
+Requires: %{name} = %{version}-%{release}
 
 %description devel
-Development packages for the Meanwhile library
+Development package for the Meanwhile library
 
 
 %files devel
 %defattr(-,root,root,-)
-%dir %{_includedir}/meanwhile
-%{_includedir}/meanwhile/*.h
+%{_includedir}/meanwhile/
+%{_libdir}/libmeanwhile.a
+%{_libdir}/libmeanwhile.la
 %{_libdir}/pkgconfig/meanwhile.pc
 
 
-%post -n meanwhile
-/sbin/ldconfig
+%if %{with_python_subpackage}
+%package python
+Group: Applications/Internet
+Summary: Python bindings for the Meanwhile library
+License: LGPL
+Requires: %{name} = %{version}-%{release}
+Requires: python >= %{with_python_version}
+
+%description python
+The meanwhile-python package contains a module that permits applications
+written in the Python programming language to use the interface supplied
+by the Meanwhile library.
+
+%files python
+%defattr(-,root,root,-)
+%{__libdir}/python%{with_python_version}/site-packages/mwmodule.so
+
+%endif
 
 
-%postun -n meanwhile
-if [ "$1" -ge "1" ]; then
-  /sbin/ldconfig
-fi
+%post
+/sbin/ldconfig 2> /dev/null
+
+
+%postun
+/sbin/ldconfig 2> /dev/null
 
 
 %changelog
+* Thu Jul 22 2004  <siege@preoccupied.net>
+- moved .a, .la into -devel package
+- added docs to install
+
 * Mon May 10 2004  <siege@preoccupied.net>
 - Separated meanwhile from meanwhile-gaim
 - First distribution with autoconf/automake/libtool

@@ -4,18 +4,18 @@
 #define _MW_CHANNEL_H
 
 
-#include <glib.h>
-#include <glib/gslist.h>
 #include <time.h>
 #include "common.h"
 
 
 /* place-holders */
-struct mwSession;
-struct mwMsgChannelCreate;
+struct mwCipherInstance;
 struct mwMsgChannelAccept;
+struct mwMsgChannelCreate;
 struct mwMsgChannelDestroy;
 struct mwMsgChannelSend;
+struct mwService;
+struct mwSession;
 
 
 /** @file channel.h
@@ -27,7 +27,7 @@ collection in state NEW, then it is returned. Otherwise, a channel
 is allocated, assigned a unique outgoing id, marked as NEW, and
 returned.
 
-2: channel is set to INIT status (effectively earmarking it as in
+2: channel is set to INIT status (effectively earmarking it as in-
 use).  fields on the channel can then be set as necessary to
 prepare it for creation.
 
@@ -72,6 +72,16 @@ the server.  The channel is cleaned up, its queues dumped, and it
 is deallocated. */
 
 
+/** @struct mwChannel
+    Represents a channel to a service */
+struct mwChannel;
+
+
+/** @struct mwChannelSet
+    Collection of channels */
+struct mwChannelSet;
+
+
 /** this should never ever need to change, but just in case... */
 #define MASTER_CHANNEL_ID  0x00000000
 
@@ -85,82 +95,53 @@ is deallocated. */
 #endif
 
 
-/** 1 if a channel id appears to be that of an incoming channel, or 0 if not */
-#define CHAN_ID_IS_INCOMING(id) \
-  (0x80000000 & (id))
-
-
-/** 1 if a channel id appears to be that of an outgoing channel, or 0 if not */
+/** 1 if a channel id appears to be that of an outgoing channel, else
+    0 */
 #define CHAN_ID_IS_OUTGOING(id) \
-  (! CHAN_ID_IS_INCOMING(id))
+  (! (0x80000000 & (id)))
 
 
-/** 1 if a channel appears to be an incoming channel, or 0 if not */
-#define CHAN_IS_INCOMING(chan) \
-  CHAN_ID_IS_INCOMING((chan)->id)
+/** 1 if a channel id appears to be that of an incoming channel, else
+    0 */
+#define CHAN_ID_IS_INCOMING(id) \
+  (! CHAN_ID_IS_OUTGOING(id))
 
 
-/** 1 if a channel appears to be an outgoing channel, or 0 if not */
+/** 1 if a channel appears to be an outgoing channel, else 0 */
 #define CHAN_IS_OUTGOING(chan) \
   CHAN_ID_IS_OUTGOING((chan)->id)
 
 
-/** @struct mwChannelSet
-    Collection of channels. */
-struct mwChannelSet {
-  struct mwSession *session;
-  GList *outgoing;
-  GList *incoming;
-};
+/** 1 if a channel appears to be an incoming channel, else 0 */
+#define CHAN_IS_INCOMING(chan) \
+  CHAN_ID_IS_INCOMING((chan)->id)
 
 
 /** channel status */
-enum mwChannelStatus {
-  mwChannel_NEW   = 0x00,
-  mwChannel_INIT  = 0x01,
-  mwChannel_WAIT  = 0x10,
-  mwChannel_OPEN  = 0x80
+enum mwChannelState {
+  mwChannel_NEW,      /**< channel is newly allocated, in the pool */
+  mwChannel_INIT,     /**< channel is being prepared, out of the pool */
+  mwChannel_WAIT,     /**< channel is waiting for accept */
+  mwChannel_OPEN,     /**< channel is accepted and open */
+  mwChannel_DESTROY,  /**< channel is being destroyed */
+  mwChannel_ERROR,    /**< channel is being destroyed due to error */
+  mwChannel_UNKNOWN,  /**< unknown state, or error determining state */
 };
 
 
-struct mwChannel {
+#define CHANNEL_IS_STATE(chan, state) \
+  (mwChannel_getState(chan) == (state))
 
-  /** session this channel belongs to */
-  struct mwSession *session;
 
-  enum mwChannelStatus status;
-
-  /** timestamp when channel was marked as inactive. */
-  unsigned int inactive;
-
-  /** creator for incoming channel, target for outgoing channel */
-  struct mwIdBlock user;
-
-  /* similar to data from the CreateCnl message in 8.4.1.7 */
-  guint32 reserved;
-  guint32 id;
-  guint32 service;
-  guint32 proto_type;
-  guint32 proto_ver;
-
-  /** encryption information from the channel create message */
-  struct mwEncryptBlock encrypt;
-
-  /** the expanded rc2/40 key for receiving encrypted messages */
-  int incoming_key[64];
-  char outgoing_iv[8];  /**< iv for outgoing messages */
-  char incoming_iv[8];  /**< iv for incoming messages */
-
-  GSList *outgoing_queue; /**< queued outgoing messages */
-  GSList *incoming_queue; /**< queued incoming messages */
-
-  /** optional slot for attaching an extra bit of state, usually by
-      the owning service */
-  void *addtl;
-
-  /** optional cleanup function. Useful for ensuring proper cleanup of
-      an attached value in the addtl slot. */
-  void (*clear)(struct mwChannel *);
+/** channel statistic fields.
+    @see mwChannel_getStatistic */
+enum mwChannelStatField {
+  mwChannelStat_MSG_SENT,      /**< total send-on-chan messages sent */
+  mwChannelStat_MSG_RECV,      /**< total send-on-chan messages received */
+  mwChannelStat_U_BYTES_SENT,  /**< total bytes sent, pre-encryption */
+  mwChannelStat_U_BYTES_RECV,  /**< total bytes received, post-decryption */
+  mwChannelStat_OPENED_AT,     /**< time when channel was opened */
+  mwChannelStat_CLOSED_AT,     /**< time when channel was closed */
 };
 
 
@@ -168,30 +149,121 @@ struct mwChannel {
 struct mwChannelSet *mwChannelSet_new(struct mwSession *);
 
 
-/** Clear and deallocate a channel set */
+/** Clear and deallocate a channel set. Closes, clears, and frees all
+    contained channels. */
 void mwChannelSet_free(struct mwChannelSet *);
 
 
-/** intended to be called periodically to close channels which have
-    been marked as inactive since before the threshold timestamp. */
-void mwChannelSet_destroyInactive(struct mwChannelSet *, time_t thrsh);
-
-
-/** Create a new incoming channel with the given channel id */
+/** Create an incoming channel with the given channel id. Channel's state
+    will be set to WAIT */
 struct mwChannel *mwChannel_newIncoming(struct mwChannelSet *, guint32 id);
 
 
-/** Create a new outgoing channel. Its channel ID will be generated by
-    the owning channel set */
+/** Create an outgoing channel. Its channel ID will be generated by
+    the owning channel set. Channel's state will be set to INIT */
 struct mwChannel *mwChannel_newOutgoing(struct mwChannelSet *);
 
 
-/** marks a channel as active or inactive.
-    @param chan The channel to mark
-    @param active TRUE to mark the channel as active, FALSE to mark it
-    as inactive
- */
-void mwChannel_markActive(struct mwChannel *chan, gboolean active);
+/** Obtain a reference to a channel by its id.
+    @returns the channel matching chan, or NULL */
+struct mwChannel *mwChannel_find(struct mwChannelSet *cs, guint32 chan);
+
+
+/** get the ID for a channel. 0x00 indicates an error, as that is not
+    a permissible value */
+guint32 mwChannel_getId(struct mwChannel *);
+
+
+/** get the session for a channel. */
+struct mwSession *mwChannel_getSession(struct mwChannel *);
+
+
+/** get the ID of the service for a channel. This may be 0x00 for NEW
+    channels */
+guint32 mwChannel_getServiceId(struct mwChannel *);
+
+
+/** get the service for a channel. This may be NULL for NEW
+    channels */
+struct mwService *mwChannel_getService(struct mwChannel *);
+
+
+/** associate a channel with an owning service */
+void mwChannel_setService(struct mwChannel *chan, struct mwService *srvc);
+
+
+/** get service-specific data. This is for use by service
+    implementations to easily associate information with the
+    channel */
+gpointer mwChannel_getServiceData(struct mwChannel *chan);
+
+
+/** set service-specific data. This is for use by service
+    implementations to easily associate information with the
+    channel */
+void mwChannel_setServiceData(struct mwChannel *chan, gpointer data);
+
+
+guint32 mwChannel_getProtoType(struct mwChannel *chan);
+
+
+void mwChannel_setProtoType(struct mwChannel *chan, guint32 proto_type);
+
+
+guint32 mwChannel_getProtoVer(struct mwChannel *chan);
+
+
+void mwChannel_setProtoVer(struct mwChannel *chan, guint32 proto_ver);
+
+
+guint32 mwChannel_getOptions(struct mwChannel *chan);
+
+
+void mwChannel_setOptions(struct mwChannel *chan, guint32 options);
+
+
+/** User at the other end of the channel. The target user for outgoing
+    channels, the creator for incoming channels */
+struct mwLoginInfo *mwChannel_getUser(struct mwChannel *chan);
+
+
+/** direct reference to the create addtl information for a channel */
+struct mwOpaque *mwChannel_getAddtlCreate(struct mwChannel *);
+
+
+/** direct reference to the accept addtl information for a channel */
+struct mwOpaque *mwChannel_getAddtlAccept(struct mwChannel *);
+
+
+/** automatically adds instances of all ciphers in the session to the
+    list of supported ciphers for a channel */
+void mwChannel_populateSupportedCipherInstances(struct mwChannel *chan);
+
+
+/** add a cipher instance to a channel's list of supported
+    ciphers. Channel must be NEW. */
+void mwChannel_addSupportedCipherInstance(struct mwChannel *chan,
+					  struct mwCipherInstance *ci);
+
+
+/** the list of supported ciphers for a channel. This list will be
+    empty once a cipher has been selected for the channel */
+GList *mwChannel_getSupportedCipherInstances(struct mwChannel *chan);
+
+
+/** select a cipher instance for a channel. A NULL instance indicates
+    that no encryption should be used. */
+void mwChannel_selectCipherInstance(struct mwChannel *chan,
+				    struct mwCipherInstance *ci);
+
+
+/** get the state of a channel  */
+enum mwChannelState mwChannel_getState(struct mwChannel *);
+
+
+/** obtain the value for a statistic field as a gpointer */
+gpointer mwChannel_getStatistic(struct mwChannel *chan,
+				enum mwChannelStatField stat);
 
 
 /** Formally open a channel.
@@ -202,50 +274,50 @@ void mwChannel_markActive(struct mwChannel *chan, gboolean active);
    
     For incoming channels: configures the channel according to options
     in the channel create message. Marks the channel as being in WAIT
-    status */
-int mwChannel_create(struct mwChannel *chan,
-		     struct mwMsgChannelCreate *msg);
-
-
-/** Formally accept a channel.
-  
-    For outgoing channels: receives the acceptance message and marks
-    the channel as being OPEN.
-
-    For incoming channels: instruct the session to send a channel
-    accept message to the server, and to mark the channel (which must
-    be an incoming channel in WAIT status) as being OPEN. */
-int mwChannel_accept(struct mwChannel *, struct mwMsgChannelAccept *);
-
-
-/** Formally destroy a channel. The channel may be either incoming or
-    outgoing, but must be in WAIT or OPEN status. */
-int mwChannel_destroy(struct mwChannel *chan,
-		      struct mwMsgChannelDestroy *msg);
-
-
-/** Destroy a channel. Composes and sends channel destroy message with
-    the passed reason, and send it via mwChannel_destroy. Has no
-    effect if chan is NULL.
-
-    @returns value of mwChannel_destroy call, or zero if chan is NULL
+    status
 */
-int mwChannel_destroyQuick(struct mwChannel *chan, guint32 reason);
+int mwChannel_create(struct mwChannel *chan);
+
+
+/** Formally accept an incoming channel. Instructs the session to send
+    a channel accept message to the server, and to mark the channel as
+    being OPEN. */
+int mwChannel_accept(struct mwChannel *chan);
+
+
+/** Destroy a channel. Sends a channel-destroy message to the server,
+    and perform cleanup to remove the channel.
+
+    @param chan    the channel to destroy
+    @param reason  the reason code for closing the channel
+    @param data    optional additional information 
+*/
+int mwChannel_destroy(struct mwChannel *chan, guint32 reason,
+		      struct mwOpaque *data);
 
 
 /** Compose a send-on-channel message, encrypt it as per the channel's
     specification, and send it */
 int mwChannel_send(struct mwChannel *chan, guint32 msg_type,
-		   const char *buf, gsize len);
+		   struct mwOpaque *msg);
+
+
+/**  */
+void mwChannel_recvCreate(struct mwChannel *chan,
+			  struct mwMsgChannelCreate *msg);
+
+/**  */
+void mwChannel_recvAccept(struct mwChannel *chan,
+			  struct mwMsgChannelAccept *msg);
+
+
+/**  */
+void mwChannel_recvDestroy(struct mwChannel *chan,
+			   struct mwMsgChannelDestroy *msg);
 
 
 /** Feed data into a channel. */
 void mwChannel_recv(struct mwChannel *chan, struct mwMsgChannelSend *msg);
-
-
-/** Obtain a reference to a channel by its id.
-    @returns the channel matching chan, or NULL */
-struct mwChannel *mwChannel_find(struct mwChannelSet *cs, guint32 chan);
 
 
 #endif

@@ -1,8 +1,14 @@
 
+version 0.4 (cvs)
+	
+	- ChangeLog brevity
+	- added support for server-side groups to aware service
+	- renamed mwSnapshotAwareIdBlock to mwAwareSnapshot
+	- added Python wrappers
+
 version 0.3-1 (2004-08-05)
 
 	- Fix [989872] Version incompatibility (0x80000200 errors)
-
 	- Fix some st_list parsing problems
 
 version 0.3-0 (2004-06-28)

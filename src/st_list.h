@@ -14,6 +14,17 @@
 #define LIST_VERSION_REVISION  3
 
 
+enum mwSametimeGroupType {
+  mwGroupType_NORMAL =   0x0002,
+  mwGroupType_DYNAMIC =  0x0003,
+};
+
+
+enum mwSametimeUserType {
+  mwUserType_NORMAL =  0x0001,
+};
+
+
 /** @struct mwSametimeList
     Represents a group-based buddy list.
 */
@@ -85,7 +96,13 @@ struct mwSametimeGroup *mwSametimeGroup_new(struct mwSametimeList *l,
 void mwSametimeGroup_free(struct mwSametimeGroup *g);
 
 
+const char *mwSametimeGroup_getGroup(struct mwSametimeGroup *g);
+
+
 const char *mwSametimeGroup_getName(struct mwSametimeGroup *g);
+
+
+enum mwSametimeGroupType mwSametimeGroup_getType(struct mwSametimeGroup *g);
 
 
 gboolean mwSametimeGroup_isOpen(struct mwSametimeGroup *g);
@@ -125,6 +142,9 @@ const char *mwSametimeUser_getName(struct mwSametimeUser *u);
 
 
 const char *mwSametimeUser_getAlias(struct mwSametimeUser *u);
+
+
+enum mwSametimeUserType mwSametimeUser_getType(struct mwSametimeUser *u);
 
 
 #endif

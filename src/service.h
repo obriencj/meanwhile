@@ -4,7 +4,7 @@
 #define _MW_SERVICE_H
 
 
-#include <glib.h>
+#include "common.h"
 
 
 struct mwChannel;
@@ -17,21 +17,22 @@ struct mwMsgChannelDestroy;
 /** Identification numbers for the basic services
     @relates mwService::type */
 enum mwBaseServiceTypes {
-  mwService_AWARE    = 0x00000011, /**< buddy list */
-  mwService_RESOLVE  = 0x00000015, /**< name resolution */
-  mwService_STORAGE  = 0x00000018, /**< storage */
-  mwService_IM       = 0x00001000, /**< instant messaging */
-  mwService_CONF     = 0x80000010, /**< conferencing */
+  mwService_AWARE    = 0x00000011,  /**< buddy list */
+  mwService_RESOLVE  = 0x00000015,  /**< name resolution */
+  mwService_STORAGE  = 0x00000018,  /**< storage */
+  mwService_IM       = 0x00001000,  /**< instant messaging */
+  mwService_CONF     = 0x80000010,  /**< conferencing */
 };
 
 
-/** Identification numbers for the basic service protocols */
+/** Identification numbers for the basic service protocols
+    @todo remove this */
 enum mwBaseProtocolTypes {
   mwProtocol_AWARE    = 0x00000011,
   mwProtocol_RESOLVE  = 0x00000015,
   mwProtocol_STORAGE  = 0x00000025,
   mwProtocol_IM       = 0x00001000,
-  mwProtocol_CONF     = 0x00000010
+  mwProtocol_CONF     = 0x00000010,
 };
 
 
@@ -40,7 +41,8 @@ enum mwServiceState {
   mwServiceState_STOPPED,   /**< the service is not active */
   mwServiceState_STOPPING,  /**< the service is shutting down */
   mwServiceState_STARTED,   /**< the service is active */
-  mwServiceState_STARTING   /**< the service is starting up */
+  mwServiceState_STARTING,  /**< the service is starting up */
+  mwServiceState_UNKNOWN,   /**< error determining state */
 };
 
 
@@ -95,11 +97,11 @@ struct mwService {
 
   /** @return string short name of the service
       @relates mwService_getName */
-  const char *(*get_name)();
+  const char *(*get_name)(struct mwService *);
 
   /** @return string short description of the service
       @relates mwService_getDesc */
-  const char *(*get_desc)();
+  const char *(*get_desc)(struct mwService *);
 
   /** The service's channel create handler. Called when the session
       receives a channel create message with a service matching this
@@ -126,8 +128,8 @@ struct mwService {
       data on a channel with a service matching this service's
       type.
       @relates mwService_recv */
-  void (*recv)(struct mwService *, struct mwChannel *, guint16 msg_type,
-	       const char *, gsize);
+  void (*recv)(struct mwService *, struct mwChannel *,
+	       guint16 msg_type, struct mwOpaque *);
 
   /** The service's start handler. Called upon the receipt of a
       service available message.
@@ -203,15 +205,14 @@ void mwService_recvChannelDestroy(struct mwService *service,
     @param service the service to receive the input
     @param channel the channel the input was received from
     @param msg_type the service-dependant message type
-    @param buf the input buffer
-    @param len the length of the input buffer
+    @param data the message data
 */
 void mwService_recv(struct mwService *service, struct mwChannel *channel,
-		    guint16 msg_type, const char *buf, gsize len);
+		    guint16 msg_type, struct mwOpaque *data);
 
 
 /** @return the appropriate type id for the service */
-guint32 mwService_getServiceType(struct mwService *);
+guint32 mwService_getType(struct mwService *);
 
 
 /** @return string short name of the service */

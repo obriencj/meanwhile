@@ -1,11 +1,15 @@
 
-#ifndef _MW_DEBUG_H_
-#define _MW_DEBUG_H_
+#ifndef _MW_DEBUG_H
+#define _MW_DEBUG_H
 
 
 #include <glib.h>
 
 
+/** replaces NULL strings with "(null)". useful for printf where
+    you're unsure that the %s will be non-NULL. Note that while the
+    linux printf will do this automatically, not all will. The others
+    will instead segfault */
 #define NSTR(str) ((str != NULL)? str: "(null)")
 
 
@@ -13,17 +17,9 @@
 #define g_info(format...) g_log(G_LOG_DOMAIN, G_LOG_LEVEL_INFO, format)
 
 
-/**
-  debug_printf is a printf that happens only when debugging is compiled on.
-*/
-void debug_printf(const char *v, ...);
-
-
-/**
-  pretty_print is like debug_printf in that it only does something when
-  debugging is compiled on, 
-*/
-void pretty_print(const char *buf, unsigned int len);
+/** define MW_PRETTY as 1 to have buf printed in hex pairs to stdout */
+void pretty_print(const char *buf, gsize len);
 
 
 #endif
+

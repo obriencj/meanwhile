@@ -13,57 +13,58 @@
     <code>TYPE_ACTION</code> as per the activity they perform. The
     following actions are available:
 
-    <code>gsize TYPE_buflen(TYPE val)</code> - calculates the
-    necessary length in bytes required to serialize val.
+    <code>void TYPE_put(struct mwPutBuffer *b, TYPE *val)</code>
+    marshalls val onto the buffer b. The buffer will grow as necessary
+    to fit all the data put into it. For guint16, guint32, and
+    gboolean, <code>TYPE val</code> is used instead of <code>TYPE
+    *val</code>.
 
-    <code>int TYPE_put(char **b, gsize *n, TYPE *val)</code> -
-    marshalls val onto the buffer portion b, which has n bytes
-    remaining. b will be incremented forward along the buffer, and n
-    will be decremented by the number of bytes written. returns 0 for
-    success, and non-zero for failure. Failure is usually attributed
-    to an insufficiently large n (indicating not enough buffer
-    remaining). For guint16, guint32, and gboolean, <code>TYPE
-    val</code> is used instead of <code>TYPE *val</code>.
+    <code>void TYPE_get(struct mwGetBuffer *b, TYPE *val)</code>
+    unmarshals val from the buffer b. Failure (due to lack of
+    insufficient remaining buffer) is indicated in the buffer's error
+    field. A call to a _get function with a buffer in an error state
+    has to effect.
 
-    <code>int TYPE_get(char **b, gsize *n, TYPE *val)</code> -
-    unmarshals val from the buffer portion b, which has n bytes
-    remaining. b will be incremented forward along the buffer, and n
-    will be decremented by the number of bytes read. returns 0 for
-    success, and non-zero for failure. Failure is usually attributed
-    to an insufficiently large n (indicating not enough buffer
-    remaining for the type to be complete).
+    <code>void TYPE_clear(TYPE *val)</code>
+    zeros and frees internal members of val, but does not free val
+    itself. Needs to be called before free-ing any complex types which
+    have been unmarshalled from a TYPE_get or populated from a
+    TYPE_clone call to prevent memory leaks.
 
-    <code>void TYPE_clear(TYPE *val)</code> - zeros and frees internal
-    members of val, but does not free val itself. Needs to be called
-    before free-ing any complex types which have been unmarshalled
-    from a TYPE_get or populated from a TYPE_clone call to prevent
-    memory leaks.
+    <code>void TYPE_clone(TYPE *to, TYPE *from)</code>
+    copies/clones members of from into to. May result in memory
+    allocation for some types. Note that to is not cleared
+    before-hand, it must already be in a pristine condition.
 
-    <code>void TYPE_clone(TYPE *to, TYPE *from)</code> - copies/clones
-    members of from into to. May result in memory allocation for some
-    types. Note that to is not cleared before-hand, it must already be
-    in a pristine condition.
-
-    <code>gboolean TYPE_equal(TYPE *y, TYPE *z)</code> - simple
-    equality test.
-
+    <code>gboolean TYPE_equal(TYPE *y, TYPE *z)</code>
+    simple equality test.
 */
 
 
+/** @struct mwPutBuffer a buffer to be written to */
+struct mwPutBuffer;
+
+/** @struct mwGetBuffer a buffer to be read from */
+struct mwGetBuffer;
+
+
+/** A length of binary data, not null-terminated. */
 struct mwOpaque {
-  gsize len;   /**< four byte unsigned integer: length of data. */
-  char *data;  /**< data. normally no NULL termination */
+  gsize len;   /**< length of data. */
+  char *data;  /**< data, normally with no NULL termination */
 };
 
 
 /* 8.3.6 Login Types */
 
+/** The type of login. Normally meaning the type of client code being
+    used to login with. */
 enum mwLoginType {
-  mwLogin_LIB       = 0x1000,
-  mwLogin_JAVA_WEB  = 0x1001,
-  mwLogin_BINARY    = 0x1002,
-  mwLogin_JAVA_APP  = 0x1003,
-  mwLogin_MEANWHILE = 0x1700
+  mwLogin_LIB       = 0x1000,  /**< official Lotus binary library */
+  mwLogin_JAVA_WEB  = 0x1001,  /**< official Lotus Java applet */
+  mwLogin_BINARY    = 0x1002,  /**< official Lotus binary application */
+  mwLogin_JAVA_APP  = 0x1003,  /**< official Lotus Java application */
+  mwLogin_MEANWHILE = 0x1700   /**< Meanwhile library */
 };
 
 
@@ -71,15 +72,15 @@ enum mwLoginType {
 /* 8.2.1 Login Info block */
 
 struct mwLoginInfo {
-  char *login_id;         /**< community-unique ID of the login */
-  enum mwLoginType type;  /**< type of login (see 8.3.6) */
-  char *user_id;          /**< community-unique ID of the user */
-  char *user_name;        /**< name of user (nick name, full name, etc) */
-  char *community;        /**< community name (usually domain name) */
-  gboolean full;          /**< if FALSE, following fields non-existant */
-  char *desc;             /**< implementation defined description */
-  guint ip_addr;          /**< ip addr of the login */
-  char *server_id;        /**< unique ID of login's server */
+  char *login_id;   /**< community-unique ID of the login */
+  guint16 type;     /**< @see mwLoginType */
+  char *user_id;    /**< community-unique ID of the user */
+  char *user_name;  /**< name of user (nick name, full name, etc) */
+  char *community;  /**< community name (usually domain name) */
+  gboolean full;    /**< if FALSE, following fields non-existant */
+  char *desc;       /**< implementation defined description */
+  guint32 ip_addr;  /**< ip addr of the login */
+  char *server_id;  /**< unique ID of login's server */
 };
 
 
@@ -93,9 +94,9 @@ struct mwUserItem {
 
 
 struct mwPrivacyInfo {
-  guint reserved;            /**< reserved for internal use */
+  guint16 reserved;          /**< reserved for internal use */
   gboolean deny;             /**< deny (true) or allow (false) users */
-  guint count;               /**< count of following users list */
+  guint32 count;             /**< count of users */
   struct mwUserItem *users;  /**< the users list */
 };
 
@@ -113,9 +114,9 @@ enum mwStatusType {
 /* 8.2.3 User Status Block */
 
 struct mwUserStatus {
-  enum mwStatusType status;  /**< status of user (see 8.3.5) */
-  guint time;                /**< last status change time in seconds */
-  char *desc;                /**< status description */
+  guint16 status;  /**< @see mwStatusType */
+  guint32 time;    /**< last status change time in seconds */
+  char *desc;      /**< status description */
 };
 
 
@@ -123,29 +124,19 @@ struct mwUserStatus {
 
 struct mwIdBlock {
   char *user;       /**< user id (login id or empty for some services) */
-  char *community;  /**< community name (empty for same community) */
-};
-
-
-/* 8.2.5 Encryption Block */
-
-enum mwEncryptType {
-  mwEncrypt_NONE    = 0x0000,
-  mwEncrypt_ANY     = 0x0001,  /* what's the difference between ANY */
-  mwEncrypt_ALL     = 0x0002,  /* and ALL ? */
-  mwEncrypt_RC2_40  = 0x1000
-};
-
-struct mwEncryptBlock {
-  enum mwEncryptType type;
-  struct mwOpaque opaque;
+  char *community;  /**< community id (NULL for same community) */
 };
 
 
 /* 8.3.8.2 Awareness Presence Types */
 
+/* @todo move mwAwareType, mwAwareIdBlock and mwAwareSnapshot into the
+   aware service and out of common */
+
+/** type codes for mwAwareIdBlock */
 enum mwAwareType {
-  mwAware_USER  = 0x0002
+  mwAware_USER  = 0x0002,  /**< a single user */
+  mwAware_GROUP = 0x0003,  /**< a group */
 };
 
 
@@ -153,48 +144,105 @@ enum mwAwareType {
 /* 8.4.2.1 Awareness ID Block */
 
 struct mwAwareIdBlock {
-  enum mwAwareType type;
-  char *user;
-  char *community;
+  guint16 type;     /**< @see mwAwareType */
+  char *user;       /**< user id */
+  char *community;  /**< community id (NULL for same community) */
 };
 
 
 /* 8.4.2.4 Snapshot */
 
-struct mwSnapshotAwareIdBlock {
+struct mwAwareSnapshot {
   struct mwAwareIdBlock id;
-  gboolean online;
-  char *alt_id;
-  struct mwUserStatus status;
-  char *wtf;  /* wtf is this? */
+  char *group;                 /**< group this id belongs to */
+  gboolean online;             /**< is this user online? */
+  char *alt_id;                /**< alternate ID, often same as id.user */
+  struct mwUserStatus status;  /**< status of this user */
+  char *name;                  /**< Formatted version of ID */
 };
 
 
 /* 8.3.1.5 Resolve error codes */
+/* @todo move into the resolve service */
 
-enum mwResultCode {
-  mwResult_SUCCESS     = 0x00000000,
-  mwResult_PARTIAL     = 0x00010000,
-  mwResult_MULTIPLE    = 0x80020000,
-  mwResult_BAD_FORMAT  = 0x80030000
+enum mwResolveCode {
+  mwResolve_SUCCESS    = 0x00000000,
+  mwResolve_PARTIAL    = 0x00010000,
+  mwResolve_MULTIPLE   = 0x80020000,
+  mwResolve_BAD_FORMAT = 0x80030000,
 };
 
 
 /* 8.4.4.2 Resolve Response */
+/* @todo move into the resolve service */
 
 struct mwResolveMatch {
-  char *id;
-  char *name;
-  char *desc;
+  char *id;    /**< user id */
+  char *name;  /**< user name */
+  char *desc;  /**< description */
 };
 
 
 struct mwResolveResult {
-  enum mwResultCode code;
-  char *name;
-  guint count;
+  guint32 code;   /**< @see mwResolveCode */
+  char *name;     /**< name of the result */
+  guint32 count;  /**< count of matches */
   struct mwResolveMatch *matches;
 };
+
+
+/** encryption blocks */
+struct mwEncryptItem {
+  guint16 id;            /**< cipher identifier */
+  struct mwOpaque info;  /**< cipher information */
+};
+
+
+/** @name buffer utility functions */
+/*@{*/
+
+
+/** allocate a new empty buffer */
+struct mwPutBuffer *mwPutBuffer_new();
+
+
+/** destroy the buffer */
+void mwPutBuffer_free(struct mwPutBuffer *b);
+
+
+/** move the buffer's data into an opaque, destroy the buffer */
+void mwPutBuffer_finalize(struct mwOpaque *to, struct mwPutBuffer *from);
+
+
+/** allocate a new buffer with a copy of the given data */
+struct mwGetBuffer *mwGetBuffer_new(struct mwOpaque *data);
+
+
+/** allocate a new buffer backed by the given data. Calling
+    mwGetBuffer_free will not result in the underlying data being
+    freed */
+struct mwGetBuffer *mwGetBuffer_wrap(struct mwOpaque *data);
+
+
+/** destroy the buffer */
+void mwGetBuffer_free(struct mwGetBuffer *b);
+
+
+/** reset the buffer to the very beginning. Also clears the buffer's
+    error flag. */
+void mwGetBuffer_reset(struct mwGetBuffer *b);
+
+
+/** count of remaining available bytes */
+gsize mwGetBuffer_remaining(struct mwGetBuffer *b);
+
+
+/** TRUE if an error occurred while reading a basic type from this
+    buffer */
+gboolean mwGetBuffer_error(struct mwGetBuffer *b);
+
+
+/*@}*/
 
 
 /** @name Basic Data Type Marshalling
@@ -203,39 +251,35 @@ struct mwResolveResult {
 /*@{*/
 
 
-int guint16_put(char **b, gsize *n, guint val);
+void guint16_put(struct mwPutBuffer *b, guint16 val);
 
-int guint16_get(char **b, gsize *n, guint *val);
+void guint16_get(struct mwGetBuffer *b, guint16 *val);
 
-guint guint16_peek(const char *b, gsize n);
-
-
-int guint32_put(char **b, gsize *n, guint val);
-
-int guint32_get(char **b, gsize *n, guint *val);
-
-guint guint32_peek(const char *b, gsize n);
+guint16 guint16_peek(struct mwGetBuffer *b);
 
 
-int gboolean_put(char **b, gsize *n, gboolean val);
+void guint32_put(struct mwPutBuffer *b, guint32 val);
 
-int gboolean_get(char **b, gsize *n, gboolean *val);
+void guint32_get(struct mwGetBuffer *b, guint32 *val);
 
-gboolean gboolean_peek(const char *b, gsize n);
-
-
-gsize mwString_buflen(const char *str);
-
-int mwString_put(char **b, gsize *n, const char *str);
-
-int mwString_get(char **b, gsize *n, char **str);
+guint32 guint32_peek(struct mwGetBuffer *b);
 
 
-gsize mwOpaque_buflen(struct mwOpaque *o);
+void gboolean_put(struct mwPutBuffer *b, gboolean val);
 
-int mwOpaque_put(char **b, gsize *n, struct mwOpaque *o);
+void gboolean_get(struct mwGetBuffer *b, gboolean *val);
 
-int mwOpaque_get(char **b, gsize *n, struct mwOpaque *o);
+gboolean gboolean_peek(struct mwGetBuffer *b);
+
+
+void mwString_put(struct mwPutBuffer *b, const char *str);
+
+void mwString_get(struct mwGetBuffer *b, char **str);
+
+
+void mwOpaque_put(struct mwPutBuffer *b, struct mwOpaque *o);
+
+void mwOpaque_get(struct mwGetBuffer *b, struct mwOpaque *o);
 
 void mwOpaque_clear(struct mwOpaque *o);
 
@@ -244,55 +288,46 @@ void mwOpaque_clone(struct mwOpaque *to, struct mwOpaque *from);
 
 /*@}*/
 
+
 /** @name Complex Data Type Marshalling */
 /*@{*/
 
 
-gsize mwLoginInfo_buflen(struct mwLoginInfo *info);
+void mwLoginInfo_put(struct mwPutBuffer *b, struct mwLoginInfo *info);
 
-int mwLoginInfo_put(char **b, gsize *n, struct mwLoginInfo *info);
-
-int mwLoginInfo_get(char **b, gsize *n, struct mwLoginInfo *info);
+void mwLoginInfo_get(struct mwGetBuffer *b, struct mwLoginInfo *info);
 
 void mwLoginInfo_clear(struct mwLoginInfo *info);
 
 void mwLoginInfo_clone(struct mwLoginInfo *to, struct mwLoginInfo *from);
 
 
-gsize mwUserItem_buflen(struct mwUserItem *user);
+void mwUserItem_put(struct mwPutBuffer *b, struct mwUserItem *user);
 
-int mwUserItem_put(char **b, gsize *n, struct mwUserItem *user);
-
-int mwUserItem_get(char **b, gsize *n, struct mwUserItem *user);
+void mwUserItem_get(struct mwGetBuffer *b, struct mwUserItem *user);
 
 void mwUserItem_clear(struct mwUserItem *user);
 
 
-gsize mwPrivacyInfo_buflen(struct mwPrivacyInfo *info);
+void mwPrivacyInfo_put(struct mwPutBuffer *b, struct mwPrivacyInfo *info);
 
-int mwPrivacyInfo_put(char **b, gsize *n, struct mwPrivacyInfo *info);
-
-int mwPrivacyInfo_get(char **b, gsize *n, struct mwPrivacyInfo *info);
+void mwPrivacyInfo_get(struct mwGetBuffer *b, struct mwPrivacyInfo *info);
 
 void mwPrivacyInfo_clear(struct mwPrivacyInfo *info);
 
 
-gsize mwUserStatus_buflen(struct mwUserStatus *stat);
+void mwUserStatus_put(struct mwPutBuffer *b, struct mwUserStatus *stat);
 
-int mwUserStatus_put(char **b, gsize *n, struct mwUserStatus *stat);
-
-int mwUserStatus_get(char **b, gsize *n, struct mwUserStatus *stat);
+void mwUserStatus_get(struct mwGetBuffer *b, struct mwUserStatus *stat);
 
 void mwUserStatus_clear(struct mwUserStatus *stat);
 
 void mwUserStatus_clone(struct mwUserStatus *to, struct mwUserStatus *from);
 
 
-gsize mwIdBlock_buflen(struct mwIdBlock *id);
+void mwIdBlock_put(struct mwPutBuffer *b, struct mwIdBlock *id);
 
-int mwIdBlock_put(char **b, gsize *n, struct mwIdBlock *id);
-
-int mwIdBlock_get(char **b, gsize *n, struct mwIdBlock *id);
+void mwIdBlock_get(struct mwGetBuffer *b, struct mwIdBlock *id);
 
 void mwIdBlock_clear(struct mwIdBlock *id);
 
@@ -301,23 +336,9 @@ void mwIdBlock_clone(struct mwIdBlock *to, struct mwIdBlock *from);
 gboolean mwIdBlock_equal(struct mwIdBlock *a, struct mwIdBlock *b);
 
 
-gsize mwEncryptBlock_buflen(struct mwEncryptBlock *eb);
+void mwAwareIdBlock_put(struct mwPutBuffer *b, struct mwAwareIdBlock *idb);
 
-int mwEncryptBlock_put(char **b, gsize *n, struct mwEncryptBlock *eb);
-
-int mwEncryptBlock_get(char **b, gsize *n, struct mwEncryptBlock *eb);
-
-void mwEncryptBlock_clear(struct mwEncryptBlock *enc);
-
-void mwEncryptBlock_clone(struct mwEncryptBlock *to,
-			  struct mwEncryptBlock *from);
-
-
-gsize mwAwareIdBlock_buflen(struct mwAwareIdBlock *idb);
-
-int mwAwareIdBlock_put(char **b, gsize *n, struct mwAwareIdBlock *idb);
-
-int mwAwareIdBlock_get(char **b, gsize *n, struct mwAwareIdBlock *idb);
+void mwAwareIdBlock_get(struct mwGetBuffer *b, struct mwAwareIdBlock *idb);
 
 void mwAwareIdBlock_clear(struct mwAwareIdBlock *idb);
 
@@ -328,13 +349,20 @@ gboolean mwAwareIdBlock_equal(struct mwAwareIdBlock *a,
 			      struct mwAwareIdBlock *b);
 
 
-int mwSnapshotAwareIdBlock_get(char **b, gsize *n,
-			       struct mwSnapshotAwareIdBlock *idb);
+void mwAwareSnapshot_get(struct mwGetBuffer *b,
+			 struct mwAwareSnapshot *idb);
 
-void mwSnapshotAwareIdBlock_clear(struct mwSnapshotAwareIdBlock *idb);
+void mwAwareSnapshot_clear(struct mwAwareSnapshot *idb);
 
-void mwSnapshotAwareIdBlock_clone(struct mwSnapshotAwareIdBlock *to,
-				  struct mwSnapshotAwareIdBlock *from);
+void mwAwareSnapshot_clone(struct mwAwareSnapshot *to,
+			   struct mwAwareSnapshot *from);
+
+
+void mwEncryptItem_put(struct mwPutBuffer *b, struct mwEncryptItem *item);
+
+void mwEncryptItem_get(struct mwGetBuffer *b, struct mwEncryptItem *item);
+
+void mwEncryptItem_clear(struct mwEncryptItem *item);
 
 
 /*@}*/
