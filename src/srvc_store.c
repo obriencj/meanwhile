@@ -117,7 +117,7 @@ static void request_put(struct mwPutBuffer *b, struct mwStorageReq *req) {
 
 static int request_send(struct mwChannel *chan, struct mwStorageReq *req) {
   struct mwPutBuffer *b;
-  struct mwOpaque o;
+  struct mwOpaque o = { 0, 0 };
   int ret;
 
   b = mwPutBuffer_new();
@@ -358,8 +358,7 @@ static void recv(struct mwService *srvc, struct mwChannel *chan,
   request_get(b, req);
 
   if(mwGetBuffer_error(b)) {
-    g_warning("failed to parse storage service"
-	      " request: 0x%x, type: 0x%x", type, id);
+    mw_debug_mailme(data, "storage request 0x%x, type: 0x%x", id, type);
 
   } else {
     request_trigger(srvc_stor, req);
