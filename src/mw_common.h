@@ -182,9 +182,9 @@ struct mwIdBlock {
 
 /** type codes for mwAwareIdBlock */
 enum mwAwareType {
-  mwAware_SERVER  = 0x0001,  /**< a server */
   mwAware_USER    = 0x0002,  /**< a single user */
   mwAware_GROUP   = 0x0003,  /**< a group */
+  mwAware_SERVER  = 0x0008,  /**< a server */
 };
 
 

@@ -81,19 +81,21 @@ struct aware_entry {
 
 /** the channel send types used by this service */
 enum msg_types {
-  msg_AWARE_ADD       = 0x0068,
-  msg_AWARE_REMOVE    = 0x0069,
-  msg_AWARE_SNAPSHOT  = 0x01f4,
-  msg_AWARE_UPDATE    = 0x01f5,
-  msg_AWARE_GROUP     = 0x01f6,
+  msg_AWARE_ADD       = 0x0068,  /**< remove an aware */
+  msg_AWARE_REMOVE    = 0x0069,  /**< add an aware */
 
-  msg_OPT_DO_SET      = 0x00c9,
-  msg_OPT_DO_UNSET    = 0x00ca,
+  msg_OPT_DO_SET      = 0x00c9,  /**< set an attribute */
+  msg_OPT_DO_UNSET    = 0x00ca,  /**< unset an attribute */
+  msg_OPT_WATCH       = 0x00cb,  /**< watch an attribute */
 
-  msg_OPT_GOT_SET     = 0x0259,
+  msg_AWARE_SNAPSHOT  = 0x01f4,  /**< recv aware snapshot */
+  msg_AWARE_UPDATE    = 0x01f5,  /**< recv aware update */
+  msg_AWARE_GROUP     = 0x01f6,  /**< recv group aware */
 
-  msg_OPT_DID_SET     = 0x025d,
-  msg_OPT_DID_UNSET   = 0x025f,
+  msg_OPT_GOT_SET     = 0x0259,  /**< recv attribute update */
+
+  msg_OPT_DID_SET     = 0x025d,  /**< attribute set response */
+  msg_OPT_DID_UNSET   = 0x025f,  /**< attribute unset response */
 };
 
 
@@ -622,6 +624,7 @@ int mwAwareList_removeAware(struct mwAwareList *list, GList *id_list) {
   */
 
   struct mwServiceAware *srvc;
+  struct mwAwareIdBlock *id;
   struct aware_entry *aware;
 
   g_return_val_if_fail(list != NULL, -1);
@@ -630,17 +633,18 @@ int mwAwareList_removeAware(struct mwAwareList *list, GList *id_list) {
   g_return_val_if_fail(srvc != NULL, -1);
 
   for(; id_list; id_list = id_list->next) {
-    aware = list_entry_find(list, id_list->data);
+    id = id_list->data;
+    aware = list_entry_find(list, id);
 
     if(! aware) {
       g_warning("buddy %s, %s not in list",
-		NSTR(aware->aware.id.user),
-		NSTR(aware->aware.id.community));
+		NSTR(id->user),
+		NSTR(id->community));
       continue;
     }
 
-    g_hash_table_remove(list->entries, id_list->data);
     aware->membership = g_list_remove(aware->membership, list);
+    g_hash_table_remove(list->entries, id);
   }
 
   return remove_unused(srvc);
