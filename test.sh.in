@@ -84,6 +84,11 @@ fi
 LD_LIBRARY_PATH="$PYLIBDIR/../":"${dir}/src/.libs/"
 export LD_LIBRARY_PATH
 
+if test `uname` = "Darwin" ; then
+	DYLD_LIBRARY_PATH=$LD_LIBRARY_PATH
+	export DYLD_LIBRARY_PATH
+fi
+
 PYTHONPATH="${dir}/src/python":"${dir}/src/python/.libs/":$PYTHONPATH
 export PYTHONPATH
 
