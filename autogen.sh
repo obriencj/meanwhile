@@ -65,9 +65,7 @@ autoconf || exit $?
 
 ECHO "Running automake"
 automake || exit $?
-if test `uname` = "Darwin" ; then
-   automake Makefile 2> /dev/null
-fi
+automake Makefile 2> /dev/null
 
 
 
