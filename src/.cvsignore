@@ -3,4 +3,4 @@
 Makefile
 Makefile.in
 lib*
-srvc_resolve.*
+mw_client.h

@@ -27,37 +27,40 @@
 #include "mw_common.h"
 
 
-#define LIST_VERSION_MAJOR     3
-#define LIST_VERSION_MINOR     1
-#define LIST_VERSION_REVISION  3
+#define ST_LIST_MAJOR  3
+#define ST_LIST_MINOR  1
+#define ST_LIST_MICRO  3
 
 
 enum mwSametimeGroupType {
-  mwGroup_NORMAL   = 0x0002,
-  mwGroup_DYNAMIC  = 0x0003,
+  mwSametimeGroup_NORMAL,   /**< a normal group of users */
+  mwSametimeGroup_DYNAMIC,  /**< a server-side group */
+  mwSametimeGroup_UNKNOWN,  /**< error determining group type */
 };
 
 
 enum mwSametimeUserType {
-  mwUser_NORMAL  = 0x0001,
+  mwSametimeUser_NORMAL,    /**< user on same community */
+  mwSametimeUser_EXTERNAL,  /**< external user */
+  mwSametimeUser_UNKNOWN,   /**< error determining user type */
 };
 
 
 /** @struct mwSametimeList
-    Represents a group-based buddy list.
-*/
+
+    Represents a group-based buddy list. */
 struct mwSametimeList;
 
 
 /** @struct mwSametimeGroup
-    Represents a group in a buddy list
-*/
+
+    Represents a group in a buddy list */
 struct mwSametimeGroup;
 
 
 /** @struct mwSametimeUser
-    Represents a user in a group in a buddy list
-*/
+
+    Represents a user in a group in a buddy list */
 struct mwSametimeUser;
 
 
@@ -69,17 +72,12 @@ struct mwSametimeList *mwSametimeList_new();
 void mwSametimeList_free(struct mwSametimeList *l);
 
 
-/** Determines the length of the buffer required to write the list in its
-    entirety */
-gsize mwSametimeList_buflen(struct mwSametimeList *l);
-
-
 /** Load a sametime list from a buffer */
-int mwSametimeList_get(char **b, gsize *n, struct mwSametimeList *l);
+void mwSametimeList_get(struct mwGetBuffer *b, struct mwSametimeList *l);
 
 
 /** Write a sametime list onto a buffer */
-int mwSametimeList_put(char **b, gsize *n, struct mwSametimeList *l);
+void mwSametimeList_put(struct mwPutBuffer *b, struct mwSametimeList *l);
 
 
 void mwSametimeList_setMajor(struct mwSametimeList *l, guint v);
@@ -94,19 +92,26 @@ void mwSametimeList_setMinor(struct mwSametimeList *l, guint v);
 guint mwSametimeList_getMinor(struct mwSametimeList *l);
 
 
-void mwSametimeList_setRevision(struct mwSametimeList *l, guint v);
+void mwSametimeList_setMicro(struct mwSametimeList *l, guint v);
 
 
-guint mwSametimeList_getRevision(struct mwSametimeList *l);
+guint mwSametimeList_getMicro(struct mwSametimeList *l);
 
 
 /** Get a GList snapshot of the groups in a list */
 GList *mwSametimeList_getGroups(struct mwSametimeList *l);
 
 
+struct mwSametimeGroup *
+mwSametimeList_findGroup(struct mwSametimeList *l,
+			 const char *name);
+
+
 /** Create a new group in a list */
-struct mwSametimeGroup *mwSametimeGroup_new(struct mwSametimeList *l,
-					    const char *name);
+struct mwSametimeGroup *
+mwSametimeGroup_new(struct mwSametimeList *l,
+		    enum mwSametimeGroupType type,
+		    const char *name);
 
 
 /** Remove a group from its list, and free it. Also frees all users
@@ -114,19 +119,23 @@ struct mwSametimeGroup *mwSametimeGroup_new(struct mwSametimeList *l,
 void mwSametimeGroup_free(struct mwSametimeGroup *g);
 
 
-const char *mwSametimeGroup_getGroup(struct mwSametimeGroup *g);
+enum mwSametimeGroupType mwSametimeGroup_getType(struct mwSametimeGroup *g);
 
 
 const char *mwSametimeGroup_getName(struct mwSametimeGroup *g);
 
 
-enum mwSametimeGroupType mwSametimeGroup_getType(struct mwSametimeGroup *g);
+void mwSametimeGroup_setAlias(struct mwSametimeGroup *g,
+			      const char *alias);
 
 
-gboolean mwSametimeGroup_isOpen(struct mwSametimeGroup *g);
+const char *mwSametimeGroup_getAlias(struct mwSametimeGroup *g);
 
 
 void mwSametimeGroup_setOpen(struct mwSametimeGroup *g, gboolean open);
+
+
+gboolean mwSametimeGroup_isOpen(struct mwSametimeGroup *g);
 
 
 struct mwSametimeList *mwSametimeGroup_getList(struct mwSametimeGroup *g);
@@ -136,12 +145,16 @@ struct mwSametimeList *mwSametimeGroup_getList(struct mwSametimeGroup *g);
 GList *mwSametimeGroup_getUsers(struct mwSametimeGroup *g);
 
 
+struct mwSametimeUser *
+mwSametimeGroup_findUser(struct mwSametimeGroup *g,
+			 struct mwIdBlock *user);
+
+
 /** Create a user in a group */
-struct mwSametimeUser *mwSametimeUser_new(struct mwSametimeGroup *g,
-					  struct mwIdBlock *user,
-					  enum mwSametimeUserType type,
-					  const char *name,
-					  const char *alias);
+struct mwSametimeUser *
+mwSametimeUser_new(struct mwSametimeGroup *g,
+		   enum mwSametimeUserType type,
+		   struct mwIdBlock *user);
 
 
 /** Remove user from its group, and free it */
@@ -151,19 +164,25 @@ void mwSametimeUser_free(struct mwSametimeUser *u);
 struct mwSametimeGroup *mwSametimeUser_getGroup(struct mwSametimeUser *u);
 
 
+enum mwSametimeUserType mwSametimeUser_getType(struct mwSametimeUser *u);
+
+
 const char *mwSametimeUser_getUser(struct mwSametimeUser *u);
 
 
 const char *mwSametimeUser_getCommunity(struct mwSametimeUser *u);
 
 
-const char *mwSametimeUser_getName(struct mwSametimeUser *u);
+void mwSametimeUser_setShortName(struct mwSametimeUser *u, const char *name);
+
+
+const char *mwSametimeUser_getShortName(struct mwSametimeUser *u);
+
+
+void mwSametimeUser_setAlias(struct mwSametimeUser *u, const char *alias);
 
 
 const char *mwSametimeUser_getAlias(struct mwSametimeUser *u);
-
-
-enum mwSametimeUserType mwSametimeUser_getType(struct mwSametimeUser *u);
 
 
 #endif
