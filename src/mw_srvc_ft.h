@@ -88,6 +88,11 @@ mwFileTransfer_new(struct mwServiceFileTransfer *srvc,
 		   const char *filename, guint32 filesize);
 
 
+/** deallocate a file transfer */
+void
+mwFileTransfer_free(struct mwFileTransfer *ft);
+
+
 /** the user on the other end of the file transfer */
 const struct mwIdBlock *
 mwFileTransfer_getUser(struct mwFileTransfer *ft);

@@ -30,6 +30,7 @@
 #include "mw_message.h"
 #include "mw_service.h"
 #include "mw_session.h"
+#include "mw_util.h"
 
 
 /** @todo reorganize this file, stuff is just strewn about */
@@ -65,10 +66,10 @@ struct mwChannel {
   /** statistics table */
   GHashTable *stats;
 
-  GSList *outgoing_queue;  /**< queued outgoing messages */
-  GSList *incoming_queue;  /**< queued incoming messages */
+  GSList *outgoing_queue;     /**< queued outgoing messages */
+  GSList *incoming_queue;     /**< queued incoming messages */
 
-  gpointer srvc_data;      /**< service-specific data */
+  struct mw_datum srvc_data;  /**< service-specific data */
 };
 
 
@@ -225,13 +226,21 @@ void mwChannel_setService(struct mwChannel *chan, struct mwService *srvc) {
 
 gpointer mwChannel_getServiceData(struct mwChannel *chan) {
   g_return_val_if_fail(chan != NULL, NULL);
-  return chan->srvc_data;
+  return mw_datum_get(&chan->srvc_data);
 }
 
 
-void mwChannel_setServiceData(struct mwChannel *chan, gpointer data) {
+void mwChannel_setServiceData(struct mwChannel *chan,
+			      gpointer data, GDestroyNotify clean) {
+
   g_return_if_fail(chan != NULL);
-  chan->srvc_data = data;
+  mw_datum_set(&chan->srvc_data, data, clean);
+}
+
+
+void mwChannel_removeServiceData(struct mwChannel *chan) {
+  g_return_if_fail(chan != NULL);
+  mw_datum_clear(&chan->srvc_data);
 }
 
 

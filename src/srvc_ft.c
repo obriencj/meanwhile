@@ -106,6 +106,8 @@ static void recv_channelCreate(struct mwServiceFileTransfer *srvc,
     login_into_id(&idb, mwChannel_getUser(chan));
     ft = mwFileTransfer_new(srvc, &idb, txt, fnm, size);
 
+    mwChannel_setServiceData(chan, ft, NULL);
+
     if(handler->ft_offered)
       handler->ft_offered(ft);
   }
@@ -118,13 +120,38 @@ static void recv_channelCreate(struct mwServiceFileTransfer *srvc,
 static void recv_channelAccept(struct mwServiceFileTransfer *srvc,
 			       struct mwChannel *chan,
 			       struct mwMsgChannelAccept *msg) {
-  
+
+  struct mwFileTransferHandler *handler;
+  struct mwFileTransfer *ft;
+
+  g_return_if_fail(srvc->handler != NULL);
+  handler = srvc->handler;
+
+  ft = mwChannel_getServiceData(chan);
+  g_return_if_fail(ft != NULL);
+
+  if(handler->ft_opened)
+    handler->ft_opened(ft);
 }
 
 
 static void recv_channelDestroy(struct mwServiceFileTransfer *srvc,
 				struct mwChannel *chan,
 				struct mwMsgChannelDestroy *msg) {
+
+  struct mwFileTransferHandler *handler;
+  struct mwFileTransfer *ft;
+  guint32 code;
+
+  g_return_if_fail(srvc->handler != NULL);
+  handler = srvc->handler;
+
+  ft = mwChannel_getServiceData(chan);
+  g_return_if_fail(ft != NULL);
+
+  if(handler->ft_closed)
+    handler->ft_closed(ft, code);
+
   
 }
 
@@ -159,7 +186,12 @@ static void recv(struct mwService *srvc, struct mwChannel *chan,
 
 
 static void clear(struct mwServiceFileTransfer *srvc) {
-  ; 
+  struct mwFileTransferHandler *h;
+  
+  h = srvc->handler;
+  if(h && h->clear)
+    h->clear(srvc);
+  srvc->handler = NULL;
 }
 
 
@@ -179,12 +211,9 @@ static void start(struct mwService *srvc) {
 
 
 static void stop(struct mwServiceFileTransfer *srvc) {
-  GList *l;
-
-  for(l = srvc->transfers; l; l = g_list_remove_link(l, l)) {
-    mwFileTransfer_cancel(l->data);
+  while(srvc->transfers) {
+    mwFileTransfer_free(srvc->transfers->data);
   }
-  srvc->transfers = NULL;
 
   mwService_stopped(MW_SERVICE(srvc));
 }
@@ -316,6 +345,8 @@ int mwFileTransfer_close(struct mwFileTransfer *ft, guint32 code) {
   g_return_val_if_fail(ft->channel != NULL, -1);
 
   ret = mwChannel_destroy(ft->channel, code, NULL);
+  ft->channel = NULL;
+
   if(!ret && handler->ft_closed)
     handler->ft_closed(ft, code);
 
@@ -323,9 +354,45 @@ int mwFileTransfer_close(struct mwFileTransfer *ft, guint32 code) {
 }
 
 
+void mwFileTransfer_free(struct mwFileTransfer *ft) {
+  struct mwServiceFileTransfer *srvc;
+
+  if(! ft) return;
+
+  if(ft->channel)
+    mwFileTransfer_cancel(ft);
+
+  mwFileTransfer_removeClientData(ft);
+
+  srvc = ft->service;
+  if(srvc) srvc->transfers = g_list_remove(srvc->transfers, ft);
+
+  mwIdBlock_clear(&ft->who);
+  g_free(ft->filename);
+  g_free(ft->message);
+  g_free(ft);
+}
+
+
 int mwFileTransfer_send(struct mwFileTransfer *ft,
 			struct mwOpaque *data, gboolean done) {
-  return 0;
+
+  struct mwChannel *chan;
+  int ret;
+
+  g_return_val_if_fail(ft->channel != NULL, -1);
+  chan = ft->channel;
+
+  g_return_val_if_fail(mwChannel_isOutgoing(chan), -1);
+
+  if(data->len > ft->remaining) {
+    /* @todo handle error */
+    return -1;
+  }
+
+  ret = mwChannel_send(chan, msg_TRANSFER, data);
+  if(! ret) ft->remaining -= data->len;
+  return ret;
 }
 
 

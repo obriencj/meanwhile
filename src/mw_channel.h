@@ -205,7 +205,11 @@ gpointer mwChannel_getServiceData(struct mwChannel *chan);
 /** set service-specific data. This is for use by service
     implementations to easily associate information with the
     channel */
-void mwChannel_setServiceData(struct mwChannel *chan, gpointer data);
+void mwChannel_setServiceData(struct mwChannel *chan,
+			      gpointer data, GDestroyNotify clean);
+
+
+void mwChannel_removeServiceData(struct mwChannel *chan);
 
 
 guint32 mwChannel_getProtoType(struct mwChannel *chan);
