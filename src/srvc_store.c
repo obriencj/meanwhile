@@ -79,9 +79,6 @@ struct mwServiceStorage {
 static void request_get(struct mwGetBuffer *b, struct mwStorageReq *req) {
   guint32 id, count, junk;
 
-  if(req->item->data.len)
-    mwOpaque_clear(&req->item->data);
-
   if(mwGetBuffer_error(b)) return;
 
   guint32_get(b, &id);
@@ -93,6 +90,8 @@ static void request_get(struct mwGetBuffer *b, struct mwStorageReq *req) {
     if(count > 0) {
       guint32_get(b, &junk);
       guint32_get(b, &req->item->key);
+
+      mwOpaque_clear(&req->item->data);
       mwOpaque_get(b, &req->item->data);
     }
   }
