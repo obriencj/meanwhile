@@ -15,6 +15,7 @@ version 0.4.0 (cvs)
 	- Bug #1036056 meanwhile-CRITICAL - when add a buddy to my list
 	- Bug #1089971 pkg-config file does not list liner flags
 	- Bug #1110902 configure shouldn't set CFLAGS
+	- Dumb crash when removing non-existant members from an aware list
 	
 version 0.3.1 (2004-08-05)
 
