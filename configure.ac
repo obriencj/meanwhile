@@ -8,7 +8,7 @@ m4_define(glib_required_version,	2.0.0)
 # this is just to generate the requirement in the specfile. It would
 # be useful to make it check the available python version here as
 # well...
-m4_define(python_required_version,	2.2)
+m4_define(python_required_version,	2.3)
 
 
 AC_INIT
@@ -65,15 +65,20 @@ if test "$withval" != "no" ; then
 
 	dnl Check 2: Python version
 	AC_MSG_CHECKING(Python version)
-	PYTHON_VERSION=`$pythonpath -c 'import distutils.sysconfig; print "%s" % distutils.sysconfig.get_config_var("VERSION")' 2>/dev/null`
+	PYTHON_FOUND_VERSION=`$pythonpath -c 'import distutils.sysconfig; print "%s" % distutils.sysconfig.get_config_var("VERSION")' 2>/dev/null`
 
-	if test "$PYTHON_VERSION" = "" ; then
+	if test "$PYTHON_FOUND_VERSION" = "" ; then
 		AC_MSG_ERROR([unable to determine version])
 	else
-		AC_MSG_RESULT($PYTHON_VERSION)
+
+		# TODO: put in a check against PYTHON_FOUND_VERSION and
+		# python_required_version to make sure we meet the minimum
+		# requirements
+
+		AC_MSG_RESULT($PYTHON_FOUND_VERSION)
+		PYTHON_VERSION=python_required_version
 		AC_SUBST(PYTHON_VERSION)
 	fi
-
 
 	dnl Check 3: Python CFLAGS
 	AC_MSG_CHECKING(for Python compile flags)
@@ -113,6 +118,8 @@ dnl Glib-2.0 option with some version detection for compat.h
 AM_PATH_GLIB_2_0(glib_required_version, ,
 	AC_MSG_ERROR([*** GLib glib_required_version is required.])
 )
+GLIB_VERSION=$glib_required_version
+AC_SUBST(GLIB_VERSION)
 AC_SUBST(GLIB_CFLAGS)
 AC_SUBST(GLIB_LIBS)
 
