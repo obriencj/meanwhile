@@ -1,6 +1,6 @@
 
 # version of meanwhile
-m4_define(meanwhile_version,		0.4.0)
+m4_define(meanwhile_version,		0.4.0cvs)
 
 # required and compat version of glib2.
 m4_define(glib_required_version,	2.0.0)
