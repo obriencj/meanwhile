@@ -1,42 +1,42 @@
 
 
-TEX_SRC =	meanwhile.tex
+MW_SRC =	meanwhile.tex
+MW_OUT =	$(MW_SRC:%.tex=%.dvi)
 
-DVI_OUT =	$(TEX_SRC:%.tex=%.dvi)
-
-
-DIA_SRC =	chan_create.dia \
-		chan_create_proxy.dia
-
-EPS_OUT =	$(DIA_SRC:%.dia=%.eps)
+HOURI_SRC =	draft-houri.tex
+HOURI_OUT =	$(HOURI_SRC:%.tex=%.dvi)
 
 
-all:	pdf html doxygen
+all:	mw-pdf mw-html houri-pdf houri-html doxygen
 
 
-pdf:	$(EPS_OUT) $(DVI_OUT)
-	dvipdf $(DVI_OUT)
+mw-pdf:	$(MW_OUT)
+	dvipdf $(MW_OUT)
 
 
-html:	$(EPS_OUT)
-	latex2html $(TEX_SRC) > /dev/null
+mw-html:
+	latex2html $(MW_SRC) > /dev/null
+
+
+houri-pdf:	$(HOURI_OUT)
+	dvipdf $(HOURI_OUT)
+
+
+houri-html:
+	latex2html $(HOURI_SRC) > /dev/null
 
 
 %.dvi: %.tex
-	latex -interaction=batchmode $< > /dev/null
+	latex -interaction=batchmode $<
 	latex -interaction=batchmode $< > /dev/null
 
-
-%.eps: %.dia
-	dia -n -t eps-pango -e $@.tmp $<
-	./epsscale.sh $@.tmp 0.50 > $@
-	rm -f $@.tmp
 
 doxygen:
 	mkdir doxygen
-	doxygen doxygen.conf
+	doxygen doxygen.conf > /dev/null
+
 
 clean:
 	rm -rf meanwhile/ doxygen/
-	rm -f .nfs* *.aux *.dvi *.eps *.lof *.log *.out *.pdf *.toc
+	rm -f *.nfs *.aux *.dvi *.lof *.log *.out *.pdf *.toc
 
