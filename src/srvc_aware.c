@@ -127,6 +127,8 @@ static gboolean collect_dead(gpointer key, gpointer val, gpointer data) {
   GList **dead = (GList **) data;
 
   if(aware->membership == NULL) {
+    g_message(" removing %s, %s",
+	      aware->aware.id.user, aware->aware.id.community);
     *dead = g_list_append(*dead, aware);
     return TRUE;
 
@@ -145,13 +147,20 @@ static int remove_unused(struct mwServiceAware *srvc) {
 
   int ret = 0;
   GList *dead = NULL, *l;
+
+  g_message("removing orphan aware entries");
+
   g_hash_table_foreach_steal(srvc->entries, collect_dead, &dead);
  
-  if(MW_SERVICE_IS_LIVE(srvc))
-    ret = send_rem(srvc->channel, dead);
+  if(dead) {
+    if(MW_SERVICE_IS_LIVE(srvc))
+      ret = send_rem(srvc->channel, dead);
+    
+    for(l = dead; l; l = l->next)
+      aware_entry_free(l->data);
 
-  for(l = dead; l; l = l->next) aware_entry_free(l->data);
-  g_list_free(dead);
+    g_list_free(dead);
+  }
 
   return ret;
 }
@@ -506,15 +515,19 @@ int mwAwareList_addAware(struct mwAwareList *list,
   for(; count--; id_list++) {
     aware = g_hash_table_lookup(list->entries, id_list);
     if(aware) {
+      /*
       g_message("buddy: %s, %s already exists",
 		id_list->user, id_list->community);
+      */
       continue;
     }
 
     aware = g_hash_table_lookup(srvc->entries, id_list);
     if(! aware) {
+      /*
       g_message("adding buddy %s, %s to the aware service",
 		id_list->user, id_list->community);
+      */
 
       aware = g_new0(struct aware_entry, 1);
       mwAwareIdBlock_clone(ENTRY_KEY(aware), id_list);
@@ -522,8 +535,10 @@ int mwAwareList_addAware(struct mwAwareList *list,
       g_hash_table_insert(srvc->entries, ENTRY_KEY(aware), aware);
     }
 
+    /*
     g_message("adding buddy %s, %s to the list",
 	      id_list->user, id_list->community);
+    */
     aware->membership = g_list_append(aware->membership, list);
     g_hash_table_insert(list->entries, ENTRY_KEY(aware), aware);
     additions = g_list_prepend(additions, ENTRY_KEY(aware));
@@ -565,7 +580,10 @@ int mwAwareList_removeAware(struct mwAwareList *list,
 
   for(; c--; idb++) {
     aware = g_hash_table_lookup(list->entries, idb);
-    if(! aware) continue;
+    if(! aware) {
+      g_warning("buddy %s, %s not in list", idb->user, idb->community);
+      continue;
+    }
 
     g_hash_table_remove(list->entries, idb);
     aware->membership = g_list_remove(aware->membership, list);
