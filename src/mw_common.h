@@ -93,9 +93,12 @@ enum mwLoginType {
   mwLogin_SANITY        = 0x1600,
   mwLogin_ST_PERL       = 0x1625,
   mwLogin_PMR_ALERT     = 0x1650,
-  mwLogin_TRILLIAN      = 0x16aa,
+  mwLogin_TRILLIAN      = 0x16aa,  /**< http://sf.net/st-plugin/ */
   mwLogin_TRILLIAN_IBM  = 0x16bb,
   mwLogin_MEANWHILE     = 0x1700,  /**< Meanwhile library */
+
+  /* these aren't ready for use yet, DO NOT USE WHILE THIS COMMENT
+     EXISTS HERE, it will only cause you trouble */
   mwLogin_MW_PYTHON     = 0x1701,  /**< Meanwhile Python */
   mwLogin_MW_GAIM       = 0x1702,  /**< gaim-meanwhile */
   mwLogin_MW_ADIUM      = 0x1703,  /**< adium-meanwhile */
