@@ -221,13 +221,15 @@ int mwSession_sendKeepalive(struct mwSession *s);
 
 
 /** set the internal privacy information, and inform the server as
-    necessary. Triggers the on_setPrivacyInfo call-back */
+    necessary. Triggers the on_setPrivacyInfo call-back. Not yet
+    implemented */
 int mwSession_setPrivacyInfo(struct mwSession *, struct mwPrivacyInfo *);
 
 
 struct mwPrivacyInfo *mwSession_getPrivacyInfo(struct mwSession *);
 
 
+/** reference the login information for the session */
 struct mwLoginInfo *mwSession_getLoginInfo(struct mwSession *);
 
 

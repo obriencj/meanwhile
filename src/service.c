@@ -20,6 +20,7 @@
 
 #include "mw_channel.h"
 #include "mw_debug.h"
+#include "mw_error.h"
 #include "mw_message.h"
 #include "mw_service.h"
 
@@ -41,8 +42,11 @@ void mwService_recvCreate(struct mwService *s, struct mwChannel *chan,
   g_return_if_fail(s->session == mwChannel_getSession(chan));
   g_return_if_fail(mwChannel_getId(chan) == msg->channel);
 
-  if(s->recv_create)
+  if(s->recv_create) {
     s->recv_create(s, chan, msg);
+  } else {
+    mwChannel_destroy(chan, ERR_FAILURE, NULL);
+  }
 }
 
 

@@ -240,8 +240,6 @@ static void start(struct mwService *srvc) {
 
 
 static void stop(struct mwService *srvc) {
-  /* - close the channel.
-     - Reset all pending requests to a an "unsent" state. */
 
   struct mwServiceStorage *srvc_store;
   GList *l;
@@ -254,6 +252,21 @@ static void stop(struct mwService *srvc) {
     srvc_store->channel = NULL;
   }
 
+#if 1
+  /* the new way */
+  /* remove pending requests. Sometimes we can crash the storage
+     service, and when that happens, we end up resending the killer
+     request over and over again, and the service never stays up */
+  for(l = srvc_store->pending; l; l = l->next)
+    request_free(l->data);
+
+  g_list_free(srvc_store->pending);
+  srvc_store->pending = NULL;
+
+  srvc_store->id_counter = 0;
+
+#else
+  /* the old way */
   /* reset all of the started requests to their unstarted states */
   for(l = srvc_store->pending; l; l = l->next) {
     struct mwStorageReq *req = l->data;
@@ -264,17 +277,9 @@ static void stop(struct mwService *srvc) {
       req->action = action_save;
     }
   }
+#endif
 
   mwService_stopped(srvc);
-}
-
-
-static void recv_channelCreate(struct mwService *srvc,
-			       struct mwChannel *chan,
-			       struct mwMsgChannelCreate *msg) {
-
-  /* what the?! we don't accept no stinkin' incoming channels */
-  mwChannel_destroy(chan, ERR_FAILURE, NULL);
 }
 
 
@@ -394,7 +399,6 @@ struct mwServiceStorage *mwServiceStorage_new(struct mwSession *session) {
   mwService_init(srvc, session, SERVICE_STORAGE);
   srvc->get_name = get_name;
   srvc->get_desc = get_desc;
-  srvc->recv_create = recv_channelCreate;
   srvc->recv_accept = recv_channelAccept;
   srvc->recv_destroy = recv_channelDestroy;
   srvc->recv = recv;

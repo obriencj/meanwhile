@@ -358,9 +358,11 @@ static void HANDSHAKE_ACK_recv(struct mwSession *s,
 
   state(s, mwSession_HANDSHAKE_ACK, 0);
 
+  /* record the major/minor versions from the server */
   property_set(s, PROPERTY_SERVER_VER_MAJOR, GPOINTER(msg->major), NULL);
   property_set(s, PROPERTY_SERVER_VER_MINOR, GPOINTER(msg->minor), NULL);
 
+  /* compose the login message */
   log = (struct mwMsgLogin *) mwMessage_new(mwMessage_LOGIN);
   log->login_type = GPOINTER_TO_UINT(property_get(s, PROPERTY_CLIENT_TYPE_ID));
   log->name = g_strdup(property_get(s, PROPERTY_SESSION_USER_ID));
@@ -370,6 +372,7 @@ static void HANDSHAKE_ACK_recv(struct mwSession *s,
   compose_auth(&log->auth_data,
 	       property_get(s, PROPERTY_SESSION_PASSWORD));
   
+  /* send the login message */
   ret = mwSession_send(s, MW_MESSAGE(log));
   mwMessage_free(MW_MESSAGE(log));
   if(! ret) state(s, mwSession_LOGIN, 0);
@@ -393,11 +396,11 @@ static void LOGIN_ACK_recv(struct mwSession *s,
   state(s, mwSession_LOGIN_ACK, 0);
 
   /* @todo any further startup stuff? */
+
   state(s, mwSession_STARTED, 0);
 
-  /* send sense service requests for each added service */
+  /* start up our services */
   for(ll = l = mwSession_getServices(s); l; l = l->next) {
-    /* mwSession_senseService(s, mwService_getType(MW_SERVICE(l->data))); */
     mwService_start(l->data);
   }
   g_list_free(ll);
@@ -409,6 +412,7 @@ static void CHANNEL_CREATE_recv(struct mwSession *s,
   struct mwChannel *chan;
   chan = mwChannel_newIncoming(s->channels, msg->channel);
 
+  /* hand off to channel */
   mwChannel_recvCreate(chan, msg);
 }
 
@@ -420,6 +424,7 @@ static void CHANNEL_ACCEPT_recv(struct mwSession *s,
 
   g_return_if_fail(chan != NULL);
 
+  /* hand off to channel */
   mwChannel_recvAccept(chan, msg);
 }
 
@@ -434,10 +439,11 @@ static void CHANNEL_DESTROY_recv(struct mwSession *s,
 
   } else {
     struct mwChannel *chan;
-    chan = mwChannel_find(s->channels, msg->head.channel);
 
+    chan = mwChannel_find(s->channels, msg->head.channel);
     g_return_if_fail(chan != NULL);
     
+    /* hand off to channel */
     mwChannel_recvDestroy(chan, msg);
   }
 }
@@ -450,6 +456,7 @@ static void CHANNEL_SEND_recv(struct mwSession *s,
 
   g_return_if_fail(chan != NULL);
 
+  /* hand off to channel */
   mwChannel_recv(chan, msg);
 }
 
@@ -643,7 +650,8 @@ static gsize session_recv_empty(struct mwSession *s, const char *b, gsize n) {
   if(n < (x + 4)) {
     /* if the total amount of data isn't enough to cover the length
        bytes and the length indicated by those bytes, then we'll need
-       to buffer */
+       to buffer. This is where the DOS mentioned below in
+       session_recv takes place */
 
     x += 4;
     s->buf = (char *) g_malloc(x);
@@ -685,7 +693,9 @@ static gsize session_recv(struct mwSession *s, const char *b, gsize n) {
      dropping bytes until we'd fulfilled the entire length. eg: if we
      receive a message size of 10MB, we need to pass up exactly 10MB
      before it's safe to start processing the rest as a new
-     message. */
+     message. As it stands, a malicious packet from the server can run
+     us out of memory by indicating it's going to send us some
+     obscenely long message (even if it never actually sends it) */
   
   /* g_message(" session_recv: session = %p, b = %p, n = %u",
 	    s, b, n); */
@@ -787,9 +797,9 @@ struct mwLoginInfo *mwSession_getLoginInfo(struct mwSession *s) {
 }
 
 
-/** @todo actually implement */
 int mwSession_setPrivacyInfo(struct mwSession *s,
 			     struct mwPrivacyInfo *privacy) {
+  /** @todo actually implement */
   return 0;
 }
 
