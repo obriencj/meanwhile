@@ -4,10 +4,10 @@
 
 #include <glib/ghash.h>
 
+
 /* place-holders */
 struct mwChannel;
 struct mwService;
-struct mwServiceIm;
 struct mwSession;
 
 
@@ -18,8 +18,7 @@ typedef struct pyObj_mwSession mwPySession;
 
 /** @struct mwServicePyWrap
     specialty service which wraps calls to common mwService methods to an
-    underlying Python object or another mwService
- */
+    underlying Python object or another mwService */
 struct mwServicePyWrap;
 
 
@@ -47,19 +46,27 @@ struct pyObj_mwService {
 PyTypeObject *mwPyService_type();
 
 
+/** create an instance of the wrapper service with the given service
+    type id */
 struct mwServicePyWrap *mwServicePyWrap_new(mwPyService *self,
 					    guint32 type);
 
 
+/** create an instance of the wrapper service, backed by srvc */
 struct mwServicePyWrap *mwServicePyWrap_wrap(mwPyService *self,
-					     struct mwService *service);
+					     struct mwService *srvc);
 
 
+/** the PyObject the wrapper service is connected to */
 mwPyService *mwServicePyWrap_getSelf(struct mwServicePyWrap *srvc);
 
 
 /** sub-type of mwPyService for wrapping a mwServiceIm instance */
 PyTypeObject *mwPyServiceIm_type();
+
+
+/** sub-type of mwPyService for wrapping a mwServiceStore instance */
+PyTypeObject *mwPyServiceStorage_type();
 
 
 struct pyObj_mwSession {

@@ -30,9 +30,8 @@ static int mw_io_write(struct mwSession *s, const char *buf, gsize len) {
 
   robj = PyObject_CallMethod(sobj, ON_IO_WRITE, "N", pbuf);
 
-  if(robj && PyInt_Check(robj)) {
+  if(robj && PyInt_Check(robj))
     ret = (int) PyInt_AsLong(robj);
-  }
 
   Py_DECREF(pbuf);
   Py_XDECREF(robj);

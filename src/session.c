@@ -792,6 +792,8 @@ gboolean mwSession_addService(struct mwSession *s, struct mwService *srv) {
 
   } else {
     g_hash_table_insert(s->services, SERVICE_KEY(srv), srv);
+    if(SESSION_IS_STATE(s, mwSession_STARTED))
+      mwSession_senseService(s, mwService_getType(srv));
     return TRUE;
   }
 }

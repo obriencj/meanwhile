@@ -24,6 +24,8 @@ PyMODINIT_FUNC init_meanwhile() {
   PyModule_AddObject(m, "Session", (PyObject *) mwPySession_type());
 
   PyModule_AddObject(m, "ServiceIm", (PyObject *) mwPyServiceIm_type());
+  PyModule_AddObject(m, "ServiceStorage",
+		     (PyObject *) mwPyServiceStorage_type());
 }
 
 

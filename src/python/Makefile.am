@@ -18,7 +18,8 @@ _meanwhile_so_SOURCES = \
 	py_channel.c \
 	py_service.c \
 	py_session.c \
-	py_srvc_im.c
+	py_srvc_im.c \
+	py_srvc_store.c
 
 _meanwhile_so_CFLAGS = \
 	-Wall -Werror \

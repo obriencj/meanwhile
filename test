@@ -1,5 +1,10 @@
 #! /bin/sh
 
+# Test script for Python wrappers
+#
+# If you don't have a test.conf, copy it from test.conf.in and modify
+# as necessary.
+
 # obtain configuration data
 . test.conf
 

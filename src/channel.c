@@ -163,7 +163,7 @@ struct mwChannel *mwChannel_newOutgoing(struct mwChannelSet *cs) {
   /* grab the next id, and try to make sure there isn't already a
      channel using it */
   do {
-    id = cs->counter++;
+    id = ++cs->counter;
   } while(g_hash_table_lookup(cs->map, GUINT_TO_POINTER(id)));
   
   chan = mwChannel_newIncoming(cs, id);
@@ -834,19 +834,25 @@ GList *mwChannel_getSupportedCipherInstances(struct mwChannel *chan) {
 void mwChannel_selectCipherInstance(struct mwChannel *chan,
 				    struct mwCipherInstance *ci) {
   struct mwCipher *c;
-  guint cid;
 
   g_return_if_fail(chan != NULL);
   g_return_if_fail(chan->supported != NULL);
 
   chan->cipher = ci;
-  c = mwCipherInstance_getCipher(ci);
-  cid = mwCipher_getType(c);
+  if(ci) {
+    guint cid;
 
-  g_message("channel 0x%08x selected cipher %s",
-	    chan->id, mwCipher_getName(c));
+    c = mwCipherInstance_getCipher(ci);
+    cid = mwCipher_getType(c);
 
-  g_hash_table_steal(chan->supported, GUINT_TO_POINTER(cid));
+    g_hash_table_steal(chan->supported, GUINT_TO_POINTER(cid));
+
+    g_message("channel 0x%08x selected cipher %s",
+	      chan->id, mwCipher_getName(c));
+  } else {
+    g_message("channel 0x%08x selected no cipher", chan->id);
+  }
+
   g_hash_table_destroy(chan->supported);
   chan->supported = NULL;
 }

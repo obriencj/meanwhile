@@ -37,6 +37,7 @@ struct mwStorageReq {
   struct mwStorageUnit *item;  /**< the key/data pair */ 
   mwStorageCallback cb;        /**< callback to notify upon completion */
   gpointer data;               /**< user data to pass with callback */
+  GDestroyNotify data_free;    /**< optionally frees user data */
 };
 
 
@@ -145,6 +146,12 @@ static void request_trigger(struct mwServiceStorage *srvc,
 
 
 static void request_free(struct mwStorageReq *req) {
+  if(req->data_free) {
+    req->data_free(req->data);
+    req->data = NULL;
+    req->data_free = NULL;
+  }
+
   mwStorageUnit_free(req->item);
   g_free(req);
 }
@@ -270,16 +277,20 @@ static void recv_channelDestroy(struct mwService *srvc,
 				struct mwChannel *chan,
 				struct mwMsgChannelDestroy *msg) {
 
-  /* close, instruct the session to re-open */
+  struct mwSession *session;
   struct mwServiceStorage *srvc_stor;
 
   g_return_if_fail(srvc != NULL);
   g_return_if_fail(chan != NULL);
 
+  session = mwService_getSession(srvc);
+  g_return_if_fail(session != NULL);
+
   srvc_stor = (struct mwServiceStorage *) srvc;
   srvc_stor->channel = NULL;
 
   mwService_stop(srvc);
+  mwSession_senseService(session, mwService_getType(srvc));
 }
 
 
@@ -374,8 +385,8 @@ struct mwStorageUnit *mwStorageUnit_new(guint32 key) {
 }
 
 
-struct mwStorageUnit *mwStorageUnit_newData(guint32 key,
-					    struct mwOpaque *data) {
+struct mwStorageUnit *mwStorageUnit_newOpaque(guint32 key,
+					      struct mwOpaque *data) {
   struct mwStorageUnit *u;
 
   u = g_new0(struct mwStorageUnit, 1);
@@ -390,15 +401,22 @@ struct mwStorageUnit *mwStorageUnit_newData(guint32 key,
 
 struct mwStorageUnit *mwStorageUnit_newBoolean(guint32 key,
 					       gboolean val) {
+
+  return mwStorageUnit_newInteger(key, (guint32) val);
+}
+
+
+struct mwStorageUnit *mwStorageUnit_newInteger(guint32 key,
+					       guint32 val) {
   struct mwStorageUnit *u;
+  struct mwPutBuffer *b;
 
   u = g_new0(struct mwStorageUnit, 1);
   u->key = key;
-
-  /* storage service expects booleans as full 32bit values */
-  u->data.len = 4;
-  u->data.data = g_malloc0(4);
-  if(val) u->data.data[3] = 0x01;
+  
+  b = mwPutBuffer_new();
+  guint32_put(b, val);
+  mwPutBuffer_finalize(&u->data, b);
 
   return u;
 }
@@ -428,16 +446,22 @@ guint32 mwStorageUnit_getKey(struct mwStorageUnit *item) {
 
 gboolean mwStorageUnit_asBoolean(struct mwStorageUnit *item,
 				 gboolean val) {
+
+  return !! mwStorageUnit_asInteger(item, (guint32) val);
+}
+
+
+guint32 mwStorageUnit_asInteger(struct mwStorageUnit *item,
+				guint32 val) {
   struct mwGetBuffer *b;
-  guint32 v = (guint32) val;
+  guint32 v;
 
   g_return_val_if_fail(item != NULL, val);
 
   b = mwGetBuffer_wrap(&item->data);
 
   guint32_get(b, &v);
-  val = !! v;
-
+  if(! mwGetBuffer_error(b)) val = v;
   mwGetBuffer_free(b);
 
   return val;
@@ -463,7 +487,7 @@ char *mwStorageUnit_asString(struct mwStorageUnit *item) {
 }
 
 
-struct mwOpaque *mwStorageUnit_asData(struct mwStorageUnit *item) {
+struct mwOpaque *mwStorageUnit_asOpaque(struct mwStorageUnit *item) {
   g_return_val_if_fail(item != NULL, NULL);
   return &item->data;
 }
@@ -480,7 +504,7 @@ void mwStorageUnit_free(struct mwStorageUnit *item) {
 static struct mwStorageReq *request_new(struct mwServiceStorage *srvc,
 					struct mwStorageUnit *item,
 					mwStorageCallback cb,
-					gpointer data) {
+					gpointer data, GDestroyNotify df) {
 
   struct mwStorageReq *req = g_new0(struct mwStorageReq, 1);
 
@@ -488,6 +512,7 @@ static struct mwStorageReq *request_new(struct mwServiceStorage *srvc,
   req->item = item;
   req->cb = cb;
   req->data = data;
+  req->data_free = df;
 
   return req;
 }
@@ -495,7 +520,8 @@ static struct mwStorageReq *request_new(struct mwServiceStorage *srvc,
 
 void mwServiceStorage_load(struct mwServiceStorage *srvc,
 			   struct mwStorageUnit *item,
-			   mwStorageCallback cb, gpointer data) {
+			   mwStorageCallback cb,
+			   gpointer data, GDestroyNotify d_free) {
 
   /* - construct a request
      - put request at end of pending
@@ -509,23 +535,20 @@ void mwServiceStorage_load(struct mwServiceStorage *srvc,
 
   struct mwStorageReq *req;
 
-  req = request_new(srvc, item, cb, data);
+  req = request_new(srvc, item, cb, data, d_free);
   req->action = action_load;
 
   srvc->pending = g_list_append(srvc->pending, req);
 
-  if(MW_SERVICE_IS_STOPPED(srvc)) {
-    mwService_start(MW_SERVICE(srvc));
-    return;
-  }
-
-  request_send(srvc->channel, req);
+  if(MW_SERVICE_IS_STARTED(MW_SERVICE(srvc)))
+    request_send(srvc->channel, req);
 }
 
 
 void mwServiceStorage_save(struct mwServiceStorage *srvc,
 			   struct mwStorageUnit *item,
-			   mwStorageCallback cb, gpointer data) {
+			   mwStorageCallback cb,
+			   gpointer data, GDestroyNotify d_free) {
 
   /* - construct a request
      - put request at end of pending
@@ -539,16 +562,12 @@ void mwServiceStorage_save(struct mwServiceStorage *srvc,
 
   struct mwStorageReq *req;
 
-  req = request_new(srvc, item, cb, data);
+  req = request_new(srvc, item, cb, data, d_free);
   req->action = action_save;
 
   srvc->pending = g_list_append(srvc->pending, req);
 
-  if(MW_SERVICE_IS_STOPPED(srvc)) {
-    mwService_start(MW_SERVICE(srvc));
-    return;
-  }
-
-  request_send(srvc->channel, req);
+  if(MW_SERVICE_IS_STARTED(MW_SERVICE(srvc)))
+    request_send(srvc->channel, req);
 }
 

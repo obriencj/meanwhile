@@ -12,6 +12,7 @@ import _meanwhile
 from _meanwhile import Channel
 from _meanwhile import Service
 from _meanwhile import ServiceIm
+from _meanwhile import ServiceStorage
 
 
 class Session(_meanwhile.Session):
@@ -30,10 +31,13 @@ class Session(_meanwhile.Session):
     
     def onIoWrite(self, data):
         if self._sock:
-            self._sock.sendall(data)
-            return 0
+            try:
+                self._sock.sendall(data)
+                return 0
+            except:
+                return -1
         else:
-            return -1
+            return 1
 
 
     def onIoClose(self):
@@ -54,6 +58,9 @@ class Session(_meanwhile.Session):
 
 
     def start(self, background=False, daemon=False):
+        '''
+        '''
+        
         import socket
         import threading
         
@@ -64,6 +71,7 @@ class Session(_meanwhile.Session):
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._sock.connect(self._server)
         
+        # send the beginning data
         _meanwhile.Session.start(self, self._id)
 
         if background:
@@ -73,6 +81,7 @@ class Session(_meanwhile.Session):
             self._thread.setDaemon(daemon)
             self._thread.start()
         else:
+            self._thread = threading.currentThread()
             self._recvLoop()
 
 

@@ -13,17 +13,30 @@ struct mwSession;
 
 /** @struct mwServiceStorage
     @see mwServiceStorage_new
-    Instance of the storage service handler. */
+
+    Instance of the storage service */
 struct mwServiceStorage;
 
 
-/** @struct mwStorageUnit
- */
+/** @struct mwStorage
+
+    Unit Represents information intended for loading from or saving to
+    the storage service */
 struct mwStorageUnit;
 
 
-/** These are some of the common keys determined from packet dumps that
-    might be relevant for other clients. */
+/** The upper limit of reserved Lotus keys */
+#define LOTUS_RESERVED_LIMIT  0x186a0
+
+
+/** Check if a key is in the range of Lotus reserved keys */
+#define KEY_IS_LOTUS_RESERVED(key) \
+  (((guint32) key) > (LOTUS_RESERVED_LIMIT))
+
+
+/** Some common keys storage keys. Anything in the range 0x00 to
+    0x186a0 (100000 decimal) is reserved for use by the Lotus
+    clients. */
 enum mwStorageKey {
   /** The buddy list, in the Sametime .dat file format. String */
   mwStore_AWARE_LIST      = 0x00000000,
@@ -37,13 +50,15 @@ enum mwStorageKey {
 
 
 /** Appropriate function type for load and store callbacks.
-    @param srvc    the storage service
-    @param result  the result value of the load or store call
-    @param item    the storage unit loaded or saved
-    @param data    user data  */
+    @param srvc       the storage service
+    @param result     the result value of the load or store call
+    @param item       the storage unit loaded or saved
+    @param data       optional user data
+*/
 typedef void (*mwStorageCallback)
      (struct mwServiceStorage *srvc,
-      guint32 result, struct mwStorageUnit *item, gpointer data);
+      guint32 result, struct mwStorageUnit *item,
+      gpointer data);
 
 
 /** Allocates and initializes a storage service instance for use on
@@ -51,19 +66,23 @@ typedef void (*mwStorageCallback)
 struct mwServiceStorage *mwServiceStorage_new(struct mwSession *);
 
 
-/** allocated an empty storage unit */
+/** create an empty storage unit */
 struct mwStorageUnit *mwStorageUnit_new(guint32 key);
 
 
 /** creates a storage unit with the passed key, and a copy of data. */
-struct mwStorageUnit *mwStorageUnit_newData(guint32 key,
-					    struct mwOpaque *data);
+struct mwStorageUnit *mwStorageUnit_newOpaque(guint32 key,
+					      struct mwOpaque *data);
 
 
 /** creates a storage unit with the passed key, and an encapsulated
     boolean value */
 struct mwStorageUnit *mwStorageUnit_newBoolean(guint32 key,
 					       gboolean val);
+
+
+struct mwStorageUnit *mwStorageUnit_newInteger(guint32 key,
+					       guint32 val);
 
 
 /** creates a storage unit with the passed key, and an encapsulated
@@ -82,6 +101,9 @@ guint32 mwStorageUnit_getKey(struct mwStorageUnit *);
 gboolean mwStorageUnit_asBoolean(struct mwStorageUnit *, gboolean val);
 
 
+guint32 mwStorageUnit_asInteger(struct mwStorageUnit *, guint32 val);
+
+
 /** attempts to obtain a string value from a storage unit. If the unit
     is empty, or does not contain the type in a recognizable format,
     NULL is returned instead. Note that string returned is a copy, and
@@ -90,7 +112,7 @@ char *mwStorageUnit_asString(struct mwStorageUnit *);
 
 
 /** direct access to the opaque data backing the storage unit */
-struct mwOpaque *mwStorageUnit_asData(struct mwStorageUnit *);
+struct mwOpaque *mwStorageUnit_asOpaque(struct mwStorageUnit *);
 
 
 /** clears and frees a storage unit */
@@ -100,23 +122,29 @@ void mwStorageUnit_free(struct mwStorageUnit *);
 /** Initiates a load call to the storage service. If the service is
     not currently available, the call will be cached and processed
     when the service is started.
-    @param item  storage unit to load
-    @param cb    callback function when the load call completes
-    @param data  user data for callback */
+    @param item       storage unit to load
+    @param cb         callback function when the load call completes
+    @param data       user data for callback
+    @param data_free  optional cleanup function for user data
+*/
 void mwServiceStorage_load(struct mwServiceStorage *srvc,
 			   struct mwStorageUnit *item,
-			   mwStorageCallback cb, gpointer data);
+			   mwStorageCallback cb,
+			   gpointer data, GDestroyNotify data_free);
 
 
 /** Initiates a store call to the storage service. If the service is
     not currently available, the call will be cached and processed
     when the service is started.
-    @param item  storage unit to save
-    @param cb    callback function when the load call completes
-    @param data  user data for callback */
+    @param item       storage unit to save
+    @param cb         callback function when the load call completes
+    @param data       optional user data for callback
+    @param data_free  optional cleanup function for user data
+ */
 void mwServiceStorage_save(struct mwServiceStorage *srvc,
 			   struct mwStorageUnit *item,
-			   mwStorageCallback cb, gpointer data);
+			   mwStorageCallback cb,
+			   gpointer data, GDestroyNotify data_free);
 
 
 #endif
