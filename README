@@ -1,36 +1,35 @@
 
-This is the siege's UNSTABLE branch. Use at own risk
+=====================
+The Meanwhile Project
+=====================
 
-===============================================================================
-libMeanwhile
-============
-
+http://meanwhile.sourceforge.net/
 Christopher (siege) O'Brien <siege@preoccupied.net>
-	Author, Maintainer
 
-libMeanwhile is a library for connecting to a Lotus Sametime (tm)
-community. It uses a protocol based in part off of the IMPP draft(*1),
-and in part off of traces of TCP sessions from existing clients.
+Meanwhile is a library for connecting to a LIM (Lotus Instant
+Messaging, formerly Lotus Sametime, formerly VPBuddy) community. It
+uses a protocol based in part off of the IMPP draft(*1), and in part
+off of traces of TCP sessions from existing clients.
 
-The libmwgaim plugin allows Gaim to connect to a Lotus Sametime (tm)
-community using a compiled-in version of libMeanwhile.
+Meanwhile-python is a set of Python wrappers for the Meanwhile library
+
+The gaim-meanwhile plugin allows Gaim to connect to a Lotus Sametime
+(tm) community using a compiled-in version of libMeanwhile.
 
 See INSTALL for instructions on building and installing
 
 
-===============================================================================
+=======
 License
 =======
 
-libMeanwhile is released under the LGPL. See LICENSE for the full
-license text and terms.
+Meanwhile and Meanwhile-python are released under the LGPL. See
+LICENSE for the full license text and terms.
 
-pyMewanwhile is released under the LGPL.
-
-the Meanwhile gaim plugin is released under the GPL
+Meanwhile-gaim is released under the GPL
 
 
-===============================================================================
+=========
 Footnotes
 =========
 

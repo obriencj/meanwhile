@@ -3,6 +3,7 @@ Hacking on the Meanwhile Project
 - a brief guide by siege
 
 
+
 Table of Contents
   1    Coding Style
   1.1    Indentation and Line Width
@@ -15,7 +16,40 @@ Table of Contents
   2.2    Channels
   2.3    Services
 
-  3    Plugin Features
-  4    Patch Submission
+  3    Patch Submission
 
+
+
+1	Coding Style
+In general, just make it look pretty.
+
+1.1	Indentation and Line Width
+two-space tabs/indent, < 80 char wide lines, with the continuation
+under the last containing statement.
+
+1.2	Block Style
+sexy braces on the defining line, not after
+
+1.3	Function and Variable Naming
+mwTypeName_someAction
+
+
+2	Abbreviated API Guide
+
+2.1	Sessions
+
+2.2	Messages
+
+2.3	Channels
+
+2.4	Services
+
+
+3	Patch Submission
+
+Patches must be submitted through the sf.net tracker. Patches must be
+in the `diff -ud` format, and should be relative to the base sandbox
+directory (the directory containing this file). One topic per patch
+submission, eg: no bugfixes along with new features (unless they are
+mutually inclusive).
 

@@ -1,8 +1,7 @@
 
 == General ==
 
-- mozilla plugin for whiteboard?
-  - get tcp dumps from ICT
+- White boarding
   - use new session or use existing gaim-driven session?
   - CORBA to communicate between session and moz plugin?
 
@@ -21,4 +20,6 @@
   - submit the query with a call-back function
   - on receipt of a reponse, lookup id and call function with results
 
+- IM service
+  - NotesBuddy html formatting in IM
 
