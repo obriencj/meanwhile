@@ -16,12 +16,12 @@ version 0.4.0 (cvs)
 	- Bug #1089971 pkg-config file does not list liner flags
 	- Bug #1110902 configure shouldn't set CFLAGS
 	
-version 0.3-1 (2004-08-05)
+version 0.3.1 (2004-08-05)
 
 	- Fix [989872] Version incompatibility (0x80000200 errors)
 	- Fix some st_list parsing problems
 
-version 0.3-0 (2004-06-28)
+version 0.3.0 (2004-06-28)
 		
 	2004-06-27: Fixed bug #980572. Thanks a lot to Joe Marcus Clarke
 	for all the debugging help!
