@@ -458,16 +458,21 @@ static int put_group(char **b, gsize *n, struct mwSametimeGroup *group) {
 
 
 static int put_user(char **b, gsize *n, struct mwSametimeUser *user) {
-  char *name, *alias;
+  char *id, *name, *alias;
   int writ;
 
-  name = g_strdup(user->id.user);
+  id = g_strdup(user->id.user);
+  name = g_strdup(user->name);
   alias = g_strdup(user->alias);
+
+  str_replace(id, ' ', ';');
   str_replace(name, ' ', ';');
-  if(alias) str_replace(alias, ' ', ';');
+  str_replace(alias, ' ', ';');
 
-  writ = g_sprintf(*b, "U %s1:: %s,%s\n", name, name, alias? alias: "");
+  writ = g_sprintf(*b, "U %s1:: %s,%s\n",
+		   id, name? name: "", alias? alias: "");
 
+  g_free(id);
   g_free(name);
   g_free(alias);
 
