@@ -51,6 +51,32 @@ struct mwAddressBook;
 struct mwDirectory;
 
 
+enum mwDirectoryState {
+  mwDirectory_NEW,      /**< directory is created, but not open */
+  mwDirectory_PENDING,  /**< directory has in the process of opening */
+  mwDirectory_OPEN,     /**< directory is open */
+  mwDirectory_ERROR,    /**< error opening or using directory */
+  mwDirectory_UNKNOWN,  /**< error determining directory state */
+};
+
+
+/** return value of directory searches that fail */
+#define DIR_SEARCH_ERROR  0x00000000
+
+
+#define MW_DIRECTORY_IS_STATE(dir, state) \
+  (mwDirectory_getState(dir) == (state))
+
+#define MW_DIRECTORY_IS_NEW(dir) \
+  MW_DIRECTORY_IS_STATE((dir), mwDirectory_NEW)
+
+#define MW_DIRECTORY_IS_PENDING(dir) \
+  MW_DIRECTORY_IS_STATE((dir), mwDirectory_PENDING)
+
+#define MW_DIRECTORY_IS_OPEN(dir) \
+  MW_DIRECTORY_IS_STATE((dir), mwDirectory_OPEN)
+
+
 enum mwDirectoryMemberType {
   mwDirectoryMember_USER   = 0x0000,
   mwDirectoryMember_GROUP  = 0x0001,
@@ -128,6 +154,9 @@ const char *mwAddressBook_getName(struct mwAddressBook *book);
 struct mwDirectory *mwDirectory_new(struct mwAddressBook *book);
 
 
+enum mwDirectoryState mwDirectory_getState(struct mwDirectory *dir);
+
+
 /** set client data. If there is an existing clear function, it will
     not be called */
 void mwDirectory_setClientData(struct mwDirectory *dir,
@@ -151,33 +180,24 @@ struct mwAddressBook *mwDirectory_getAddressBook(struct mwDirectory *dir);
 
 
 /** initialize a directory. */
-int mwDirectory_open(struct mwDirectory *dir,
-		     gpointer data, GDestroyNotify clean);
+int mwDirectory_open(struct mwDirectory *dir, mwSearchHandler *cb,
+		     gpointer data, GDestroyNotify clear);
 
 
-/** initiate a search on an open directory. A directory can only have
-    one active search at a time. */
-int mwDirectory_search(struct mwDirectory *dir,
-		       const char *query,
-		       mwSearchHandler *cb);
+/* get the first set of results for a directory */
+guint32 mwDirectory_first(struct mwDirectory *dir);
 
 
 /** continue a search into its next results */
-guint32 mwDirectory_searchNext(struct mwDirectory *dir);
+guint32 mwDirectory_next(struct mwDirectory *dir);
 
 
 /** continue a search into its previous results */
-guint32 mwDirectory_searchPrevious(struct mwDirectory *dir);
+guint32 mwDirectory_previous(struct mwDirectory *dir);
 
 
-gpointer mwDirectory_getClientData(struct mwDirectory *dir);
-
-
-void mwDirectory_setClientData(struct mwDirectory *dir,
-			       gpointer data, GDestroyNotify clean);
-
-
-void mwDirectory_removeClientData(struct mwDirectory *dir);
+/** initiate a search on an open directory */
+guint32 mwDirectory_search(struct mwDirectory *dir, const char *query);
 
 
 /** close and free the directory, and unassociate it with its owning

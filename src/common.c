@@ -446,6 +446,13 @@ void mwOpaque_clear(struct mwOpaque *o) {
 }
 
 
+void mwOpaque_free(struct mwOpaque *o) {
+  if(! o) return;
+  g_free(o->data);
+  g_free(o);
+}
+
+
 void mwOpaque_clone(struct mwOpaque *to, struct mwOpaque *from) {
   g_return_if_fail(to != NULL);
 

@@ -297,6 +297,8 @@ void mwOpaque_get(struct mwGetBuffer *b, struct mwOpaque *o);
 
 void mwOpaque_clear(struct mwOpaque *o);
 
+void mwOpaque_free(struct mwOpaque *o);
+
 void mwOpaque_clone(struct mwOpaque *to, struct mwOpaque *from);
 
 
