@@ -28,7 +28,7 @@ def _cbExec_real(who, text):
         exec text in globals()
     except Exception, err:
         msg = "caught exception: %s" % err
-        #print msg
+        print msg
         tSrvcIm.sendText(who, msg)
 
             
@@ -327,7 +327,7 @@ def main():
     try:
         tSession.start(background=False, daemon=False)
     except Exception, e:
-        print "Error: %s" % e[1]
+        print "Error: %s" % e
 
     print "Shutting down"
     tSession.removeService(tSrvcAware.type)
