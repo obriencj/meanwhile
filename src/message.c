@@ -132,6 +132,27 @@ static void LOGIN_ACK_clear(struct mwMsgLoginAck *msg) {
 }
 
 
+/* 8.4.1.6 AuthPassed */
+
+
+static void LOGIN_REDIRECT_get(struct mwGetBuffer *b,
+			       struct mwMsgLoginRedirect *msg) {
+
+  if(mwGetBuffer_error(b)) return;
+  mwString_get(b, &msg->host);
+  mwString_get(b, &msg->server_id);  
+}
+
+
+static void LOGIN_REDIRECT_clear(struct mwMsgLoginRedirect *msg) {
+  g_free(msg->host);
+  msg->host = NULL;
+
+  g_free(msg->server_id);
+  msg->server_id = NULL;
+}
+
+
 /* 8.4.1.7 CreateCnl */
 
 
@@ -404,7 +425,6 @@ static void SET_USER_STATUS_get(struct mwGetBuffer *b,
 				struct mwMsgSetUserStatus *msg) {
 
   if(mwGetBuffer_error(b)) return;
-
   mwUserStatus_get(b, &msg->status);
 }
 
@@ -427,7 +447,6 @@ static void SET_PRIVACY_LIST_get(struct mwGetBuffer *b,
 				 struct mwMsgSetPrivacyList *msg) {
 
   if(mwGetBuffer_error(b)) return;
-
   mwPrivacyInfo_get(b, &msg->privacy);
 }
 
@@ -450,7 +469,6 @@ static void SENSE_SERVICE_get(struct mwGetBuffer *b,
 			      struct mwMsgSenseService *msg) {
 
   if(mwGetBuffer_error(b)) return;
-
   guint32_get(b, &msg->service);
 }
 
@@ -458,7 +476,6 @@ static void SENSE_SERVICE_get(struct mwGetBuffer *b,
 static void SENSE_SERVICE_clear(struct mwMsgSenseService *msg) {
   ;
 }
-
 
 
 /* Admin messages */
@@ -489,8 +506,8 @@ struct mwMessage *mwMessage_new(enum mwMessageType type) {
     CASE(HANDSHAKE, mwMsgHandshake);
     CASE(HANDSHAKE_ACK, mwMsgHandshakeAck);
     CASE(LOGIN, mwMsgLogin);
-    /* CASE(LOGIN_REDIRECT, mwMsgLoginRedirect);
-       CASE(LOGIN_CONTINUE, mwMsgLoginContinue); */
+    CASE(LOGIN_REDIRECT, mwMsgLoginRedirect);
+    /*  CASE(LOGIN_CONTINUE, mwMsgLoginContinue); */
     CASE(LOGIN_ACK, mwMsgLoginAck);
     CASE(CHANNEL_CREATE, mwMsgChannelCreate);
     CASE(CHANNEL_DESTROY, mwMsgChannelDestroy);
@@ -543,7 +560,7 @@ struct mwMessage *mwMessage_get(struct mwGetBuffer *b) {
   /* load the rest of the message depending on the header type */
   switch(head.type) {
     CASE(HANDSHAKE_ACK, mwMsgHandshakeAck);
-    /* CASE(LOGIN_REDIRECT, mwMsgLoginRedirect); */
+    CASE(LOGIN_REDIRECT, mwMsgLoginRedirect);
     CASE(LOGIN_ACK, mwMsgLoginAck);
     CASE(CHANNEL_CREATE, mwMsgChannelCreate);
     CASE(CHANNEL_DESTROY, mwMsgChannelDestroy);
@@ -621,8 +638,8 @@ void mwMessage_free(struct mwMessage *msg) {
     CASE(HANDSHAKE, mwMsgHandshake);
     CASE(HANDSHAKE_ACK, mwMsgHandshakeAck);
     CASE(LOGIN, mwMsgLogin);
-    /* CASE(LOGIN_REDIRECT, mwMsgLoginRedirect);
-       CASE(LOGIN_CONTINUE, mwMsgLoginContinue); */
+    CASE(LOGIN_REDIRECT, mwMsgLoginRedirect);
+    /* CASE(LOGIN_CONTINUE, mwMsgLoginContinue); */
     CASE(LOGIN_ACK, mwMsgLoginAck);
     CASE(CHANNEL_CREATE, mwMsgChannelCreate);
     CASE(CHANNEL_DESTROY, mwMsgChannelDestroy);

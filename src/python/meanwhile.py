@@ -30,20 +30,36 @@ class Session(_meanwhile.Session):
 
     
     def onIoWrite(self, data):
-        if self._sock:
-            try:
-                self._sock.sendall(data)
-                return 0
-            except:
-                return -1
-        else:
+        if not self._sock:
+            return -1
+
+        try:
+            self._sock.sendall(data)
+        except:
             return 1
+        else:
+            return 0
 
 
     def onIoClose(self):
         if self._sock:
             self._sock.close()
             self._sock = None
+
+
+    def onLoginRedirect(self, host):
+        import socket
+
+        # close off the existing session
+        self.stop()
+
+        # setup a socket elsewhere
+        self._server[0] = host
+        self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self._sock.connect(self._server)
+        
+        # resend the beginning data
+        _meanwhile.Session.start(self, self._id)
 
 
     def _recvLoop(self):

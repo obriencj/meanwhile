@@ -440,6 +440,16 @@ static void ADMIN_recv(struct mwSession *s, struct mwMsgAdmin *msg) {
 }
 
 
+static void LOGIN_REDIRECT_recv(struct mwSession *s,
+				struct mwMsgLoginRedirect *msg) {
+  struct mwSessionHandler *sh = s->handler;
+
+  if(sh && sh->on_loginRedirect)
+    sh->on_loginRedirect(s, msg->host);
+}
+
+
+
 #define CASE(var, type) \
 case mwMessage_ ## var: \
   var ## _recv(s, (struct type *) msg); \
@@ -469,7 +479,7 @@ static void session_process(struct mwSession *s,
   /* handle each of the appropriate incoming types of mwMessage */
   switch(msg->type) {
     CASE(HANDSHAKE_ACK, mwMsgHandshakeAck);
-    /* CASE(LOGIN_REDIRECT, mwMsgLoginRedirect); */
+    CASE(LOGIN_REDIRECT, mwMsgLoginRedirect);
     CASE(LOGIN_ACK, mwMsgLoginAck);
     CASE(CHANNEL_CREATE, mwMsgChannelCreate);
     CASE(CHANNEL_DESTROY, mwMsgChannelDestroy);

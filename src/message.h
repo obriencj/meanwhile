@@ -125,11 +125,10 @@ struct mwMsgLoginAck {
 
 /* 8.4.1.6 AuthPassed */
 
-/** Unused, not yet implemented */
 struct mwMsgLoginRedirect {
   struct mwMessage head;
-  char *server;
-  guint32 server_ver;
+  char *host;
+  char *server_id;
 };
 
 

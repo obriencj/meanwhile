@@ -121,6 +121,9 @@ struct mwSessionHandler {
 
   /** called when an admin messages has been received */
   void (*on_admin)(struct mwSession *, const char *text);
+
+  /** called when a login redirect message is received */
+  void (*on_loginRedirect)(struct mwSession *, const char *host);
 };
 
 

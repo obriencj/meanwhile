@@ -64,7 +64,7 @@ def _cbLoad(who, kstr):
 class Session(meanwhile.Session):
     def onAdmin(self, text):
         print "ADMIN: %s" % text
-
+        
 
 
 class ServiceIm(meanwhile.ServiceIm):

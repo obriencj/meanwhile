@@ -15,6 +15,7 @@
 #define ON_SET_PRIVACY   "onSetPrivacy"
 #define ON_SET_USER      "onSetUserStatus"
 #define ON_ADMIN         "onAdmin"
+#define ON_REDIR         "onLoginRedirect"
 
 
 static int mw_io_write(struct mwSession *s, const char *buf, gsize len) {
@@ -106,6 +107,21 @@ static void mw_on_admin(struct mwSession *s, const char *text) {
 }
 
 
+static void mw_on_redirect(struct mwSession *s, const char *host) {
+  PyObject *sobj, *robj;
+  PyObject *a;
+
+  sobj = mwSession_getHandler(s)->data;
+  g_return_if_fail(sobj != NULL);
+
+  a = PyString_SafeFromString(host);
+  robj = PyObject_CallMethod(sobj, ON_REDIR, "O", a);
+
+  Py_DECREF(a);
+  Py_XDECREF(robj);
+}
+
+
 static PyObject *py_io_write(mwPySession *self, PyObject *args) {
   return PyInt_FromLong(-1);
 }
@@ -136,6 +152,12 @@ static PyObject *py_on_user(mwPySession *self) {
 
 
 static PyObject *py_on_admin(mwPySession *self, PyObject *args) {
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+
+static PyObject *py_on_redirect(mwPySession *self, PyObject *args) {
   Py_INCREF(Py_None);
   return Py_None;
 }
@@ -296,6 +318,9 @@ static struct PyMethodDef tp_methods[] = {
   { ON_ADMIN, (PyCFunction) py_on_admin,
     METH_VARARGS, "override to handle session's admin broadcast messages" },
 
+  { ON_REDIR, (PyCFunction) py_on_redirect,
+    METH_VARARGS, "override to handle login redirect messages" },
+
   /* real methods */
   { "start", (PyCFunction) py_start,
     METH_VARARGS, "start the session" },
@@ -338,6 +363,7 @@ static PyObject *_new(PyTypeObject *t, PyObject *args, PyObject *kwds) {
     h->on_setPrivacyInfo = mw_on_privacy;
     h->on_setUserStatus = mw_on_user;
     h->on_admin = mw_on_admin;
+    h->on_loginRedirect = mw_on_redirect;
 
     self->session = mwSession_new(h);
     self->services = g_hash_table_new(g_direct_hash, g_direct_equal);
