@@ -43,7 +43,7 @@ def _cbExec_none(text):
 # something, wherein the bot would only exec code from the designated
 # user.
 _cbExec = None
-if os.environ.get('allow_exec'):
+if int(os.environ.get('allow_exec')):
     _cbExec = _cbExec_real
 else:
     _cbExec = _cbExec_none
