@@ -263,20 +263,18 @@ static PyObject *py_recv(mwPyService *self, PyObject *args) {
     mwService_recv(srvc, chan->channel, type, &o);
   }
 
-  Py_INCREF(Py_None);
-  return Py_None;
+  mw_return_none();
 }
 
 
 static PyObject *py_get_type(mwPyService *self, gpointer data) {
   guint32 t = mwService_getType(MW_SERVICE(self->wrapper));
-  return PyInt_FromLong(t);
+  return PyGuint32_FromGuint32(t);
 }
 
 
 static int py_set_type(mwPyService *self, PyObject *val, gpointer data) {
-  PyErr_SetString(PyExc_TypeError, "member 'type' is read-only");
-  return -1;
+  mw_raise_readonly("type");
 }
 
 
@@ -301,24 +299,23 @@ static PyObject *py_get_desc(mwPyService *self) {
 
 
 static PyObject *py_get_state(mwPyService *self, gpointer data) {
-  guint32 state = (self->wrapped)? 
+  enum mwServiceState state = (self->wrapped)? 
     mwService_getState(self->wrapped):
     mwService_getState(MW_SERVICE(self->wrapper));
-
+  
   return PyInt_FromLong(state);
 }
 
 
 static int py_set_state(mwPyService *self, PyObject *val, gpointer data) {
-  PyErr_SetString(PyExc_TypeError, "member 'state' is read-only");
-  return -1;
+  mw_raise_readonly("state");
 }
 
 
 static PyObject *py_get_statestr(mwPyService *self, gpointer data) {
   char *t = NULL;
 
-  guint32 state = (self->wrapped)? 
+  enum mwServiceState state = (self->wrapped)? 
     mwService_getState(self->wrapped):
     mwService_getState(MW_SERVICE(self->wrapper));
 
@@ -344,8 +341,7 @@ static PyObject *py_get_statestr(mwPyService *self, gpointer data) {
 
 
 static int py_set_statestr(mwPyService *self, PyObject *val, gpointer data) {
-  PyErr_SetString(PyExc_TypeError, "member 'statestr' is read-only");
-  return -1;
+  mw_raise_readonly("statestr");
 }
 
 
@@ -360,8 +356,7 @@ static PyObject *py_get_session(mwPyService *self, gpointer data) {
 
 
 static int py_set_session(mwPyService *self, PyObject *val, gpointer data) {
-  PyErr_SetString(PyExc_TypeError, "member 'session' is read-only");
-  return -1;
+  mw_raise_readonly("session");
 }
 
 

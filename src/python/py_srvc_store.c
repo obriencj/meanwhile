@@ -79,7 +79,8 @@ static PyObject *unmarshal(struct mwStorageUnit *item, enum cb_type t) {
     break;
 
   default:
-    g_return_val_if_reached(NULL);
+    Py_INCREF(Py_None);
+    g_return_val_if_reached(Py_None);
   }
 
   return o;
@@ -130,8 +131,7 @@ static PyObject *py_load_t(mwPyService *self, PyObject *args, enum cb_type t) {
   mwServiceStorage_load(srvc, su, (mwStorageCallback) mw_stored,
 			cbd, (GDestroyNotify) cb_data_free);
 
-  Py_INCREF(Py_None);
-  return Py_None;
+  mw_return_none();
 }
 
 

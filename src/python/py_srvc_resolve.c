@@ -99,8 +99,6 @@ static void mw_search_cb(struct mwServiceResolve *srvc,
   PyObject *cb = data;
   PyObject *args, *robj;
 
-  g_debug("in python bridging callback");
-
   args = PyTuple_New(3);
   PyTuple_SetItem(args, 0, PyInt_FromLong(id));
   PyTuple_SetItem(args, 1, PyInt_FromLong(code));
@@ -142,11 +140,11 @@ static PyObject *py_search(mwPyService *self, PyObject *args) {
     return NULL;
 
   if(! PyList_Check(query)) {
-    mw_raise("query needs to be a list or strings to resolve");
+    mw_raise("query needs to be a list of strings to resolve", NULL);
   }
 
   if(! PyCallable_Check(cb)) {
-    mw_raise("callback argument needs to be callable");
+    mw_raise("callback argument needs to be callable", NULL);
   }
 
   Py_INCREF(cb);
@@ -159,7 +157,7 @@ static PyObject *py_search(mwPyService *self, PyObject *args) {
   if(id != SEARCH_ERROR) {
     return PyInt_FromLong(id);
   } else {
-    mw_raise("An error occured initiating the resolve query");
+    mw_raise("An error occured initiating the resolve query", NULL);
   }
 }
 

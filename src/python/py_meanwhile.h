@@ -169,6 +169,22 @@ PyObject *PyString_SafeFromString(const char *str);
 const char *PyString_SafeAsString(PyObject *str);
 
 
+#define PyGuint32_FromGuint32(ui32) \
+  PyLong_FromUnsignedLong(ui32)
+
+
+#define PyGuint32_AsGuint32(pyobj) \
+  (guint32) PyLong_AsUnsignedLong(pyobj)
+
+
+#define PyGuint16_FromGuint16(ui16) \
+  PyInt_FromLong(ui16)
+
+
+#define PyGuint16_AsGuint16(pyobj) \
+  (guint16) PyInt_AsLong(pyobj)
+
+
 /** @returns incremented reference to Py_None */
 PyObject *mw_noargs_none(PyObject *obj);
 
@@ -196,15 +212,23 @@ PyObject *mw_varargs_none(PyObject *obj, PyObject *args);
 
 
 /** macro to set a python exception of type exc with text e, and
-    return NULL */
-#define mw_raise_exc(exc, e) \
-  { PyErr_SetString((exc), (e)); return NULL; }
+    return ret (which should be NULL or -1) */
+#define mw_raise_exc(exc, e, ret) \
+  { PyErr_SetString((exc), (e)); return (ret); }
 
 
 /** macro to set a python exception of type Exception with text e, and
-    return NULL */
-#define mw_raise(e) \
-  mw_raise_exc(PyExc_Exception, (e))
+    return ret (which should be NULL or -1) */
+#define mw_raise(e, ret) \
+  mw_raise_exc(PyExc_Exception, (e), (ret))
+
+
+/** macro to set python TypeError when a setter is called on a
+    read-only member and to return -1. name must be a string
+    literal, and should be the name of the member */
+#define mw_raise_readonly(name) \
+  mw_raise_exc(PyExc_TypeError, "member '" name "' is read-only", -1)
+
 
 
 /*@}*/

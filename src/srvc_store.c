@@ -152,13 +152,24 @@ static struct mwStorageReq *request_find(struct mwServiceStorage *srvc,
 }
 
 
+static const char *action_str(enum storage_action act) {
+  switch(act) {
+  case action_load:    return "load";
+  case action_loaded:  return "loaded";
+  case action_save:    return "save";
+  case action_saved:   return "saved";
+  default:             return "UNKNOWN";
+  }
+}
+
+
 static void request_trigger(struct mwServiceStorage *srvc,
 			    struct mwStorageReq *req) {
 
   struct mwStorageUnit *item = req->item;
 
-  g_message("storage request completed:"
-	    " key = 0x%08x, result = 0x%08x, length = 0x%08x",
+  g_message("storage request %s: key = 0x%x, result = 0x%x, length = %u",
+	    action_str(req->action),
 	    item->key, req->result_code, item->data.len);
   
   if(req->cb)
@@ -338,7 +349,7 @@ static void recv(struct mwService *srvc, struct mwChannel *chan,
   req = request_find(srvc_stor, id);
 
   if(! req) {
-    g_warning("couldn't find request 0x%08x in storage service", id);
+    g_warning("couldn't find request 0x%x in storage service", id);
     mwGetBuffer_free(b);
     return;
   }
@@ -348,7 +359,7 @@ static void recv(struct mwService *srvc, struct mwChannel *chan,
 
   if(mwGetBuffer_error(b)) {
     g_warning("failed to parse storage service"
-	      " request: 0x%08x, type: 0x%04x", type, id);
+	      " request: 0x%x, type: 0x%x", type, id);
 
   } else {
     request_trigger(srvc_stor, req);

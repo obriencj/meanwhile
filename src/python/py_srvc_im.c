@@ -242,14 +242,14 @@ static PyObject *py_send_text(mwPyService *self, PyObject *args) {
   conv = mwServiceIm_findConversation(srvc_im, &id);
   
   if(!conv || !MW_CONVO_IS_OPEN(conv)) {
-    mw_raise("conversation not currently open");
+    mw_raise("conversation not currently open", NULL);
   } else if(! mwConversation_supports(conv, mwImSend_PLAIN)) {
-    mw_raise("conversation does not support sending plain text");
+    mw_raise("conversation does not support sending plain text", NULL);
   }
 
   /* don't free text or clear id, those strings are borrowed */
   if(mwConversation_send(conv, mwImSend_PLAIN, text)) {
-    mw_raise("error sending text message over conversation");
+    mw_raise("error sending text message over conversation", NULL);
   } else {
     mw_return_none();
   }
@@ -275,14 +275,14 @@ static PyObject *py_send_html(mwPyService *self, PyObject *args) {
   conv = mwServiceIm_findConversation(srvc_im, &id);
 
   if(!conv || !MW_CONVO_IS_OPEN(conv)) {
-    mw_raise("conversation not currently open");
+    mw_raise("conversation not currently open", NULL);
   } else if(! mwConversation_supports(conv, mwImSend_HTML)) {
-    mw_raise("conversation does not support sending HTML");
+    mw_raise("conversation does not support sending HTML", NULL);
   }
 
   /* don't free text or clear id, those strings are borrowed */
   if(mwConversation_send(conv, mwImSend_HTML, text)) {
-    mw_raise("error sending HTML message over conversation");
+    mw_raise("error sending HTML message over conversation", NULL);
   } else {
     mw_return_none();
   }
@@ -307,13 +307,13 @@ static PyObject *py_send_mime(mwPyService *self, PyObject *args) {
   conv = mwServiceIm_findConversation(srvc_im, &id);
 
   if(!conv || !MW_CONVO_IS_OPEN(conv)) {
-    mw_raise("conversation not currently open");
+    mw_raise("conversation not currently open", NULL);
   } else if(! mwConversation_supports(conv, mwImSend_MIME)) {
-    mw_raise("conversation does not support sending MIME");
+    mw_raise("conversation does not support sending MIME", NULL);
   }
 
   if(mwConversation_send(conv, mwImSend_MIME, &data)) {
-    mw_raise("error sending MIME message over conversation");
+    mw_raise("error sending MIME message over conversation", NULL);
   } else {
     mw_return_none();
   }
@@ -339,14 +339,14 @@ static PyObject *py_send_subject(mwPyService *self, PyObject *args) {
   conv = mwServiceIm_findConversation(srvc_im, &id);
 
   if(!conv || !MW_CONVO_IS_OPEN(conv)) {
-    mw_raise("conversation not currently open");
+    mw_raise("conversation not currently open", NULL);
   } else if(! mwConversation_supports(conv, mwImSend_SUBJECT)) {
-    mw_raise("conversation does not support sending subjects");
+    mw_raise("conversation does not support subjects", NULL);
   }
 
   /* don't free text or clear id, those strings are borrowed */
   if(mwConversation_send(conv, mwImSend_SUBJECT, text)) {
-    mw_raise("error sending subject over conversation");
+    mw_raise("error sending subject over conversation", NULL);
   } else {
     mw_return_none();
   }
@@ -371,14 +371,14 @@ static PyObject *py_send_typing(mwPyService *self, PyObject *args) {
   conv = mwServiceIm_findConversation(srvc_im, &id);
 
   if(!conv || !MW_CONVO_IS_OPEN(conv)) {
-    mw_raise("conversation not currently open");
+    mw_raise("conversation not currently open", NULL);
   } else if(! mwConversation_supports(conv, mwImSend_TYPING)) {
-    mw_raise("conversation does not support sending typing notification");
+    mw_raise("conversation does not support typing notification", NULL);
   }
 
   /* don't clead id, it has borrowed strings */
   if(mwConversation_send(conv, mwImSend_TYPING, GINT_TO_POINTER(typing))) {
-    mw_raise("error sending typing over conversation");
+    mw_raise("error sending typing over conversation", NULL);
   } else {
     mw_return_none();
   }
@@ -402,7 +402,7 @@ static PyObject *py_convo_open(mwPyService *self, PyObject *args) {
   conv = mwServiceIm_getConversation(srvc_im, &id);
 
   if(! MW_CONVO_IS_CLOSED(conv)) {
-    mw_raise("conversation is already open or pending");
+    mw_raise("conversation is already open or pending", NULL);
   } else {
     mwConversation_open(conv);
     mw_return_none();
@@ -428,7 +428,7 @@ static PyObject *py_convo_close(mwPyService *self, PyObject *args) {
   conv = mwServiceIm_findConversation(srvc_im, &id);
 
   if(!conv || MW_CONVO_IS_CLOSED(conv)) {
-    mw_raise("conversation is not open or pending");
+    mw_raise("conversation is not open or pending", NULL);
   } else {
     /** @todo maybe want to free the conversation as well, unsure */
     mwConversation_close(conv, err);

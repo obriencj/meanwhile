@@ -145,16 +145,10 @@ static PyObject *py_aware_remove(mwPyService *self, PyObject *args) {
 }
 
 
-static PyObject *py_on_aware(mwPyService *self, PyObject *args) {
-  /** this is just a fall-through implementation */
-  Py_INCREF(Py_None);
-  return Py_None;
-}
-
-
 static PyObject *py_aware_get(mwPyService *self, PyObject *args) {
-  Py_INCREF(Py_None);
-  return Py_None;
+  /* @todo implement */
+
+  mw_return_none();
 }
 
 
@@ -180,22 +174,22 @@ static PyObject *py_aware_set(mwPyService *self, PyObject *args) {
 
 
 static struct PyMethodDef tp_methods[] = {
-  { "add", (PyCFunction) py_aware_add,
-    METH_VARARGS, "add an aware ID to the watch list" },
+  { "add", (PyCFunction) py_aware_add, METH_VARARGS,
+    "add an aware ID to the watch list" },
 
-  { "remove", (PyCFunction) py_aware_remove,
-    METH_VARARGS, "remove an aware ID from the watch list" },
+  { "remove", (PyCFunction) py_aware_remove, METH_VARARGS,
+    "remove an aware ID from the watch list" },
 
-  { ON_AWARE, (PyCFunction) py_on_aware,
-    METH_VARARGS, "override to handle receipt of an awareness update" },
+  { ON_AWARE, MW_METH_VARARGS_NONE, METH_VARARGS,
+    "override to handle receipt of an awareness update" },
 
-  { "getAware", (PyCFunction) py_aware_get,
-    METH_VARARGS, "obtain the most recent awareness update for an aware ID" },
+  { "getAware", (PyCFunction) py_aware_get, METH_VARARGS,
+    "obtain the most recent awareness update for an aware ID" },
 
-  { "setAware", (PyCFunction) py_aware_set,
-    METH_VARARGS, "force an awareness update with the given data" },
+  { "setAware", (PyCFunction) py_aware_set, METH_VARARGS,
+    "force an awareness update with the given data" },
 
-  {NULL}
+  { NULL }
 };
 
 

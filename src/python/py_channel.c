@@ -30,7 +30,7 @@ static PyObject *py_get_id(mwPyChannel *self, gpointer data) {
   struct mwChannel *chan = self->channel;
   guint32 id = mwChannel_getId(chan);
 
-  return PyInt_FromLong(id);
+  return PyGuint32_FromGuint32(id);
 }
 
 

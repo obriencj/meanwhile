@@ -234,7 +234,7 @@ static PyObject *py_conf_open(mwPyService *self, PyObject *args) {
 
   conf = GET_CONF(self, PyString_SafeAsString(name));
   if(! conf) {
-    mw_raise("no such conference to open");
+    mw_raise("no such conference to open", NULL);
   }
 
   return PyInt_FromLong(mwConference_open(conf));
@@ -254,7 +254,7 @@ static PyObject *py_conf_close(mwPyService *self, PyObject *args) {
 
   conf = GET_CONF(self, PyString_SafeAsString(name));
   if(! conf) {
-    mw_raise("no such conference to close");
+    mw_raise("no such conference to close", NULL);
   }
 
   return PyInt_FromLong(mwConference_destroy(conf, reason, t));
@@ -274,7 +274,7 @@ static PyObject *py_send_text(mwPyService *self, PyObject *args) {
 
   conf = GET_CONF(self, n);
   if(! conf) {
-    mw_raise("no such conference");
+    mw_raise("no such conference", NULL);
   }
 
   return PyInt_FromLong(mwConference_sendText(conf, t));
@@ -294,7 +294,7 @@ static PyObject *py_send_typing(mwPyService *self, PyObject *args) {
 
   conf = GET_CONF(self, n);
   if(! conf) {
-    mw_raise("no such conference");
+    mw_raise("no such conference", NULL);
   }
 
   return PyInt_FromLong(mwConference_sendTyping(conf, typing));
@@ -318,7 +318,7 @@ static PyObject *py_send_invite(mwPyService *self, PyObject *args) {
 
   conf = GET_CONF(self, n);
   if(! conf) {
-    mw_raise("no such conference");
+    mw_raise("no such conference", NULL);
   }
 
   return PyInt_FromLong(mwConference_invite(conf, &idb, t));
