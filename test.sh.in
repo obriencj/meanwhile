@@ -27,10 +27,15 @@ quiet_test() {
 }
 
 
+ECHO() {
+    echo "[test.sh]" $*
+}
+
+
 
 # if not configured with python support, than this script can't run
 if test "$PYTHON" = "" ; then
-    echo "error: python support not built"
+    ECHO "error: python support not built"
     exit 1
 fi
 
@@ -58,7 +63,7 @@ fi
 . "$CONFIG"
 
 if test -z "$mw_user" || test -z "$mw_host" ; then
-    echo "Please modify $CONFIG to provide the correct server" \
+    ECHO "Please modify $CONFIG to provide the correct server" \
 	"and user information."
     exit 1
 fi
@@ -91,27 +96,31 @@ fi
 
 LD_LIBRARY_PATH="$PYLIBDIR/../":"${dir}/src/.libs/"
 export LD_LIBRARY_PATH
+ECHO "LD_LIBRARY_PATH is" $LD_LIBRARY_PATH
 
 if test `uname` = "Darwin" ; then
 	DYLD_LIBRARY_PATH=$LD_LIBRARY_PATH
 	export DYLD_LIBRARY_PATH
+	ECHO "DYLD_LIBRARY_PATH is" $DYLD_LIBRARY_PATH
 fi
 
-PYTHONPATH="${dir}/src/python":"${dir}/src/python/.libs/":$PYTHONPATH
+PYTHONPATH="${dir}/src/python/.libs":"${dir}/src/python":$PYTHONPATH
 export PYTHONPATH
-
+ECHO "PYTHONPATH is" $PYTHONPATH
 
 # debug
 if test "$1" = "debug" ; then
+    ECHO "gdb --quiet --args $PYTHON -v $SCRIPT"
     gdb --quiet --args "$PYTHON" -v "$SCRIPT"
 
 # valgrind
 elif test "$1" = "valgrind" ; then
     shift
     if quiet_test "valgrind --version" ; then
+	ECHO "valgrind $* $PYTHON $SCRIPT"
 	valgrind $* "$PYTHON" "$SCRIPT"
     else
-	echo "valgrind not found in \$PATH"
+	ECHO "valgrind not found in \$PATH"
 	exit 1
     fi
 
@@ -122,6 +131,7 @@ elif test "$1" = "pydoc" ; then
 
 # test bot
 else
+    ECHO "$PYTHON $SCRIPT"
     "$PYTHON" "$SCRIPT"
 fi
 

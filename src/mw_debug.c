@@ -30,6 +30,7 @@
 #define ADVANCE(b, n, c)  {b += c; n -= c;}
 
 
+#ifdef DEBUG
 static char *t_pretty_print(const char *buf, gsize len) {
   char *ret, *tmp;
 
@@ -69,6 +70,7 @@ static char *t_pretty_print(const char *buf, gsize len) {
 
   return ret;
 }
+#endif
 
 
 void pretty_print(const char *buf, gsize len) {
@@ -83,7 +85,6 @@ void pretty_print(const char *buf, gsize len) {
 
 void mw_debug_mailme_v(struct mwOpaque *block,
 		       const char *info, va_list args) {
-
   /*
     MW_MAILME_MESSAGE
     begin here
