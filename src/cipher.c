@@ -8,6 +8,9 @@
 #include "cipher.h"
 
 
+/** From RFC2268 */
+
+
 static char PT[] = {
   0xD9, 0x78, 0xF9, 0xC4, 0x19, 0xDD, 0xB5, 0xED,
   0x28, 0xE9, 0xFD, 0x79, 0x4A, 0xA0, 0xD8, 0x9D,
@@ -65,8 +68,9 @@ void mwIV_init(char *iv) {
 }
 
 
-/* this does not seem to produce the same results as normal RC2 key expansion
-   would */
+/* This does not seem to produce the same results as normal RC2 key
+   expansion would, but it works, so eh. It might be smart to farm
+   this out to mozilla or openssl */
 void mwKeyExpand(int *ekey, const char *key, unsigned int keylen) {
   char tmp[128];
   int i, j;

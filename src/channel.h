@@ -17,31 +17,31 @@ struct mwMsgChannelDestroy;
 struct mwMsgChannelSend;
 
 
-/* this should never ever need to change, but just in case... */
+/** this should never ever need to change, but just in case... */
 #define MASTER_CHANNEL_ID  0x00000000
 
 
-/* 1 if a channel id appears to be that of an incoming channel, or 0 if not */
+/** 1 if a channel id appears to be that of an incoming channel, or 0 if not */
 #define CHAN_ID_IS_INCOMING(id) \
   (0x80000000 & (id))
 
 
-/* 1 if a channel id appears to be that of an outgoing channel, or 0 if not */
+/** 1 if a channel id appears to be that of an outgoing channel, or 0 if not */
 #define CHAN_ID_IS_OUTGOING(id) \
   (! CHAN_ID_IS_INCOMING(id))
 
 
-/* 1 if a channel appears to be an incoming channel, or 0 if not */
+/** 1 if a channel appears to be an incoming channel, or 0 if not */
 #define CHAN_IS_INCOMING(chan) \
   CHAN_ID_IS_INCOMING((chan)->id)
 
 
-/* 1 if a channel appears to be an outgoing channel, or 0 if not */
+/** 1 if a channel appears to be an outgoing channel, or 0 if not */
 #define CHAN_IS_OUTGOING(chan) \
   CHAN_ID_IS_OUTGOING((chan)->id)
 
 
-/* Life-cycle of an outgoing channel:
+/** Life-cycle of an outgoing channel:
 
    1: mwChannel_new is called. If there is a channel in the outgoing
    collection in state NEW, then it is returned. Otherwise, a channel
@@ -101,15 +101,15 @@ enum mwChannelStatus {
 
 struct mwChannel {
 
-  /* session this channel belongs to */
+  /** session this channel belongs to */
   struct mwSession *session;
 
   enum mwChannelStatus status;
 
-  /* timestamp when channel was marked as inactive. */
+  /** timestamp when channel was marked as inactive. */
   unsigned int inactive;
 
-  /* creator for incoming channel, target for outgoing channel */
+  /** creator for incoming channel, target for outgoing channel */
   struct mwIdBlock user;
 
   /* similar to data from the CreateCnl message in 8.4.1.7 */
@@ -119,23 +119,23 @@ struct mwChannel {
   guint32 proto_type;
   guint32 proto_ver;
 
-  /* encryption information from the channel create message */
+  /** encryption information from the channel create message */
   struct mwEncryptBlock encrypt;
 
-  /* the expanded rc2/40 key for receiving encrypted messages */
+  /** the expanded rc2/40 key for receiving encrypted messages */
   int incoming_key[64];
-  char outgoing_iv[8];  /* iv for outgoing messages */
-  char incoming_iv[8];  /* iv for incoming messages */
+  char outgoing_iv[8];  /**< iv for outgoing messages */
+  char incoming_iv[8];  /**< iv for incoming messages */
 
-  GSList *outgoing_queue; /* queued outgoing messages */
-  GSList *incoming_queue; /* queued incoming messages */
+  GSList *outgoing_queue; /**< queued outgoing messages */
+  GSList *incoming_queue; /**< queued incoming messages */
 
-  /* optional slot for attaching an extra bit of state, usually by the
-     owning service */
+  /** optional slot for attaching an extra bit of state, usually by the
+      owning service */
   void *addtl;
 
-  /* optional cleanup function. Useful for ensuring proper cleanup of
-     an attached value in the addtl slot. */
+  /** optional cleanup function. Useful for ensuring proper cleanup of
+      an attached value in the addtl slot. */
   void (*clear)(struct mwChannel *);
 };
 
@@ -154,34 +154,36 @@ struct mwChannel *mwChannel_newIncoming(struct mwChannelSet *, guint32 id);
 struct mwChannel *mwChannel_newOutgoing(struct mwChannelSet *);
 
 
-/* for outgoing channels: instruct the session to send a channel
-   create message to the server, and to mark the channel (which must
-   be in INIT status) as being in WAIT status.
+/** for outgoing channels: instruct the session to send a channel
+    create message to the server, and to mark the channel (which must
+    be in INIT status) as being in WAIT status.
    
-   for incoming channels: configures the channel according to options
-   in the channel create message. Marks the channel as being in WAIT
-   status */
+    for incoming channels: configures the channel according to options
+    in the channel create message. Marks the channel as being in WAIT
+    status */
 int mwChannel_create(struct mwChannel *, struct mwMsgChannelCreate *);
 
 
-/* for outgoing channels: receives the acceptance message and marks
-   the channel as being OPEN.
+/** for outgoing channels: receives the acceptance message and marks
+    the channel as being OPEN.
 
-   for incoming channels: instruct the session to send a channel
-   accept message to the server, and to mark the channel (which must
-   be an incoming channel in WAIT status) as being OPEN. */
+    for incoming channels: instruct the session to send a channel
+    accept message to the server, and to mark the channel (which must
+    be an incoming channel in WAIT status) as being OPEN. */
 int mwChannel_accept(struct mwChannel *, struct mwMsgChannelAccept *);
 
 
-/* instruct the session to destroy a channel. The channel may be
-   either incoming or outgoing, but must be in WAIT or OPEN status. */
+/** instruct the session to destroy a channel. The channel may be
+    either incoming or outgoing, but must be in WAIT or OPEN status. */
 int mwChannel_destroy(struct mwChannel *, struct mwMsgChannelDestroy *);
 
 
-/* lookup a channel by its id, compose a channel destroy message with
-   the passed reason and text, and send it via mwChannel_destroy */
-int mwChannel_destroyQuick(struct mwChannelSet *, guint32 chan,
-			   guint32 reason, const char *text);
+/** Destroy a channel. Composes and sends channel destroy message with
+    the passed reason, and send it via mwChannel_destroy. Has no effect
+    if chan is NULL.
+    @returns value of mwChannel_destroy call, or zero if chan is NULL
+*/
+int mwChannel_destroyQuick(struct mwChannel *chan, guint32 reason);
 
 
 /* compose a sendOnCnl message, encrypt it as per the channel's
@@ -197,14 +199,14 @@ void mwChannel_recv(struct mwChannel *, struct mwMsgChannelSend *);
 struct mwChannel *mwChannel_find(struct mwChannelSet *, guint32 chan);
 
 
-/* used in destroyInactiveChannels to determine how many inactive
-   channels can be destroyed in a single call. 32 is a big number for
-   a single client */
+/** used in destroyInactiveChannels to determine how many inactive
+    channels can be destroyed in a single call. 32 is a big number for
+    a single client */
 #define MAX_INACTIVE_KILLS  32
 
 
-/* intended to be called periodically to close channels which have
-   been marked as inactive since before the threshold timestamp. */
+/** intended to be called periodically to close channels which have
+    been marked as inactive since before the threshold timestamp. */
 void mwChannelSet_destroyInactive(struct mwChannelSet *, time_t thrsh);
 
 

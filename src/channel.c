@@ -252,31 +252,22 @@ int mwChannel_destroy(struct mwChannel *chan,
 }
 
 
-int mwChannel_destroyQuick(struct mwChannelSet *cs, guint32 chan_id,
-			   guint32 reason, const char *text) {
-  int ret;
+int mwChannel_destroyQuick(struct mwChannel *chan, guint32 reason) {
   struct mwMsgChannelDestroy *msg;
-  struct mwChannel *chan;
+  int ret;
 
-  chan = mwChannel_find(cs, chan_id);
-  g_return_val_if_fail(chan, -1);
+  if(! chan) return 0;
 
   msg = (struct mwMsgChannelDestroy *)
     mwMessage_new(mwMessage_CHANNEL_DESTROY);
 
-  msg->head.channel = chan_id;
+  msg->head.channel = chan->id;
   msg->reason = reason;
 
-  if(text) {
-    msg->data.len = strlen(text);
-    msg->data.data = g_strdup(text);
-  }
-
-  g_message("destroyQuick, channel 0x%x, reason 0x%x, '%s'\n",
-	    chan_id, reason, text);
+  g_message("destroyQuick: channel 0x%08x, reason 0x%08x", chan->id, reason);
   
   ret = mwChannel_destroy(chan, msg);
-  mwMessage_free(MESSAGE(msg));
+  mwMessage_free(MW_MESSAGE(msg));
 
   return ret;
 }
@@ -285,7 +276,7 @@ int mwChannel_destroyQuick(struct mwChannelSet *cs, guint32 chan_id,
 static void queue_outgoing(struct mwChannel *chan,
 			   struct mwMsgChannelSend *msg) {
 
-  g_message("queue_outgoing, channel 0x%x\n", chan->id);
+  g_message("queue_outgoing, channel 0x%8x", chan->id);
   chan->outgoing_queue = g_slist_append(chan->outgoing_queue, msg);
 }
 
@@ -301,9 +292,9 @@ static int channel_send(struct mwChannel *chan,
 
   if(chan->status == mwChannel_OPEN) {
 
-    g_message("sending %u bytes on channel %x", msg->data.len, chan->id);
+    g_message("sending %u bytes on channel 0x%08x", msg->data.len, chan->id);
     ret = mwSession_send(chan->session, (struct mwMessage *) msg);
-    mwMessage_free(MESSAGE(msg));
+    mwMessage_free(MW_MESSAGE(msg));
 
   } else {
     queue_outgoing(chan, msg);
@@ -407,7 +398,7 @@ static void flush_channel(struct mwChannel *chan) {
     l->data = NULL;
 
     channel_recv(chan, msg);
-    mwMessage_free(MESSAGE(msg));
+    mwMessage_free(MW_MESSAGE(msg));
   }
   g_slist_free(chan->incoming_queue);
   chan->incoming_queue = NULL;
@@ -439,26 +430,26 @@ struct mwChannel *mwChannel_find(struct mwChannelSet *cs, guint32 chan) {
 
 
 static int find_inactive(GList *list, time_t thrsh,
-			 unsigned int *k, int count) {
+			 struct mwChannel **k, int count) {
 
   for(; list && (count < MAX_INACTIVE_KILLS); list = list->next) {
     struct mwChannel *c = (struct mwChannel *) list->data;
     if((c->inactive > 0) && (c->inactive <= thrsh))
-      k[count++] = c->id;
+      k[count++] = c;
   }
   return count;
 }
 
 
 void mwChannelSet_destroyInactive(struct mwChannelSet *cs, time_t thrsh) {
-  guint32 kills[MAX_INACTIVE_KILLS];
+  struct mwChannel *kills[MAX_INACTIVE_KILLS];
   int count = 0;
 
   count = find_inactive(cs->outgoing, thrsh, kills, count);
   count = find_inactive(cs->incoming, thrsh, kills, count);
   
   while(count--)
-    mwChannel_destroyQuick(cs, kills[count], ERR_SUCCESS, "Inactive");
+    mwChannel_destroyQuick(kills[count], ERR_SUCCESS);
 }
 
 

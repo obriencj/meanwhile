@@ -1,79 +1,131 @@
 
 
 #include <glib.h>
+#include <glib/ghash.h>
 #include <glib/glist.h>
 
 #include "channel.h"
+#include "error.h"
 #include "message.h"
 #include "service.h"
 #include "session.h"
+
 #include "srvc_aware.h"
+
+
+
+struct mwServiceAware {
+  struct mwService service;
+
+  /** map of ENTRY_KEY(aware_entry):aware_entry */
+  GHashTable *entries;
+
+  /** collection of lists of awareness for this service. Each item is
+      a mwAwareList */
+  GList *lists;
+
+  /** the buddy list channel */
+  struct mwChannel *channel;
+};
+
+
+struct mwAwareList {
+
+  /** the owning service */
+  struct mwServiceAware *service;
+
+  /** map of ENTRY_KEY(aware_entry):aware_entry */
+  GHashTable *entries;
+
+  /** handler for awarenes events */
+  mwAwareList_onAwareHandler on_aware;
+
+  /** user data for handler */
+  gpointer on_aware_data;
+};
+
+
+/** an actual awareness entry, belonging to any number of aware lists */
+struct aware_entry {
+  struct mwSnapshotAwareIdBlock aware;
+  GList *membership; /* set of mwAwareList containing this entry */
+};
+
+
+#define ENTRY_KEY(entry) &entry->aware.id
+
+
+/** the channel send types used by this service */
+enum send_types {
+  mwChannelSend_AWARE_ADD       = 0x0068,
+  mwChannelSend_AWARE_REMOVE    = 0x0069,
+  mwChannelSend_AWARE_SNAPSHOT  = 0x01f4,
+  mwChannelSend_AWARE_UPDATE    = 0x01f5
+};
 
 
 static void recv_channelCreate(struct mwService *srvc, struct mwChannel *chan,
 			       struct mwMsgChannelCreate *msg) {
 
-  ; /* nuttin'. We only like outgoing blist channels */
+  /* We only like outgoing blist channels */
+  mwChannel_destroyQuick(chan, ERR_FAILURE);
 }
 
 
 static void recv_channelAccept(struct mwService *srvc, struct mwChannel *chan,
 			       struct mwMsgChannelAccept *msg) {
-  ; /* nuttin' */
+
+  struct mwServiceAware *srvc_aware = (struct mwServiceAware *) srvc;
+  g_return_if_fail(srvc_aware->channel == chan);
+
+  if(MW_SERVICE_STARTING(srvc)) {
+    srvc->state = mwServiceState_STARTED;
+    /* TODO: if we have anything in entries, subscribe to them all */
+
+  } else {
+    mwChannel_destroyQuick(chan, ERR_FAILURE);
+  }
 }
 
 
 static void recv_channelDestroy(struct mwService *srvc, struct mwChannel *chan,
 				struct mwMsgChannelDestroy *msg) {
-  /* TODO:
-     - re-open the buddy list channel
-     - re-send all the buddy subscriptions
-  */
+
+  mwService_stop(srvc);
+  /* TODO: session sense service. */
 }
 
 
-static guint id_hash(gconstpointer v) {
-  return g_str_hash( ((struct mwIdBlock *)v)->user );
-}
-
-
-static gboolean id_equal(gconstpointer a, gconstpointer b) {
-  return mwIdBlock_equal((struct mwIdBlock *)a, (struct mwIdBlock *)b);
-}
-
-
-static void id_free(gpointer v) {
-  mwIdBlock_clear((struct mwIdBlock *) v);
-  g_free(v);
-}
-
-
+/** called from SNAPSHOT_recv, UPDATE_recv, and mwServiceAware_setStatus */
 static void status_recv(struct mwServiceAware *srvc,
-			struct mwSnapshotAwareIdBlock *idb,
-			unsigned int count) {
+			struct mwSnapshotAwareIdBlock *idb_array,
+			guint32 count) {
 
-  unsigned int c;
-  struct mwIdBlock *i;
-  struct mwSnapshotAwareIdBlock *adb;
+  struct aware_entry *aware;
+  GList *l;
+  struct mwAwareList *alist;
 
-  for(c = count; c--; ) {
-    adb = idb + c;
+  for(; count--; idb_array++) {
 
-    i = g_new(struct mwIdBlock, 1);
-    i->user = g_strdup(adb->id.user);
-    i->community = g_strdup(adb->id.community);
+    aware = (struct aware_entry *)
+      g_hash_table_lookup(srvc->entries, &idb_array->id);
 
-    if(idb->online) {
-      g_hash_table_insert(srvc->buddy_text, i, g_strdup(adb->status.desc));
+    /* we don't deal with receiving status for something we're not
+       monitoring */
+    if(! aware) continue;
 
-    } else {
-      g_hash_table_remove(srvc->buddy_text, i);
-      id_free(i);
+    /* clear the existing status, then clone in the new status */
+    mwSnapshotAwareIdBlock_clear(&aware->aware);
+    mwSnapshotAwareIdBlock_clone(&aware->aware, idb_array);
+
+    /* trigger each of the entry's lists */
+    for(l = aware->membership; l; l = l->next) {
+      alist = (struct mwAwareList *) l->data;
+      if(alist->on_aware) {
+	alist->on_aware(alist, &aware->aware, alist->on_aware_data);
+      }
     }
   }
-  
-  if(srvc->got_aware)
-    srvc->got_aware(srvc, idb, count);
 }
 
 
@@ -99,7 +151,7 @@ static int SNAPSHOT_recv(struct mwServiceAware *srvc,
       mwSnapshotAwareIdBlock_clear(idb + c);
     g_free(idb);
   }  
-  return ret; 
+  return ret;
 }
 
 
@@ -108,16 +160,14 @@ static int UPDATE_recv(struct mwServiceAware *srvc,
   int ret = 0;
   struct mwSnapshotAwareIdBlock *idb;
 
-  if(srvc->got_aware) {
-    idb = g_new0(struct mwSnapshotAwareIdBlock, 1);
-    ret = mwSnapshotAwareIdBlock_get((char **) &b, &n, idb);
+  idb = g_new0(struct mwSnapshotAwareIdBlock, 1);
+  ret = mwSnapshotAwareIdBlock_get((char **) &b, &n, idb);
 
-    if(ret == 0)
-      status_recv(srvc, idb, 1);
+  if(ret == 0)
+    status_recv(srvc, idb, 1);
 
-    mwSnapshotAwareIdBlock_clear(idb);
-    g_free(idb);
-  }
+  mwSnapshotAwareIdBlock_clear(idb);
+  g_free(idb);
 
   return ret;
 }
@@ -129,6 +179,7 @@ static void recv(struct mwService *srvc, struct mwChannel *chan,
   struct mwServiceAware *srvc_aware = (struct mwServiceAware *) srvc;
   int ret;
 
+  g_return_if_fail(srvc_aware->channel == chan);
   g_return_if_fail(srvc->session == chan->session);
 
   switch(type) {
@@ -141,7 +192,7 @@ static void recv(struct mwService *srvc, struct mwChannel *chan,
     break;
 
   default:
-    g_warning("unknown message type %x for aware service\n", type);
+    g_warning("unknown message type 0x%04x for aware service", type);
   }
 
   if(ret) ; /* handle how? */
@@ -149,10 +200,12 @@ static void recv(struct mwService *srvc, struct mwChannel *chan,
 
 
 static void clear(struct mwService *srvc) {
-  struct mwServiceAware *srvc_aware = (struct mwServiceAware *) srvc;
+  /* struct mwServiceAware *srvc_aware = (struct mwServiceAware *) srvc; */
 
-  g_hash_table_destroy(srvc_aware->buddy_text);
-  srvc_aware->buddy_text = NULL;
+  /* TODO:
+     - remove each list
+     - remove each awareness entry
+  */
 }
 
 
@@ -166,27 +219,22 @@ static const char *desc() {
 }
 
 
-struct mwServiceAware *mwServiceAware_new(struct mwSession *session) {
-  struct mwServiceAware *srvc_aware = g_new0(struct mwServiceAware, 1);
-  struct mwService *srvc = &srvc_aware->service;
+static guint id_hash(gconstpointer v) {
+  return g_str_hash( ((struct mwAwareIdBlock *)v)->user );
+}
 
-  g_assert(session);
 
-  srvc->session = session;
-  srvc->type = Service_AWARE; /* one of the BaseSericeTypes */
+static gboolean id_equal(gconstpointer a, gconstpointer b) {
+  return mwAwareIdBlock_equal((struct mwAwareIdBlock *) a,
+			      (struct mwAwareIdBlock *) b);
+}
 
-  srvc->recv_channelCreate = recv_channelCreate;
-  srvc->recv_channelAccept = recv_channelAccept;
-  srvc->recv_channelDestroy = recv_channelDestroy;
-  srvc->recv = recv;
-  srvc->clear = clear;
-  srvc->get_name = name;
-  srvc->get_desc = desc;
 
-  srvc_aware->buddy_text = g_hash_table_new_full(id_hash, id_equal,
-						 id_free, g_free);
-
-  return srvc_aware;
+static void aware_entry_free(gpointer v) {
+  struct aware_entry *ae = (struct aware_entry *) v;
+  mwSnapshotAwareIdBlock_clear(&ae->aware);
+  g_list_free(ae->membership);
+  g_free(v);
 }
 
 
@@ -208,13 +256,10 @@ static int send_create(struct mwChannel *chan) {
   msg->encrypt.opaque.len = n = 10; /* 4 + 4 + 2 */
   msg->encrypt.opaque.data = b = (char *) g_malloc0(n);
   guint32_put(&b, &n, 0x00000001);
-  /* six bytes of zero follow */
+  /* six bytes of zero trail after this. */
 
   ret = mwChannel_create(chan, msg);
-  mwMessage_free(MESSAGE(msg));
-
-  /* don't want this channel to time-out */
-  chan->inactive = 0x00;
+  mwMessage_free(MW_MESSAGE(msg));
 
   return ret;
 }
@@ -225,110 +270,258 @@ static struct mwChannel *make_blist(struct mwChannelSet *cs) {
   struct mwChannel *chan = mwChannel_newOutgoing(cs);
   chan->status = mwChannel_INIT;
 
-  chan->service = Service_AWARE;
-  chan->proto_type = Protocol_AWARE;
+  chan->service = mwService_AWARE;
+  chan->proto_type = mwProtocol_AWARE;
   chan->proto_ver = 0x00030005;
 
   return send_create(chan)? NULL: chan;
 }
 
 
-static struct mwChannel *find_blist(struct mwChannelSet *cs) {
-  GList *l;
-
-  for(l = cs->outgoing; l; l = l->next) {
-    struct mwChannel *chan = (struct mwChannel *) l->data;
-    if(chan->service == Service_AWARE) return chan;
-  }
-
-  return NULL;
-}
-
-
-static gsize size_up(struct mwIdBlock *list, unsigned int count) {
-  gsize len = 0;
-  while(count--) len += (2 + mwIdBlock_buflen(list + count));
-  return len;
-}
-
-
-int mwServiceAware_add(struct mwServiceAware *srvc,
-		       struct mwIdBlock *list, unsigned int count) {
-
-  /* - get the buddy list channel
-     - if there isn't one, open one.
-     - send the aware_add over the channel
-  */
-
-  char *buf, *b;
-  gsize len, n;
-
-  int ret;
-
-  struct mwChannelSet *cs;
+static void start(struct mwService *srvc) {
+  struct mwServiceAware *srvc_aware;
   struct mwChannel *chan;
 
-  g_message("adding %i buddies", count);
+  if(! MW_SERVICE_STOPPED(srvc)) return;
 
-  cs = srvc->service.session->channels;
-  
-  chan = find_blist(cs);
-  if(! chan) chan = make_blist(cs);
-  g_return_val_if_fail(chan, -1);
+  srvc->state = mwServiceState_STARTING;
+  srvc_aware = (struct mwServiceAware *) srvc;
 
-  len = n = size_up(list, count) + 4;
-  buf = b = (char *) g_malloc0(n);
-
-  guint32_put(&b, &n, count);
-
-  while(count--) {
-    guint16_put(&b, &n, mwAware_USER); /* only supports users */
-    mwIdBlock_put(&b, &n, list + count);
+  chan = make_blist(srvc->session->channels);
+  if(chan != NULL) {
+    srvc_aware->channel = chan;
+  } else {
+    srvc->state = mwServiceState_STOPPED;
   }
+}
 
+
+static void stop(struct mwService *srvc) {
+  struct mwServiceAware *srvc_aware;
+
+  if(! MW_SERVICE_LIVE(srvc)) return;
+
+  srvc->state = mwServiceState_STOPPING;
+  srvc_aware = (struct mwServiceAware *) srvc;
+  
+  mwChannel_destroyQuick(srvc_aware->channel, ERR_SUCCESS);
+  srvc->state = mwServiceState_STOPPED;
+}
+
+
+static void compose_list(GList *id_list, char **buf, gsize *len) {
+  GList *l;
+  char *b;
+  gsize n = 4;
+
+  for(l = id_list; l; l = l->next)
+    n += mwAwareIdBlock_buflen((struct mwAwareIdBlock *) l->data);
+
+  *len = n;
+  *buf = b = (char *) g_malloc0(n);
+
+  guint32_put(&b, &n, g_list_length(id_list));
+  for(l = id_list; l; l = l->next)
+    mwAwareIdBlock_put(&b, &n, (struct mwAwareIdBlock *) l->data);
+}
+
+
+static int send_add(struct mwChannel *chan, GList *id_list) {
+  char *buf;
+  gsize len;
+  int ret;
+
+  compose_list(id_list, &buf, &len);  
   ret = mwChannel_send(chan, mwChannelSend_AWARE_ADD, buf, len);
   g_free(buf);
 
-  return ret;
+  return ret;  
 }
 
 
-int mwServiceAware_remove(struct mwServiceAware *srvc,
-			  struct mwIdBlock *list, unsigned int count) {
-
-  /* - get the buddy list channel
-     - if there isn't one, fine.
-     - send the aware_remove over the channel
-  */
-
-  char *buf, *b;
-  gsize len, n;
-
+static int send_rem(struct mwChannel *chan, GList *id_list) {
+  char *buf;
+  gsize len;
   int ret;
 
-  struct mwChannelSet *cs;
-  struct mwChannel *chan;
-
-  g_message("removing %u buddies", count);
-
-  cs = srvc->service.session->channels;
-
-  g_return_val_if_fail( (chan = find_blist(cs)), -1 );
-
-  len = n = size_up(list, count) + 4;
-  buf = b = (char *) g_malloc0(n);
-
-  guint32_put(&b, &n, count);
-
-  while(count--) {
-    guint16_put(&b, &n, mwAware_USER);
-    mwIdBlock_put(&b, &n, list + count);
-  }
-
+  compose_list(id_list, &buf, &len);
   ret = mwChannel_send(chan, mwChannelSend_AWARE_REMOVE, buf, len);
   g_free(buf);
 
   return ret;
+}
+
+
+static gboolean collect_dead(gpointer key, gpointer val, gpointer data) {
+  struct aware_entry *aware = (struct aware_entry *) val;
+  GList **dead = (GList **) data;
+
+  if(aware->membership == NULL) {
+    *dead = g_list_append(*dead, aware);
+    return TRUE;
+
+  } else {
+    return FALSE;
+  }
+}
+
+
+static int remove_unused(struct mwServiceAware *srvc) {
+  /* - create a GList of all the unused aware entries
+     - remove each unused aware from the service
+     - if the service is alive, send a removal message for the collected
+     unused.
+  */
+
+  int ret = 0;
+  GList *dead = NULL, *l;
+  g_hash_table_foreach_steal(srvc->entries, collect_dead, &dead);
+ 
+  if(MW_SERVICE_LIVE(MW_SERVICE(srvc)))
+    ret = send_rem(srvc->channel, dead);
+
+  for(l = dead; l; l = l->next) aware_entry_free(l->data);
+  g_list_free(dead);
+
+  return ret;
+}
+
+
+struct mwServiceAware *mwServiceAware_new(struct mwSession *session) {
+  struct mwServiceAware *srvc_aware;
+  struct mwService *srvc;
+
+  g_assert(session);
+
+  srvc_aware = g_new0(struct mwServiceAware, 1);
+  srvc = &srvc_aware->service;
+
+  mwService_init(srvc, session, mwService_AWARE);
+
+  srvc->recv_channelCreate = recv_channelCreate;
+  srvc->recv_channelAccept = recv_channelAccept;
+  srvc->recv_channelDestroy = recv_channelDestroy;
+  srvc->recv = recv;
+  srvc->start = start;
+  srvc->stop = stop;
+  srvc->clear = clear;
+  srvc->get_name = name;
+  srvc->get_desc = desc;
+
+  srvc_aware->entries = g_hash_table_new_full(id_hash, id_equal,
+					      aware_entry_free, NULL);
+
+  return srvc_aware;
+}
+
+
+struct mwAwareList *mwAwareList_new(struct mwServiceAware *srvc) {
+  struct mwAwareList *a_list;
+
+  g_return_val_if_fail(srvc, NULL);
+
+  a_list = g_new0(struct mwAwareList, 1);
+  a_list->service = srvc;
+
+  a_list->entries = g_hash_table_new_full(id_hash, id_equal, NULL, NULL);
+  return a_list;
+}
+
+
+void mwAwareList_setOnAware(struct mwAwareList *list,
+			    mwAwareList_onAwareHandler cb,
+			    gpointer data) {
+
+  g_return_if_fail(list != NULL);
+  list->on_aware = cb;
+  list->on_aware_data = data;
+}
+
+
+int mwAwareList_addAware(struct mwAwareList *list,
+			 struct mwAwareIdBlock *id_list, guint count) {
+
+  /* for each awareness id:
+     - if it's already in the list, continue
+     - if it's not in the service list:
+       - create an awareness
+       - add it to the service list
+     - add this list to the membership
+     - add to the list
+
+     - send all added IDs (even those already added). It's easier :)
+  */
+
+  struct mwServiceAware *srvc;
+  struct aware_entry *aware;
+
+  GList *additions = NULL;
+
+  g_return_val_if_fail(list != NULL, -1);
+  g_return_val_if_fail(list->service != NULL, -1);
+
+  srvc = list->service;
+
+  g_message("adding %i buddies", count);
+
+  for(; count--; id_list++) {
+    aware = g_hash_table_lookup(list->entries, id_list);
+    if(aware) continue;
+
+    aware = g_hash_table_lookup(srvc->entries, id_list);
+    if(! aware) {
+      aware = g_new0(struct aware_entry, 1);
+      g_hash_table_insert(srvc->entries, ENTRY_KEY(aware), aware);
+    }
+
+    aware->membership = g_list_append(aware->membership, list);
+    g_hash_table_insert(list->entries, ENTRY_KEY(aware), aware);
+    additions = g_list_prepend(additions, ENTRY_KEY(aware));
+  }
+
+  /* if the service is alive-- or getting there-- we'll need to send
+     these additions upstream */
+  if(MW_SERVICE_LIVE(MW_SERVICE(srvc))) {
+    return send_add(srvc->channel, additions);
+  } else {
+    return 0;
+  }
+}
+
+
+int mwAwareList_removeAware(struct mwAwareList *list,
+			    struct mwAwareIdBlock *id_list, guint count) {
+
+  /* for each awareness id:
+     - if it's not in the list, forget it
+     - remove from the list
+     - remove list from the membership
+
+     - call remove round
+  */
+
+  struct mwServiceAware *srvc;
+  struct aware_entry *aware;
+
+  guint c = count;
+  struct mwAwareIdBlock *idb = id_list;
+
+  g_return_val_if_fail(list != NULL, -1);
+  g_return_val_if_fail(list->service != NULL, -1);
+
+  srvc = list->service;
+
+  g_message("removing %u buddies", count);
+
+  for(; c--; idb++) {
+    aware = g_hash_table_lookup(list->entries, idb);
+    if(! aware) continue;
+
+    g_hash_table_remove(list->entries, idb);
+    aware->membership = g_list_remove(aware->membership, list);
+  }
+
+  return remove_unused(srvc);
 }
 
 
@@ -357,9 +550,17 @@ void mwServiceAware_setStatus(struct mwServiceAware *srvc,
 
 
 const char *mwServiceAware_getText(struct mwServiceAware *srvc,
-				   struct mwIdBlock *user) {
+				   struct mwAwareIdBlock *user) {
 
-  return g_hash_table_lookup(srvc->buddy_text, user);
+  struct aware_entry *aware;
+
+  g_return_val_if_fail(srvc != NULL, NULL);
+  g_return_val_if_fail(user != NULL, NULL);
+
+  aware = g_hash_table_lookup(srvc->entries, user);
+  g_return_val_if_fail(aware != NULL, NULL);
+
+  return aware->aware.status.desc;
 }
 
 

@@ -8,10 +8,6 @@
 #include "common.h"
 
 
-struct mwChannel;
-struct mwService;
-
-
 enum mwConferenceStatus {
   mwConference_NEW      = 0x00,
   mwConference_PENDING  = 0x01,

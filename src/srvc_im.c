@@ -13,6 +13,18 @@
 #include "srvc_im.h"
 
 
+/** @todo:
+    - service structure should not be public
+    - map mwIdBlock to chat structure
+    - start/stop 
+*/
+
+
+enum send_actions {
+  mwChannelSend_CHAT_MESSAGE    = 0x0064, /* im */
+};
+
+
 enum mwIMType {
   mwIM_TEXT  = 0x00000001, /* text message */
   mwIM_DATA  = 0x00000002  /* status message (usually) */
@@ -57,7 +69,7 @@ static int send_create(struct mwChannel *chan) {
   guint16_put(&b, &n, 0x0000);
 
   ret = mwChannel_create(chan, msg);
-  mwMessage_free(MESSAGE(msg));
+  mwMessage_free(MW_MESSAGE(msg));
 
   if(ret) mwChannel_destroy(chan, NULL);
 
@@ -75,8 +87,8 @@ static struct mwChannel *make_channel(struct mwChannelSet *cs,
 
   mwIdBlock_clone(&chan->user, user);
 
-  chan->service = Service_IM;
-  chan->proto_type = Protocol_IM;
+  chan->service = mwService_IM;
+  chan->proto_type = mwProtocol_IM;
   chan->proto_ver = 0x03;
   chan->encrypt.type = mwEncrypt_RC2_40;
 
@@ -91,13 +103,13 @@ static struct mwChannel *find_channel(struct mwChannelSet *cs,
 
   for(l = cs->incoming; l; l = l->next) {
     struct mwChannel *c = (struct mwChannel *) l->data;
-    if( (c->service == Service_IM) && mwIdBlock_equal(user, &c->user) )
+    if( (c->service == mwService_IM) && mwIdBlock_equal(user, &c->user) )
       return c;
   }
 
   for(l = cs->outgoing; l; l = l->next) {
     struct mwChannel *c = (struct mwChannel *) l->data;
-    if( (c->service == Service_IM) && mwIdBlock_equal(user, &c->user) )
+    if( (c->service == mwService_IM) && mwIdBlock_equal(user, &c->user) )
       return c;
   }
 
@@ -142,7 +154,7 @@ static int send_accept(struct mwChannel *chan) {
   guint32_put(&b, &n, 0x00100000);
 
   ret = mwChannel_accept(chan, msg);
-  mwMessage_free(MESSAGE(msg));
+  mwMessage_free(MW_MESSAGE(msg));
 
   return ret;
 }
@@ -167,32 +179,35 @@ static void recv_channelCreate(struct mwService *srvc, struct mwChannel *chan,
   char *buf = msg->addtl.data;
   gsize n = msg->addtl.len;
 
-  if( (msg->service != Service_IM) ||
-      (msg->proto_type != Protocol_IM) ||
+  if( (msg->service != mwService_IM) ||
+      (msg->proto_type != mwProtocol_IM) ||
       (msg->proto_ver != 0x03) ) {
 
-    g_warning(" unacceptable service/proto/ver\n");
-    mwChannel_destroyQuick(cs, msg->channel, ERR_SERVICE_NO_SUPPORT, NULL);
+    g_warning(" unacceptable service/proto/ver, 0x%04x, 0x%04x, 0x%04x",
+	      msg->service, msg->proto_type, msg->proto_ver);
+    mwChannel_destroyQuick(chan, ERR_SERVICE_NO_SUPPORT);
 
   } else if( guint32_get(&buf, &n, &a) ||
 	     guint32_get(&buf, &n, &b) ) {
 
-    g_warning(" bad/malformed addtl\n");
-    mwChannel_destroyQuick(cs, msg->channel, ERR_SERVICE_NO_SUPPORT, NULL);
+    g_warning(" bad/malformed addtl");
+    mwChannel_destroyQuick(chan, ERR_SERVICE_NO_SUPPORT);
 
   } else if(a != 0x01) {
-    g_message(" unknown params: param = 0x%08x, sub param = 0x%08x\n", a, b);
-    mwChannel_destroyQuick(cs, msg->channel, ERR_IM_NOT_REGISTERED, NULL);
+    g_message(" unknown params: param = 0x%08x, sub param = 0x%08x", a, b);
+    mwChannel_destroyQuick(chan, ERR_IM_NOT_REGISTERED);
 
   } else if(b == 0x19) {
-    g_message(" rejecting pre-conference\n");
-    mwChannel_destroyQuick(cs, msg->channel, ERR_IM_NOT_REGISTERED, NULL);
+    g_message(" rejecting pre-conference");
+    mwChannel_destroyQuick(chan, ERR_IM_NOT_REGISTERED);
 
   } else {
-    g_message(" accepting: param = 0x01, sub_param = 0x%08x\n", b);
+    g_message(" accepting: param = 0x01, sub_param = 0x%08x", b);
 
-    if(send_accept(chan))
-      mwChannel_destroyQuick(cs, msg->channel, ERR_FAILURE, NULL);
+    if(send_accept(chan)) {
+      g_message(" sending accept failed");
+      mwChannel_destroyQuick(chan, ERR_FAILURE);
+    }
   }
 }
 
@@ -339,7 +354,7 @@ struct mwServiceIM *mwServiceIM_new(struct mwSession *session) {
   struct mwService *srvc = &srvc_im->service;
 
   srvc->session = session;
-  srvc->type = Service_IM; /* one of the BaseSericeTypes */
+  srvc->type = mwService_IM; /* one of the BaseSericeTypes */
 
   srvc->recv_channelCreate = recv_channelCreate;
   srvc->recv_channelAccept = recv_channelAccept;

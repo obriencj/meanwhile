@@ -7,24 +7,27 @@
 #include "common.h"
 
 
-#define MESSAGE(msg) (&msg->head)
+/** Cast a pointer to a message subtype (eg, mwMsgHandshake,
+    mwMsgAdmin) into a pointer to a mwMessage */
+#define MW_MESSAGE(msg) (&msg->head)
 
 
+/** Indicates the type of a message. */
 enum mwMessageType {
-  mwMessage_HANDSHAKE         = 0x0000,
-  mwMessage_HANDSHAKE_ACK     = 0x8000,
-  mwMessage_LOGIN             = 0x0001,
+  mwMessage_HANDSHAKE         = 0x0000, /**< mwMsgHandshake */
+  mwMessage_HANDSHAKE_ACK     = 0x8000, /**< mwMsgHandshakeAck */
+  mwMessage_LOGIN             = 0x0001, /**< mwMsgLogin */
   /* mwMessage_LOGIN_REDIRECT    = ...,
      mwMessage_LOGIN_CONTINUE    = ..., */
-  mwMessage_LOGIN_ACK         = 0x8001,
-  mwMessage_CHANNEL_CREATE    = 0x0002,
-  mwMessage_CHANNEL_DESTROY   = 0x0003,
-  mwMessage_CHANNEL_SEND      = 0x0004,
-  mwMessage_CHANNEL_ACCEPT    = 0x0006,
-  mwMessage_SET_USER_STATUS   = 0x0009,
-  mwMessage_SET_PRIVACY_LIST  = 0x0010, /* maybe? */
-  mwMessage_SENSE_SERVICE     = 0x0011,
-  mwMessage_ADMIN             = 0x0019
+  mwMessage_LOGIN_ACK         = 0x8001, /**< mwMsgLoginAck */
+  mwMessage_CHANNEL_CREATE    = 0x0002, /**< mwMsgChannelCreate */
+  mwMessage_CHANNEL_DESTROY   = 0x0003, /**< mwMsgChannelDestroy */
+  mwMessage_CHANNEL_SEND      = 0x0004, /**< mwMsgChannelSend */
+  mwMessage_CHANNEL_ACCEPT    = 0x0006, /**< mwMsgChannelAccept */
+  mwMessage_SET_USER_STATUS   = 0x0009, /**< mwMsgSetUserStatus */
+  mwMessage_SET_PRIVACY_LIST  = 0x0010, /**< mwMsgSetPrivacyList (maybe?) */
+  mwMessage_SENSE_SERVICE     = 0x0011, /**< mwMsgSenseService */
+  mwMessage_ADMIN             = 0x0019  /**< mwMsgAdmin */
 };
 
 
@@ -38,23 +41,24 @@ enum mwMessageOption {
 struct mwMessage {
   enum mwMessageType type;
   enum mwMessageOption options;
-  unsigned int channel;
+  guint channel;
   struct mwOpaque attribs;
 };
 
 
+/** Allocate and initialize a new message of the specified type */
 struct mwMessage *mwMessage_new(enum mwMessageType type);
 
 
-/* build a message from its representation. buf should already have been
-   advanced past the four-byte length indicator */
-struct mwMessage *mwMessage_get(const char *buf, unsigned int len);
+/** build a message from its representation. buf should already have
+    been advanced past the four-byte length indicator */
+struct mwMessage *mwMessage_get(const char *buf, gsize len);
 
 
-unsigned int mwMessage_buflen(struct mwMessage *msg);
+gsize mwMessage_buflen(struct mwMessage *msg);
 
 
-int mwMessage_put(char **buf, unsigned int *len, struct mwMessage *msg);
+int mwMessage_put(char **b, gsize *n, struct mwMessage *msg);
 
 
 void mwMessage_free(struct mwMessage *msg);
@@ -159,25 +163,14 @@ struct mwMsgChannelAccept {
 
 /* 8.4.1.9 SendOnCnl */
 
-enum mwChannelSendType {
-  mwChannelSend_CONF_WELCOME    = 0x0000, /* grr. shouldn't use zero */
-  mwChannelSend_CONF_INVITE     = 0x0001,
-  mwChannelSend_CONF_JOIN       = 0x0002,
-  mwChannelSend_CONF_PART       = 0x0003,
-  mwChannelSend_CONF_MESSAGE    = 0x0004, /* conference */
-  mwChannelSend_CHAT_MESSAGE    = 0x0064, /* im */
-  mwChannelSend_AWARE_ADD       = 0x0068,
-  mwChannelSend_AWARE_REMOVE    = 0x0069,
-  mwChannelSend_AWARE_SNAPSHOT  = 0x01f4,
-  mwChannelSend_AWARE_UPDATE    = 0x01f5,
-  mwChannelSend_RESOLVE_SEARCH  = 0x8000, /* placeholder */
-  mwChannelSend_RESOLVE_RESULT  = 0x8001  /* placeholder */
-};
-
-
 struct mwMsgChannelSend {
   struct mwMessage head;
-  enum mwChannelSendType type;
+
+  /** each service defines its own send types. The uniqueness of a
+      type is only necessary within a given service */
+  guint type;
+
+  /** protocol data to be interpreted by the handling service */
   struct mwOpaque data;
 };
 

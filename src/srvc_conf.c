@@ -15,6 +15,15 @@
 #include "srvc_conf.h"
 
 
+enum send_actions {
+  mwChannelSend_CONF_WELCOME    = 0x0000,  /* grr. shouldn't use zero */
+  mwChannelSend_CONF_INVITE     = 0x0001,
+  mwChannelSend_CONF_JOIN       = 0x0002,
+  mwChannelSend_CONF_PART       = 0x0003,
+  mwChannelSend_CONF_MESSAGE    = 0x0004   /* conference */
+};
+
+
 /* this structure isn't public, because the "user" never needs to know that
    sametime conferences associate users with a number */
 struct mwConfMember {
@@ -24,7 +33,7 @@ struct mwConfMember {
 };
 
 
-static void member_clear(struct mwConfMember *member) {
+static void member_free(struct mwConfMember *member) {
   g_free(member->user);
   g_free(member->community);
 }
@@ -64,8 +73,7 @@ static void conf_clear(struct mwConference *conf) {
   for(l = conf->members; l; l = l->next) {
     struct mwConfMember *m = (struct mwConfMember *) l->data;
     l->data = NULL;
-    member_clear(m);
-    g_free(m);
+    member_free(m);
   }
   g_list_free(conf->members);
   
@@ -328,8 +336,7 @@ static int PART_recv(struct mwServiceConf *srvc,
   if(srvc->got_part)
     srvc->got_part(conf, &idb);
 
-  member_clear(m);
-  g_free(m);
+  member_free(m);
 
   return 0;
 }
@@ -498,12 +505,13 @@ struct mwServiceConf *mwServiceConf_new(struct mwSession *session) {
   struct mwService *srvc = &srvc_conf->service;
 
   srvc->session = session;
-  srvc->type = Service_CONF; /* one of the BaseServiceTypes */
+  srvc->type = mwService_CONF; /* one of the BaseServiceTypes */
 
   srvc->recv_channelCreate = recv_channelCreate;
   srvc->recv_channelAccept = recv_channelAccept;
   srvc->recv_channelDestroy = recv_channelDestroy;
   srvc->recv = recv;
+  /* todo: start and stop */
   srvc->clear = clear;
   srvc->get_name = name;
   srvc->get_desc = desc;
@@ -557,8 +565,6 @@ static int send_create(struct mwSession *s, struct mwConference *conf) {
 
   int ret;
 
-  debug_printf(" --> send_create\n");
-
   msg = (struct mwMsgChannelCreate *)
     mwMessage_new(mwMessage_CHANNEL_CREATE);
 
@@ -584,9 +590,8 @@ static int send_create(struct mwSession *s, struct mwConference *conf) {
   guint16_put(&b, &n, 0x0000);
 
   ret = mwChannel_create(chan, msg);
-  mwMessage_free(MESSAGE(msg));
+  mwMessage_free(MW_MESSAGE(msg));
 
-  debug_printf(" <-- send_create (%i)\n", ret);
   return ret;
 }
 
@@ -613,8 +618,8 @@ int mwConference_create(struct mwConference *conf) {
   chan = mwChannel_newOutgoing(session->channels);
   chan->status = mwChannel_INIT;
 
-  chan->service = Service_CONF;
-  chan->proto_type = Protocol_CONF;
+  chan->service = mwService_CONF;
+  chan->proto_type = mwProtocol_CONF;
   chan->proto_ver = 0x02;
   chan->encrypt.type = mwEncrypt_RC2_40;
 
@@ -653,7 +658,7 @@ int mwConference_destroy(struct mwConference *conf,
     srvc->got_closed(conf);
 
   ret = mwChannel_destroy(chan, msg);
-  mwMessage_free(MESSAGE(msg));
+  mwMessage_free(MW_MESSAGE(msg));
   
   conf_remove(conf);
   g_free(conf);
@@ -690,7 +695,7 @@ int mwConference_accept(struct mwConference *conf) {
   msg->encrypt.opaque.data = b = (char *) g_malloc0(n); /* all zero */
 
   ret = mwChannel_accept(chan, msg);
-  mwMessage_free(MESSAGE(msg));
+  mwMessage_free(MW_MESSAGE(msg));
 
   /* send an empty conf join to let the channel know we're ready to go */
   if(! ret) ret = mwChannel_send(chan, mwChannelSend_CONF_JOIN, NULL, 0x00);

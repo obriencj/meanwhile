@@ -18,7 +18,7 @@
 #endif
 
 
-/* how a session manages to feed data back to the server. */
+/** how a session manages to perform output */
 struct mwSessionHandler {
   int (*write)(struct mwSessionHandler *, const char *, gsize);
   void (*close)(struct mwSessionHandler *);
@@ -41,38 +41,42 @@ struct mwMsgAdmin;
 
 struct mwSession {
 
-  /* provides I/O capabilities for the session */
+  /** provides I/O capabilities for the session */
   struct mwSessionHandler *handler;
 
-  /* buffer for incoming message data */
-  char *buf;
-  gsize buf_len;
-  gsize buf_used;
+  char *buf;       /**< buffer for incoming message data */
+  gsize buf_len;   /**< length of buf */
+  gsize buf_used;  /**< offset to last-used byte of buf */
 
-  /* authentication data (usually password) */
+  /** authentication data (usually password)
+
+      @todo the token auth_type is probably more ornate than just a
+      string */
   enum mwAuthType auth_type;
   union {
     char *password;
     char *token;
   } auth;
   
-  /* bits of user information. Obtained from server responses */
-  struct mwLoginInfo login;
-  struct mwUserStatus status;
-  struct mwPrivacyInfo privacy;
+  struct mwLoginInfo login;     /**< login information for this session */
+  struct mwUserStatus status;   /**< session's user status */
+  struct mwPrivacyInfo privacy; /**< session's privacy list */
 
-  /* session key */
+  /** the session key
+
+      @todo with new ciphers, this may need to become an EncryptBlock
+      or something crazy */
   int session_key[64];
 
-  /* the collection of channels */
+  /** the collection of channels */
   struct mwChannelSet *channels;
 
-  /* collection of services */
+  /** the collection of services */
   GList *services;
 
   /* session call-backs */
-  void (*on_initConnect)(struct mwSession *);
-  void (*on_closeConnect)(struct mwSession *, guint32);
+  void (*on_start)(struct mwSession *);
+  void (*on_stop)(struct mwSession *, guint32);
 
   /* channel call-backs */
   void (*on_channelOpen)(struct mwChannel *);
@@ -97,58 +101,66 @@ struct mwSession {
 struct mwSession *mwSession_new();
 
 
-/* clear, free and NULL a session */
-void mwSession_free(struct mwSession **);
+/* stop, clear, free a session */
+void mwSession_free(struct mwSession *);
 
 
-/* instruct the session to begin. This will trigger the on_initConnect
-   call-back. If there's no such call-back, this function does very
-   little.  Use or wrap initConnect_sendHandshake as a call-back to
-   have a handshake message sent, and to begin an actual session with
-   a sametime server */
-void mwSession_initConnect(struct mwSession *);
+/** instruct the session to begin. This will trigger the on_start
+    call-back. If there's no such call-back, this function does very
+    little. Use or wrap onStart_sendHandshake as a call-back to have a
+    handshake message sent, and to begin an actual session with a
+    sametime server */
+void mwSession_start(struct mwSession *);
 
 
-/* instruct the session to shut down with the following reason
-   code. Triggers the on_closeConnect call-back */
-void mwSession_closeConnect(struct mwSession *, guint32 reason);
+/** instruct the session to shut down with the following reason
+    code. Triggers the on_stop call-back */
+void mwSession_stop(struct mwSession *, guint32 reason);
 
 
-/* data is buffered, unpacked, and parsed into a message, then
-   processed accordingly. */
+/** Data is buffered, unpacked, and parsed into a message, then
+    processed accordingly. */
 void mwSession_recv(struct mwSession *, const char *, gsize);
 
 
-/* primarily used by services to have messages serialized and sent */
+/** primarily used by services to have messages serialized and sent */
 int mwSession_send(struct mwSession *, struct mwMessage *);
 
 
-/* set the internal privacy information, and inform the server as
-   necessary. Triggers the on_setPrivacyInfo call-back */
+/** set the internal privacy information, and inform the server as
+    necessary. Triggers the on_setPrivacyInfo call-back */
 int mwSession_setPrivacyInfo(struct mwSession *, struct mwPrivacyInfo *);
 
 
-/* set the internal user status state, and inform the server as
-   necessary. Triggers the on_setUserStatus call-back */
+/** set the internal user status state, and inform the server as
+    necessary. Triggers the on_setUserStatus call-back */
 int mwSession_setUserStatus(struct mwSession *, struct mwUserStatus *);
 
 
-/* a default call-back for the on_initConnect slot which composes and
-   sends a handshake message */
-void initConnect_sendHandshake(struct mwSession *);
+/** a call-back for use in the on_start slot which composes and sends
+    a handshake message */
+void onStart_sendHandshake(struct mwSession *);
 
 
-/* a default call-back for the on_handshake slot which composes and
-   sends a login message */
-void handshakeAck_sendLogin(struct mwSession *, struct mwMsgHandshakeAck *);
+/** a call-back for use in the on_handshake slot which composes and
+    sends a login message */
+void onHandshakeAck_sendLogin(struct mwSession *, struct mwMsgHandshakeAck *);
 
 
+/** adds a service to the session. If the session is started and the
+    service has a start function, the session will request service
+    availability form the server. On receipt of the service
+    availability notification, the session will call the start
+    function. */
 int mwSession_putService(struct mwSession *, struct mwService *);
 
 
+/** obtain a reference to a mwService by its type identifier */
 struct mwService *mwSession_getService(struct mwSession *, guint32 type);
 
 
+/** removes a service from the session. If the session is started and
+    the service has a stop function, it will be called. */
 int mwSession_removeService(struct mwSession *, guint32 type);
 
 

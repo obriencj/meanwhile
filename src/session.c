@@ -17,26 +17,33 @@ struct mwSession *mwSession_new() {
 
   s->channels = g_new0(struct mwChannelSet, 1);
   s->channels->session = s;
+  s->login.type = mwLogin_MEANWHILE;
   
   return s;
 }
 
 
-void mwSession_free(struct mwSession **session) {
-  struct mwSession *s = *session;
+static void session_buf_free(struct mwSession *s) {
+  g_free(s->buf);
+  s->buf = NULL;
+  s->buf_len = s->buf_used = 0;
+}
 
-  *session = NULL;
+
+void mwSession_free(struct mwSession *s) {
+  g_return_if_fail(s != NULL);
+
+  session_buf_free(s);
 
   while(s->services) {
     struct mwService *srv = (struct mwService *) s->services->data;
     mwSession_removeService(s, srv->type);
-    mwService_free(&srv);
+    mwService_free(srv);
   }
 
   mwChannelSet_clear(s->channels);
   g_free(s->channels);
 
-  g_free(s->buf);
   g_free(s->auth.password);
 
   mwLoginInfo_clear(&s->login);
@@ -47,40 +54,47 @@ void mwSession_free(struct mwSession **session) {
 }
 
 
-void mwSession_initConnect(struct mwSession *s) {
-  if(s->on_initConnect)
-    s->on_initConnect(s);
+void mwSession_start(struct mwSession *s) {
+  g_return_if_fail(s != NULL);
+
+  if(s->on_start)
+    s->on_start(s);
 }
 
 
-void initConnect_sendHandshake(struct mwSession *s) {
+void onStart_sendHandshake(struct mwSession *s) {
   struct mwMsgHandshake *msg;
   msg = (struct mwMsgHandshake *) mwMessage_new(mwMessage_HANDSHAKE);
 
   msg->major = PROTOCOL_VERSION_MAJOR;
   msg->minor = PROTOCOL_VERSION_MINOR;
-  msg->login_type = mwLogin_JAVA_APP; /* what else can we use? */
+  msg->login_type = s->login.type;
 
-  mwSession_send(s, MESSAGE(msg));
-  mwMessage_free(MESSAGE(msg));
+  mwSession_send(s, MW_MESSAGE(msg));
+  mwMessage_free(MW_MESSAGE(msg));
 }
 
 
-void mwSession_closeConnect(struct mwSession *s, guint32 reason) {
-  
-  struct mwMsgChannelDestroy *msg = (struct mwMsgChannelDestroy *)
-    mwMessage_new(mwMessage_CHANNEL_DESTROY);
+void mwSession_stop(struct mwSession *s, guint32 reason) {
+  struct mwMsgChannelDestroy *msg;
 
+  g_return_if_fail(s != NULL);
+
+  msg = (struct mwMsgChannelDestroy *)
+    mwMessage_new(mwMessage_CHANNEL_DESTROY);
+  
   msg->head.channel = MASTER_CHANNEL_ID;
   msg->reason = reason;
 
   /* don't care if this fails, we're closing the connection anyway */
-  mwSession_send(s, MESSAGE(msg));
-  mwMessage_free(MESSAGE(msg));
+  mwSession_send(s, MW_MESSAGE(msg));
+  mwMessage_free(MW_MESSAGE(msg));
 
   /* let the listener know what's about to happen */
-  if(s->on_closeConnect)
-    s->on_closeConnect(s, reason);
+  if(s->on_stop)
+    s->on_stop(s, reason);
+
+  session_buf_free(s);
 
   /* close the connection */
   if(s->handler)
@@ -132,20 +146,20 @@ static void compose_auth(struct mwOpaque *auth, const char *pass) {
 }
 
 
-void handshakeAck_sendLogin(struct mwSession *s,
-			    struct mwMsgHandshakeAck *msg) {
+void onHandshakeAck_sendLogin(struct mwSession *s,
+			      struct mwMsgHandshakeAck *msg) {
 
   struct mwMsgLogin *log = (struct mwMsgLogin *)
     mwMessage_new(mwMessage_LOGIN);
 
-  log->type = mwLogin_JAVA_APP; /* bleh. Find something else to use */
+  log->type = s->login.type;
   log->name = g_strdup(s->login.user_id);
   log->auth_type = mwAuthType_ENCRYPT;
 
   compose_auth(&log->auth_data, s->auth.password);
   
-  mwSession_send(s, MESSAGE(log));
-  mwMessage_free(MESSAGE(log));
+  mwSession_send(s, MW_MESSAGE(log));
+  mwMessage_free(MW_MESSAGE(log));
 }
 
 
@@ -165,8 +179,6 @@ static void LOGIN_REDIRECT_recv(struct mwSession *s,
 
 
 static void LOGIN_ACK_recv(struct mwSession *s, struct mwMsgLoginAck *msg) {
-
-  debug_printf(" --> LOGIN_ACK_recv\n");
 
   /* store the login information in the session */
   mwLoginInfo_clear(&s->login);
@@ -191,20 +203,19 @@ static void CHANNEL_CREATE_recv(struct mwSession *s,
   struct mwChannel *chan;
   struct mwService *srvc;
 
-  srvc = mwSession_getService(s, msg->service);
-  if(! srvc) {
-    /* seems other clients send ERR_IM_NOT_REGISTERED ? */
-    mwChannel_destroyQuick(s->channels, msg->channel,
-			   ERR_SERVICE_NO_SUPPORT, NULL);
-    return;
-  }
-
   /* create the channel */
   chan = mwChannel_newIncoming(s->channels, msg->channel);
   mwChannel_create(chan, msg);
 
-  /* notify the service */
-  mwService_recvChannelCreate(srvc, chan, msg);
+  srvc = mwSession_getService(s, msg->service);
+  if(srvc) {
+    /* notify the service */
+    mwService_recvChannelCreate(srvc, chan, msg);
+
+  } else {
+    /* seems other clients send ERR_IM_NOT_REGISTERED ? */
+    mwChannel_destroyQuick(chan, ERR_SERVICE_NO_SUPPORT);
+  }
 }
 
 
@@ -220,11 +231,9 @@ static void CHANNEL_DESTROY_recv(struct mwSession *s,
   struct mwChannel *chan;
   struct mwService *srvc;
 
-  debug_printf(" --> CHANNEL_DESTROY_recv\n");
-
   /* This doesn't really work out right. But later it will! */
   if(msg->head.channel == MASTER_CHANNEL_ID) {
-    mwSession_closeConnect(s, msg->reason);
+    mwSession_stop(s, msg->reason);
     return;
   }
 
@@ -265,44 +274,41 @@ static void CHANNEL_ACCEPT_recv(struct mwSession *s,
      - trigger session listener
   */
 
-  unsigned int chan_id = msg->head.channel;
+  guint chan_id = msg->head.channel;
   struct mwChannel *chan;
   struct mwService *srvc;
 
-  if(CHAN_ID_IS_INCOMING(chan_id)) {
-    mwChannel_destroyQuick(s->channels, chan_id, ERR_REQUEST_INVALID, NULL);
-    debug_printf("CHANNEL_ACCEPT_recv, bad channel id: 0x%x\n", chan_id);
+  chan = mwChannel_find(s->channels, chan_id);
+  g_return_if_fail(chan != NULL);
+
+  if(CHAN_IS_INCOMING(chan)) {
+    mwChannel_destroyQuick(chan, ERR_REQUEST_INVALID);
+    g_message("CHANNEL_ACCEPT_recv, bad channel id: 0x%x", chan_id);
     return;
   }
 
-  chan = mwChannel_find(s->channels, chan_id);
-  g_return_if_fail(chan);
-
   if(chan->status != mwChannel_WAIT) {
-    mwChannel_destroyQuick(s->channels, chan->id, ERR_REQUEST_INVALID, NULL);
-    debug_printf("CHANNEL_ACCEPT_recv, channel status not WAIT\n");
+    mwChannel_destroyQuick(chan, ERR_REQUEST_INVALID);
+    g_message("CHANNEL_ACCEPT_recv, channel status not WAIT");
     return;
   }
   
   srvc = mwSession_getService(s, chan->service);
   if(! srvc) {
-    mwChannel_destroyQuick(s->channels, chan->id,
-			   ERR_SERVICE_NO_SUPPORT, NULL);
-    debug_printf("CHANNEL_ACCEPT_recv, no service: 0x%x\n", chan->service);
+    mwChannel_destroyQuick(chan, ERR_SERVICE_NO_SUPPORT);
+    g_message("CHANNEL_ACCEPT_recv, no service: 0x%x\n", chan->service);
     return;
   }
+
+  mwChannel_accept(chan, msg);
   
   /* let the service know */
   mwService_recvChannelAccept(srvc, chan, msg);
-
-  mwChannel_accept(chan, msg);
 }
 
 
 static void SET_USER_STATUS_recv(struct mwSession *s,
 				 struct mwMsgSetUserStatus *msg) {
-  debug_printf(" --> SET_USER_STATUS_recv\n");
-
   if(s->on_setUserStatus)
     s->on_setUserStatus(s, msg);
 
@@ -325,15 +331,13 @@ case mwMessage_ ## var: \
 static void session_process(struct mwSession *s,
 			    const char *b, gsize n) {
 
-  struct mwMessage *msg = NULL;
+  struct mwMessage *msg;
 
-  g_assert(s);
-
-  pretty_print(b, n);
+  g_assert(s != NULL);
 
   /* attempt to parse the message. */
   msg = mwMessage_get(b, n);
-  g_return_if_fail(msg);
+  g_return_if_fail(msg != NULL);
 
   /* handle each of the appropriate types of mwMessage */
   switch(msg->type) {
@@ -350,7 +354,7 @@ static void session_process(struct mwSession *s,
     CASE(ADMIN, mwMsgAdmin);
     
   default:
-    g_warning("unknown message type %x, no handler\n", msg->type);
+    g_warning("unknown message type 0x%04x, no handler", msg->type);
   }
 
   mwMessage_free(msg);
@@ -363,142 +367,163 @@ static void session_process(struct mwSession *s,
 #define ADVANCE(b, n, count) (b += count, n -= count)
 
 
-void mwSession_recv(struct mwSession *s, const char *b, gsize n) {
-  /* This is messy and kind of confusing. I'd like to simplify it at some
-     point, but the constraints are as follows:
+/* handle input to complete an existing buffer */
+static gsize session_recv_cont(struct mwSession *s, const char *b, gsize n) {
+
+  /* determine how many bytes still required */
+  gsize x = s->buf_len - s->buf_used;
+  
+  if(n < x) {
+    /* not quite enough; still need some more */
+    memcpy(s->buf+s->buf_used, b, n);
+    s->buf_used += n;
+    return 0;
+    
+  } else {
+    /* enough to finish the buffer, at least */
+    memcpy(s->buf+s->buf_used, b, x);
+    ADVANCE(b, n, x);
+    
+    if(s->buf_len == 4) {
+      /* if only the length bytes were being buffered, we'll now try
+       to complete an actual message */
+      
+      x = guint32_peek(s->buf, 4);
+      if(n < x) {
+	/* there isn't enough to meet the demands of the length, so
+	   we'll buffer it for next time */
+
+	char *t;
+	x += 4;
+	t = (char *) g_malloc(x);
+	memcpy(t, s->buf, 4);
+	memcpy(t+4, b, n);
+	
+	session_buf_free(s);
+	
+	s->buf = t;
+	s->buf_len = x;
+	s->buf_used = n + 4;
+	return 0;
+	
+      } else {
+	/* there's enough (maybe more) for a full message. don't
+	   need the old session buffer (which recall, was only the
+	   length bytes) any more */
+	
+	session_buf_free(s);
+	session_process(s, b, x);
+	ADVANCE(b, n, x);
+      }
+      
+    } else {
+      /* process the now-complete buffer. remember to skip the first
+	 four bytes, since they're just the size count */
+      session_process(s, s->buf+4, s->buf_len-4);
+      session_buf_free(s);
+    }
+  }
+
+  return n;
+}
+
+
+/* handle input when there's nothing previously buffered */
+static gsize session_recv_empty(struct mwSession *s, const char *b, gsize n) {
+  gsize x;
+
+  if(n < 4) {
+    /* uh oh. less than four bytes means we've got an incomplete length
+       indicator. Have to buffer to get the rest of it. */
+    s->buf = (char *) g_malloc0(4);
+    memcpy(s->buf, b, n);
+    s->buf_len = 4;
+    s->buf_used = n;
+    return 0;
+  }
+  
+  /* peek at the length indicator. if it's a zero length message,
+     forget it */
+  x = guint32_peek(b, n);
+  if(! x) return 0;
+
+  if(n < (x + 4)) {
+    /* if the total amount of data isn't enough to cover the length
+       bytes and the length indicated by those bytes, then we'll need
+       to buffer */
+
+    x += 4;
+    s->buf = (char *) g_malloc(x);
+    memcpy(s->buf, b, n);
+    s->buf_len = x;
+    s->buf_used = n;
+    return 0;
+    
+  } else {
+    /* advance past length bytes */
+    ADVANCE(b, n, 4);
+    
+    /* process and advance */
+    session_process(s, b, x);
+    ADVANCE(b, n, x);
+
+    /* return left-over count */
+    return n;
+  }
+}
+
+
+static gsize session_recv(struct mwSession *s, const char *b, gsize n) {
+  /* This is messy and kind of confusing. I'd like to simplify it at
+     some point, but the constraints are as follows:
 
       - buffer up to a single full message on the session buffer
       - buffer must contain the four length bytes
       - the four length bytes indicate how much we'll need to buffer
-      - the four length bytes might not arrive all at once, so it's possible
-        that we'll need to buffer to get them.
-      - since our buffering includes the length bytes, we know we still have an
-        incomplete length if the buffer length is only four.
-  */
+      - the four length bytes might not arrive all at once, so it's
+        possible that we'll need to buffer to get them.
+      - since our buffering includes the length bytes, we know we
+        still have an incomplete length if the buffer length is only
+        four. */
   
-  /* TODO: we should allow a compiled-in upper limit to message sizes, and just
-     drop messages over that size. However, to do that we'd need to keep track
-     of the size of a message and keep dropping bytes until we'd fulfilled the
-     entire length. eg: if we receive a message size of 10MB, we need to pass
-     up exactly 10MB before it's safe to start processing the rest as a new
-     message.
-  */
-
-  gsize x;
+  /** @todo we should allow a compiled-in upper limit to message
+     sizes, and just drop messages over that size. However, to do that
+     we'd need to keep track of the size of a message and keep
+     dropping bytes until we'd fulfilled the entire length. eg: if we
+     receive a message size of 10MB, we need to pass up exactly 10MB
+     before it's safe to start processing the rest as a new
+     message. */
   
   if(n && (s->buf_len == 0) && (*b & 0x80)) {
-    /* keep-alive bytes are ignored */
+    /* keep-alive and series bytes are ignored */
     ADVANCE(b, n, 1);
   }
 
-  if(! n) return;
+  if(n <= 0) {
+    return 0;
 
-  /* finish off anything on the session buffer */
-  if(s->buf_len > 0) {
+  } else if(s->buf_len > 0) {
+    return session_recv_cont(s, b, n);
 
-    /* determine how many bytes still required */
-    x = s->buf_len - s->buf_used;
-
-    if(n < x) {
-      /* now quite enough */
-      memcpy(s->buf+s->buf_used, b, n);
-      s->buf_used += n;
-      x = s->buf_len - s->buf_used;
-      return;
-
-    } else {
-      /* enough to finish the buffer, at least */
-      memcpy(s->buf+s->buf_used, b, x);
-      ADVANCE(b, n, x);
-
-      if(s->buf_len == 4) {
-	/* if only the length bytes were being buffered... */
-	x = guint32_peek(s->buf, 4);
-
-	if(n < x) {
-	  /* if there isn't enough to meet the demands of the length, buffer
-	     it for next time */
-	  char *t;
-	  x += 4;
-	  t = (char *) g_malloc0(x);
-	  memcpy(t, s->buf, 4);
-	  memcpy(t+4, b, n);
-	  g_free(s->buf);
-	  s->buf = t;
-	  s->buf_len = x;
-	  return;
-
-	} else {
-	  /* there's enough (maybe more) for a full message */
-
-	  /* don't need the old session buffer any more */
-	  g_free(s->buf);
-	  s->buf = NULL;
-	  s->buf_len = s->buf_used = 0;
-
-	  session_process(s, b, x);
-	  ADVANCE(b, n, x);
-	}
-
-      } else {
-	/* skip the first four bytes of session buffer, since they're just the
-	   size bytes */
-	session_process(s, s->buf+4, s->buf_len-4);
-	g_free(s->buf);
-	s->buf = NULL;
-	s->buf_len = s->buf_used = 0;
-      }
-    }
-  }
-
-  /* if we've gotten this far, then the session buffer is empty */
-  /* get as many full messages out of buf as possible */
-  while(n) {
-
-    if(n < 4) {
-      /* uh oh. less than four bytes means we've got an incomplete length
-	 indicator. Have to buffer to get the rest of it. */
-      s->buf = (char *) g_malloc0(4);
-      memcpy(s->buf, b, n);
-      s->buf_len = 4;
-      s->buf_used = n;
-      return;
-    }
-
-    /* peek at the length indicator */
-    x = guint32_peek(b, n);
-    if(! x) return; /* started seeing zero in those four bytes. weird */
-
-    if(n < (x + 4)) {
-      /* if the amount of data remaining isn't enough to cover the length bytes
-	 and the length indicated by those bytes, then we'll need to buffer */
-      x += 4;
-      break;
-
-    } else {
-      /* advance past length bytes */
-      ADVANCE(b, n, 4);
-
-      /* process and advance */
-      session_process(s, b, x);
-      ADVANCE(b, n, x);
-    }
-  }
-
-  /* alright, done with all the full messages */
-  /* buffer the leftovers on the session buffer */
-  if(n) {
-    char *t = (char *) g_malloc0(x);
-    memcpy(t, b, n);
-    
-    s->buf = t;
-    s->buf_len = x;
-    s->buf_used = n;
+  } else {
+    return session_recv_empty(s, b, n);
   }
 }
 
 
 #undef ADVANCE
+
+
+void mwSession_recv(struct mwSession *s, const char *buf, gsize n) {
+  char *b = (char *) buf;
+  gsize remain = 0;
+
+  while(n > 0) {
+    remain = session_recv(s, b, n);
+    b += (n - remain);
+    n = remain;
+  }
+}
 
 
 int mwSession_send(struct mwSession *s, struct mwMessage *msg) {
@@ -513,13 +538,11 @@ int mwSession_send(struct mwSession *s, struct mwMessage *msg) {
   char *buf, *b;
   int ret = 0;
 
-  debug_printf(" --> mwSession_send\n");
-
   g_return_val_if_fail(s->handler, -1);
 
   /* ensure we could determine the required buflen */
   n = len = mwMessage_buflen(msg);
-  g_return_val_if_fail(len, -1);
+  g_return_val_if_fail(len > 0, -1);
 
   n = len = len + 4;
   b = buf = g_malloc(len);
@@ -565,8 +588,8 @@ int mwSession_setUserStatus(struct mwSession *s, struct mwUserStatus *stat) {
 
   mwUserStatus_clone(&msg->status, stat);
 
-  ret = mwSession_send(s, MESSAGE(msg));
-  mwMessage_free(MESSAGE(msg));
+  ret = mwSession_send(s, MW_MESSAGE(msg));
+  mwMessage_free(MW_MESSAGE(msg));
 
   return ret;
 }
