@@ -6,7 +6,6 @@ version 0.4.0 (cvs)
 
 	Features
 	- RFE #994716 Support for Server-side Groups to Aware Service
-	- RFE #1043848 Python wrappers
 	- RFE #1077794 NotesBuddy style formatting
 	- Support for resolve service
 

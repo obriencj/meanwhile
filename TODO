@@ -15,10 +15,6 @@
     with copy/paste segment of opaque message data and instructions to
     send it to meanwhile-devel@lists.sourceforge.net
 
-- python script
-  - Attempt to use resolve service after handshake ack, before login
-    to resolve session's user name
-
 
 - IM Service
   - new Client Type, 0xbadf00d  (0x0b ad f0 0d)

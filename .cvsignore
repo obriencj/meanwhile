@@ -16,7 +16,6 @@ mkinstalldirs
 *.spec
 *.swp
 *.tar.gz
-test.conf
-test.sh
+test*
 tmp
 

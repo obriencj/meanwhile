@@ -11,9 +11,6 @@ pkgconfig_DATA = meanwhile.pc
 pkgconfigdir = $(libdir)/pkgconfig
 
 
-noinst_SCRIPTS = test.sh
-
-
 docs:
 	make -C doc
 

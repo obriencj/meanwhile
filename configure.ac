@@ -5,11 +5,6 @@ m4_define(meanwhile_version,		0.4.0)
 # required and compat version of glib2.
 m4_define(glib_required_version,	2.0.0)
 
-# this is just to generate the requirement in the specfile. It would
-# be useful to make it check the available python version here as
-# well...
-m4_define(python_required_version,	2.2)
-
 
 AC_INIT
 AM_INIT_AUTOMAKE(meanwhile, meanwhile_version)
@@ -43,96 +38,12 @@ dnl Darwin...
 if test `uname` = "Darwin" ; then
 	os_so_ext=".dylib"
 	os_ld_flags="-dynamic-lib"
-	os_ld_flags_python=os_ld_flags
 else	
 	os_so_ext=".so"
 	os_ld_flags="-shared -no-undefined"
-	os_ld_flags_python="-Wl,-rpath,${libdir}"
 fi
 AC_SUBST(os_so_ext)
 AC_SUBST(os_ld_flags)
-AC_SUBST(os_ld_flags_python)
-
-
-dnl Python wrapper option
-withval="auto"
-AC_ARG_WITH(python,
-	[  --with-python[=auto]   compile Python wrappers for Meanwhile])
-
-if test "$withval" != "no" ; then
-
-	dnl Check 1: Python binary
-	if test "$withval" = "auto" ; then
-		AC_PATH_PROG(pythonpath, python)
-		if test "_$pythonpath" = _ ; then
-			AC_MSG_RESULT(not found, building without python support)
-			withval="no"
-		fi
-	else
-		pythonpath="$withval"
-	fi
-
-	PYTHON="$pythonpath"
-	AC_SUBST(PYTHON)
-fi
-
-if test "$withval" != "no" ; then
-
-	dnl Check 2: Python version
-	AC_MSG_CHECKING(Python version)
-	PYTHON_FOUND_VERSION=`$pythonpath -c 'import distutils.sysconfig; print "%s" % distutils.sysconfig.get_config_var("VERSION")' 2>/dev/null`
-
-	if test "$PYTHON_FOUND_VERSION" = "" ; then
-		AC_MSG_ERROR([unable to determine version])
-	else
-
-		# TODO: put in a check against PYTHON_FOUND_VERSION and
-		# python_required_version to make sure we meet the minimum
-		# requirements
-
-		AC_MSG_RESULT($PYTHON_FOUND_VERSION)
-		#PYTHON_VERSION=python_required_version
-		PYTHON_VERSION=$PYTHON_FOUND_VERSION
-		AC_SUBST(PYTHON_VERSION)
-	fi
-
-	dnl Check 3: Python CFLAGS
-	AC_MSG_CHECKING(for Python compile flags)
-	PYTHON_CFLAGS=`$pythonpath -c 'import distutils.sysconfig; print "-I%s" % distutils.sysconfig.get_python_inc()' 2>/dev/null`
-
-	if test "$PYTHON_CFLAGS" = "" ; then
-		AC_MSG_ERROR(not found)
-	else
-		AC_MSG_RESULT($PYTHON_CFLAGS)
-		AC_SUBST(PYTHON_CFLAGS)
-	fi
-
-
-	dnl Check 4: Python LIBS
-	AC_MSG_CHECKING(for Python linker flags)
-	PYTHON_LIBP=`$pythonpath -c 'import distutils.sysconfig; print "%s" % distutils.sysconfig.get_config_var("LIBP")' 2>/dev/null`
-
-	PYTHON_LIBS=`$pythonpath -c 'import distutils.sysconfig; print "-L%s %s" % (distutils.sysconfig.get_config_var("LIBP"), distutils.sysconfig.get_config_var("LIBS"))' 2>/dev/null`
-
-	if test "$PYTHON_LIBS" = "" ; then
-		AC_MSG_ERROR(not found)
-	else
-
-		if test `uname` = "Darwin" ; then
-			PYTHON_LIBS="-framework Python $PYTHON_LIBS"
-		fi
-
-		AC_MSG_RESULT($PYTHON_LIBS)
-		AC_SUBST(PYTHON_LIBS)
-		AC_SUBST(PYTHON_LIBP)
-	fi
-
-	WITH_PYTHON_SUBPACKAGE=1
-	AC_SUBST(WITH_PYTHON_SUBPACKAGE)
-
-	WITH_PYTHON_SUBDIR="python"
-	AC_SUBST(WITH_PYTHON_SUBDIR)
-fi
 
 
 dnl Glib-2.0 option with some version detection for compat.h
@@ -146,11 +57,9 @@ AC_SUBST(GLIB_LIBS)
 
 
 AC_CONFIG_FILES(
-	[Makefile src/Makefile src/python/Makefile]
+	[Makefile src/Makefile]
 	[doc/Doxyfile]
 	[meanwhile.spec meanwhile.pc]
 )
-
-AC_CONFIG_FILES([test.sh], [chmod +x test.sh])
 
 AC_OUTPUT()

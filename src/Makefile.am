@@ -1,6 +1,4 @@
 
-SUBDIRS = . @WITH_PYTHON_SUBDIR@
-
 lib_LTLIBRARIES = libmeanwhile.la
 
 mwinclude_HEADERS = \
