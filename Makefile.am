@@ -5,4 +5,10 @@ EXTRA_DIST =	Makefile.mingw \
 		meanwhile.spec \
 		meanwhile.pc
 
+
+pkgconfig_DATA = meanwhile.pc
+pkgconfigdir = $(libdir)/pkgconfig
+
+
 SUBDIRS = src
+

@@ -58,7 +58,9 @@ Development packages for the Meanwhile library
 
 %files devel
 %defattr(-,root,root,-)
+%dir %{_includedir}/meanwhile
 %{_includedir}/meanwhile/*.h
+%{_libdir}/pkgconfig/meanwhile.pc
 
 
 %post -n meanwhile
