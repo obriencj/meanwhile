@@ -95,13 +95,20 @@ def _cbStore(who, kstr):
     pass
 
 
+def _cbResolved(who, id, code, results):
+    tSrvcIm.sendText(who, "resolve request 0x%04x returned code 0x%08x\n%s" %
+                     (id, code, results))
+                     
+
+
 def _cbResolve(who, kstr):
 
     ''' initiates a resolve request '''
 
     try:
         cb = lambda id,c,r,w=who: _cbResolved(w,id,c,r)
-        tSrvcResolve.resolve((kstr), RESOLVE_USERS, cd)
+        s = tSrvcResolve.resolve([kstr], meanwhile.RESOLVE_USERS, cb)
+        tSrvcIm.sendText(who, "initiated resolve request 0x%04x" % s)
         
     except Exception, e:
         tSrvcIm.sendText(who, "exception: %s" % e)
@@ -159,6 +166,7 @@ store <n> <str>\n\tstores string str into key n in the storage service
 text <str>\n\techos plain-text str back to you
 html <str>\n\techos html formatted str back to you
 subj <str>\n\tsets the conversation subject to str
+resolve <str>\n\tresolves a xuser ID
 help\n\tprints this information'''
             self.sendText(who, help)
 

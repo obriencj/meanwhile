@@ -146,11 +146,17 @@ static struct mwConference *conf_new(struct mwServiceConference *srvc) {
 
 /** clean and free a conference structure */
 static void conf_free(struct mwConference *conf) {
+  struct mwServiceConference *srvc;
+
   /* this shouldn't ever happen, but just to be sure */
   g_return_if_fail(conf != NULL);
   
+  srvc = conf->service;
+
   if(conf->members)
     g_hash_table_destroy(conf->members);
+
+  g_list_remove_all(srvc->confs, conf);
   
   g_free(conf->name);
   g_free(conf->title);

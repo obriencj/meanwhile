@@ -117,9 +117,9 @@ static void mw_search_cb(struct mwServiceResolve *srvc,
 
 static GList *str_list(PyObject *l) {
   GList *v = NULL;
-  guint count = PyList_Size(l);
+  int count = PyList_Size(l);
   
-  while(count--) {
+  while(count-- > 0) {
     PyObject *o = PyList_GetItem(l, count);
     v = g_list_prepend(v, (gpointer) PyString_SafeAsString(o));
   }
@@ -141,8 +141,13 @@ static PyObject *py_search(mwPyService *self, PyObject *args) {
   if(! PyArg_ParseTuple(args, "OlO", &query, &flags, &cb))
     return NULL;
 
-  if(! (PyList_Check(query) && PyCallable_Check(cb)))
-    return NULL;
+  if(! PyList_Check(query)) {
+    mw_raise("query needs to be a list or strings to resolve");
+  }
+
+  if(! PyCallable_Check(cb)) {
+    mw_raise("callback argument needs to be callable");
+  }
 
   Py_INCREF(cb);
 

@@ -153,10 +153,6 @@ struct mwSession *mwSession_new(struct mwSessionHandler *handler) {
 
   session_defaults(s);
 
-  /** XXX TEST HACK
-      We should be adding these from client code */
-  mwSession_addCipher(s, mwCipher_new_RC2_40(s));
-
   return s;
 }
 
@@ -202,8 +198,8 @@ void mwSession_free(struct mwSession *s) {
   }
 
   h = s->handler;
-  s->handler = NULL;
   if(h) h->clear(s);
+  s->handler = NULL;
 
   session_buf_free(s);
 

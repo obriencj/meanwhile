@@ -222,6 +222,7 @@ static PyObject *tp_new(PyTypeObject *t, PyObject *args, PyObject *kwds) {
   /* create the im service and a single aware list */
   srvc_aware = mwServiceAware_new(session);
   self->data = mwAwareList_new(srvc_aware);
+  self->cleanup = (GDestroyNotify) mwAwareList_free;
   mwAwareList_setOnAware(self->data, onAwareHandler, self, NULL);
 
   /* create a python wrapper service built around this instance */

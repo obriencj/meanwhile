@@ -21,10 +21,14 @@
 #include <Python.h>
 #include <structmember.h>
 
+#include <glib/glist.h>
+
 #include "py_meanwhile.h"
+#include "../mw_channel.h"
+#include "../mw_cipher.h"
 #include "../mw_service.h"
 #include "../mw_session.h"
-#include "../mw_channel.h"
+#include "../mw_util.h"
 
 
 #define ON_IO_WRITE      "onIoWrite"
@@ -331,6 +335,8 @@ static PyObject *tp_new(PyTypeObject *t, PyObject *args, PyObject *kwds) {
 
   self = (struct pyObj_mwSession *) t->tp_alloc(t, 0);
   if(self) {
+    struct mwSession *s;
+
     struct mwSessionHandler *h;
     h = g_new0(struct mwSessionHandler, 1);
     h->data = self;
@@ -344,9 +350,11 @@ static PyObject *tp_new(PyTypeObject *t, PyObject *args, PyObject *kwds) {
     h->on_admin = mw_on_admin;
     h->on_loginRedirect = mw_on_redirect;
 
-    self->session = mwSession_new(h);
+    self->session = s = mwSession_new(h);
     self->services = g_hash_table_new_full(g_direct_hash, g_direct_equal,
 					   NULL, (GDestroyNotify) decref);
+    
+    mwSession_addCipher(s, mwCipher_new_RC2_40(s));
   }
 
   return (PyObject *) self;
@@ -354,10 +362,15 @@ static PyObject *tp_new(PyTypeObject *t, PyObject *args, PyObject *kwds) {
 
 
 static void tp_dealloc(struct pyObj_mwSession *self) {
-  mwSession_free(self->session);
+  GList *s = map_collect_values(self->services);
+
+  for(; s; s = g_list_delete_link(s, s))
+    Py_XDECREF((PyObject *) s->data);
 
   g_hash_table_destroy(self->services);
-  /** @todo: need to Py_DECREF contained services */
+
+  g_free(mwSession_getCipher(self->session, mwCipher_RC2_40));
+  mwSession_free(self->session);
 
   self->ob_type->tp_free((PyObject *) self);
 }
