@@ -4,13 +4,13 @@
 
 
 
-/*
+/**
   debug_printf is a printf that happens only when debugging is compiled on.
 */
 void debug_printf(const char *v, ...);
 
 
-/*
+/**
   pretty_print is like debug_printf in that it only does something when
   debugging is compiled on, 
 */

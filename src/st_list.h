@@ -34,15 +34,16 @@ struct mwSametimeGroup {
 
 struct mwSametimeUser {
   struct mwSametimeGroup *group;
-  char *key;
-  char *alias;
   struct mwIdBlock id;
+  char *alias;
 };
 
 
+#define MW_ST_USER_KEY(stuser) (&stuser->id)
+
+
 /** Create a new list */
-struct mwSametimeList *mwSametimeList_new(guint major, guint minor,
-					  guint release);
+struct mwSametimeList *mwSametimeList_new();
 
 
 /** Free the list, all of its groups, and all of the groups' members */
@@ -62,6 +63,10 @@ int mwSametimeList_get(char **b, gsize *n, struct mwSametimeList *l);
 int mwSametimeList_put(char **b, gsize *n, struct mwSametimeList *l);
 
 
+/** Get a GList snapshot of the groups in a list */
+GList *mwSametimeList_getGroups(struct mwSametimeList *l);
+
+
 /** Create a new group in a list */
 struct mwSametimeGroup *mwSametimeGroup_new(struct mwSametimeList *l,
 					    const char *name);
@@ -72,6 +77,10 @@ struct mwSametimeGroup *mwSametimeGroup_new(struct mwSametimeList *l,
 void mwSametimeGroup_free(struct mwSametimeGroup *g);
 
 
+/** Get a GList snapshot of the users in a list */
+GList *mwSametimeGroup_getUsers(struct mwSametimeGroup *g);
+
+
 /** Create a user in a group */
 struct mwSametimeUser *mwSametimeUser_new(struct mwSametimeGroup *g,
 					  struct mwIdBlock *user,
@@ -80,6 +89,5 @@ struct mwSametimeUser *mwSametimeUser_new(struct mwSametimeGroup *g,
 
 /** Remove user from its group, and free it */
 void mwSametimeUser_free(struct mwSametimeUser *u);
-
 
 #endif

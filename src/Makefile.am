@@ -14,7 +14,8 @@ mwinclude_HEADERS = \
 	srvc_aware.h \
 	srvc_conf.h \
 	srvc_im.h \
-	srvc_store.h
+	srvc_store.h \
+	st_list.h
 
 mwincludedir = $(includedir)/meanwhile
 
@@ -32,6 +33,7 @@ libmeanwhile_la_SOURCES = \
 	srvc_conf.c \
 	srvc_im.c \
 	srvc_store.c \
+	st_list.c \
 	mw_debug.c \
 	mw_debug.h
 

@@ -212,11 +212,7 @@ static void status_recv(struct mwServiceAware *srvc,
 
     /* we don't deal with receiving status for something we're not
        monitoring */
-    if(! aware) {
-      g_message("no entry for %s, %s in service list",
-		idb_array->id.user, idb_array->id.community);
-      continue;
-    }
+    if(! aware) continue;
 
     /* clear the existing status, then clone in the new status */
     mwSnapshotAwareIdBlock_clear(&aware->aware);
