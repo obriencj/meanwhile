@@ -21,6 +21,8 @@ mwincludedir = $(includedir)/meanwhile
 
 libmeanwhile_la_CFLAGS = -DG_LOG_DOMAIN=\"@PACKAGE@\"
 
+libmeanwhile_la_LIBADD = $(GLIB_LIBS)
+libmeanwhile_la_LDFLAGS= -no-undefined
 libmeanwhile_la_SOURCES = \
 	channel.c \
 	cipher.c \

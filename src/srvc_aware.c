@@ -129,7 +129,7 @@ static gboolean collect_dead(gpointer key, gpointer val, gpointer data) {
 
   if(aware->membership == NULL) {
     g_info(" removing %s, %s",
-	   aware->aware.id.user, aware->aware.id.community);
+	   NSTR(aware->aware.id.user), NSTR(aware->aware.id.community));
     *dead = g_list_append(*dead, aware);
     return TRUE;
 
@@ -522,14 +522,14 @@ int mwAwareList_addAware(struct mwAwareList *list,
     aware = g_hash_table_lookup(list->entries, id_list);
     if(aware) {
       g_info("buddy: %s, %s already exists",
-	     id_list->user, id_list->community);
+	     NSTR(id_list->user), NSTR(id_list->community));
       continue;
     }
 
     aware = g_hash_table_lookup(srvc->entries, id_list);
     if(! aware) {
       g_info("adding buddy %s, %s to the aware service",
-	     id_list->user, id_list->community);
+	     NSTR(id_list->user), NSTR(id_list->community));
 
       aware = g_new0(struct aware_entry, 1);
       mwAwareIdBlock_clone(ENTRY_KEY(aware), id_list);
@@ -538,7 +538,7 @@ int mwAwareList_addAware(struct mwAwareList *list,
     }
 
     g_info("adding buddy %s, %s to the list",
-	   id_list->user, id_list->community);
+	   NSTR(id_list->user), NSTR(id_list->community));
     aware->membership = g_list_append(aware->membership, list);
     g_hash_table_insert(list->entries, ENTRY_KEY(aware), aware);
 
@@ -583,7 +583,8 @@ int mwAwareList_removeAware(struct mwAwareList *list,
     aware = g_hash_table_lookup(list->entries, idb);
 
     if(! aware) {
-      g_warning("buddy %s, %s not in list", idb->user, idb->community);
+      g_warning("buddy %s, %s not in list", 
+			NSTR(idb->user), NSTR(idb->community));
       continue;
     }
 
