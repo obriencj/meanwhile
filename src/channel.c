@@ -440,6 +440,11 @@ static void channel_free(struct mwChannel *chan) {
     chan->supported = NULL;
   }
 
+  if(chan->stats) {
+    g_hash_table_destroy(chan->stats);
+    chan->stats = NULL;
+  }
+  
   mwCipherInstance_free(chan->cipher);
 
   /* clean up the outgoing queue */
