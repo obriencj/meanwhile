@@ -20,7 +20,11 @@ enum mwMessageType {
   mwMessage_LOGIN             = 0x0001,  /**< mwMsgLogin */
   mwMessage_LOGIN_ACK         = 0x8001,  /**< mwMsgLoginAck */
   mwMessage_LOGIN_REDIRECT    = 0x0018,  /**< mwMsgLoginRedirect */
-  /* mwMessage_LOGIN_CONTINUE    = ..., */
+
+#if 0
+  /* is this message really 0x19 ? */
+  mwMessage_LOGIN_CONTINUE    = 0x0019,  /**< mwMsgLoginContinue */
+#endif
 
   mwMessage_CHANNEL_CREATE    = 0x0002,  /**< mwMsgChannelCreate */
   mwMessage_CHANNEL_DESTROY   = 0x0003,  /**< mwMsgChannelDestroy */
@@ -90,7 +94,7 @@ struct mwMsgHandshakeAck {
   guint16 minor;          /**< server's minor version number */
   guint32 srvrcalc_addr;  /**< server-calculated address */
   guint32 unknown;        /**< four bytes of something */
-  struct mwOpaque data;   /**<  */
+  struct mwOpaque data;   /**< some stuff */
 };
 
 

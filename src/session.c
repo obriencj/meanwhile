@@ -26,27 +26,50 @@ struct mwSession {
 
   enum mwSessionState state;  /**< session state */
   guint32 state_info;         /**< additional state info */
-  
+
+  /* input buffering for an incoming message */
   char *buf;       /**< buffer for incoming message data */
   gsize buf_len;   /**< length of buf */
   gsize buf_used;  /**< offset to last-used byte of buf */
-
-  char *password;  /**< password authentication data */
-  char *token;     /**< token authentication data */
   
   struct mwLoginInfo login;      /**< login information */
-  struct mwUserStatus status;    /**< session's user status */
-  struct mwPrivacyInfo privacy;  /**< session's privacy list */
+  struct mwUserStatus status;    /**< user status */
+  struct mwPrivacyInfo privacy;  /**< privacy list */
 
   /** the collection of channels */
   struct mwChannelSet *channels;
 
-  /** the collection of services */
+  /** the collection of services, keyed to guint32 service id */
   GHashTable *services;
 
-  /** the collection of ciphers */
+  /** the collection of ciphers, keyed to guint16 cipher type */
   GHashTable *ciphers;
+
+  /** arbitrary key:value pairs */
+  GHashTable *attributes;
 };
+
+
+struct session_property {
+  gconstpointer data;
+  GDestroyNotify clean;
+};
+
+
+struct session_property *property_new(gconstpointer data,
+				      GDestroyNotify clean) {
+  struct session_property *p;
+  p = g_new0(struct session_property, 1);
+  p->data = data;
+  p->clean = clean;
+  return p;
+}
+
+
+void property_free(struct session_property *p) {
+  if(p->clean) p->clean(p->data);
+  g_free(p);
+}
 
 
 struct mwSession *mwSession_new(struct mwSessionHandler *handler) {
@@ -69,7 +92,11 @@ struct mwSession *mwSession_new(struct mwSessionHandler *handler) {
   s->services = g_hash_table_new(g_direct_hash, g_direct_equal);
   s->ciphers = g_hash_table_new(g_direct_hash, g_direct_equal);
 
-  /** XXX TEST HACK */
+  s->attributes = g_hash_table_new_full(g_str_hash, g_str_equal, g_free,
+					(GDestroyNotify) property_free);
+
+  /** XXX TEST HACK
+      We should be adding these from client code */
   mwSession_addCipher(s, mwCipher_new_RC2_40(s));
 
   return s;
@@ -734,7 +761,7 @@ struct mwLoginInfo *mwSession_getLoginInfo(struct mwSession *s) {
 }
 
 
-/** @todo implement */
+/** @todo actually implement */
 int mwSession_setPrivacyInfo(struct mwSession *s,
 			     struct mwPrivacyInfo *privacy) {
   return 0;
@@ -892,8 +919,7 @@ gboolean mwSession_addCipher(struct mwSession *s, struct mwCipher *c) {
     return FALSE;
 
   } else {
-    g_message("adding cipher %s",
-	      NSTR(mwCipher_getName(c)));
+    g_message("adding cipher %s", NSTR(mwCipher_getName(c)));
     add_cipher(s, c);
     return TRUE;
   }
@@ -930,4 +956,37 @@ GList *mwSession_getCiphers(struct mwSession *s) {
 
   return l;
 }
+
+
+void mwSession_setProperty(struct mwSession *s, const char *key,
+			   gconstpointer val, GDestroyNotify clean) {
+
+  g_return_if_fail(s != NULL);
+  g_return_if_fail(s->attributes != NULL);
+  g_return_if_fail(key != NULL);
+
+  g_hash_table_insert(g_strdup(key), property_new(val, clean));
+}
+
+
+gconstpointer mwSession_getProperty(struct mwSession *c, const char *key) {
+  struct session_property *p;
+  
+  g_return_val_if_fail(s != NULL, NULL);
+  g_return_val_if_fail(s->attributes != NULL, NULL);
+  g_return_val_if_fail(key != NULL, NULL);
+
+  p = g_hash_table_lookup(key);
+  return p? p->data: NULL;
+}
+
+
+void mwSession_removeProperty(struct mwSession *c, const char *key) {
+  g_return_if_fail(s != NULL);
+  g_return_if_fail(s->attributes != NULL);
+  g_return_if_fail(key != NULL);
+
+  g_hash_table_remove(key);
+}
+
 

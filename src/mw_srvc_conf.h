@@ -14,7 +14,7 @@ struct mwSession;
 
 
 /** Type identifier for the conference service */
-#define SERVICE_CONF  0x80000010
+#define SERVICE_CONFERENCE  0x80000010
 
 
 enum mwConferenceState {
@@ -26,13 +26,13 @@ enum mwConferenceState {
 };
 
 
-/** @struct mwServiceConf
-    Instance of the conference service */
-struct mwServiceConf;
+/** @struct mwServiceConference
+    Instance of the multi-user conference service */
+struct mwServiceConference;
 
 
 /** @struct mwConference
-    A multi-user conference */
+    A multi-user chat */
 struct mwConference;
 
 
@@ -40,95 +40,92 @@ struct mwConference;
     conferencing service */
 struct mwServiceConfHandler {
 
-  /** triggered when we receive a conference invitation
+  /** triggered when we receive a conference invitation. Call
+      mwConference_accept to accept the invitation and join the
+      conference, or mwConference_close to reject the invitation.
+
       @param conf     the newly created conference
       @param inviter  the indentity of the user who sent the invitation
       @param invite   the invitation text
    */
-  void (*got_invite)(struct mwConference *conf,
+  void (*on_invited)(struct mwConference *conf,
 		     struct mwLoginInfo *inviter, const char *invite);
 
   /** triggered when we enter the conference. Provides the initial
-      conference membership list
+      conference membership list as a GList of mwLoginInfo structures
+
       @param conf     the conference just joined
       @param members  mwLoginInfo list of existing conference members
   */
-  void (*got_welcome)(struct mwConference *conf, GList *members);
+  void (*conf_opened)(struct mwConference *conf, GList *members);
 
-  /** triggered when we leave the conference */
-  void (*got_closed)(struct mwConference *);
+  /** triggered when a conference is closed. This is typically when
+      we've left it */
+  void (*conf_closed)(struct mwConference *);
 
   /** triggered when someone joins the conference */
-  void (*got_join)(struct mwConference *, struct mwLoginInfo *);
+  void (*on_peer_joined)(struct mwConference *, struct mwLoginInfo *);
 
   /** triggered when someone leaves the conference */
-  void (*got_part)(struct mwConference *, struct mwLoginInfo *);
+  void (*on_peer_parted)(struct mwConference *, struct mwLoginInfo *);
 
   /** triggered when someone says something */
-  void (*got_text)(struct mwConference *conf,
-		   struct mwLoginInfo *who, const char *what);
-
-  /** triggered when someone says something with formatting
-      @todo not implemented */
-  void (*got_html)(struct mwConference *conf,
-		   struct mwLoginInfo *who, const char *what);
+  void (*on_text)(struct mwConference *conf,
+		  struct mwLoginInfo *who, const char *what);
 
   /** typing notification */
-  void (*got_typing)(struct mwConference *conf,
-		     struct mwLoginInfo *who, gboolean typing);
+  void (*on_typing)(struct mwConference *conf,
+		    struct mwLoginInfo *who, gboolean typing);
 
-  /** triggered from mwService_free, should be used to clean up before
-      service is free'd */
-  void (*clear)(struct mwServiceConf *srvc);
+  /** optional. called from mwService_free */
+  void (*clear)(struct mwServiceConference *srvc);
 };
 
 
 /** Allocate a new conferencing service, attaching the given handler */
-struct mwServiceConf *mwServiceConf_new(struct mwSession *,
-					struct mwServiceConfHandler *);
+struct mwServiceConference
+*mwServiceConference_new(struct mwSession *,
+			 struct mwServiceConfHandler *);
 
 
 /** a mwConference list of the conferences in this service. The GList
-    will need to be freed after user */
-GList *mwServiceConf_conferences(struct mwServiceConf *srvc);
+    will need to be free'd after use */
+GList *mwServiceConference_conferences(struct mwServiceConference *srvc);
 
 
 /** Allocate a new conference. Conference will be in state NEW.
     @see mwConference_create */
-struct mwConference *mwConference_new(struct mwServiceConf *srvc);
+struct mwConference *mwConference_new(struct mwServiceConference *srvc,
+				      const char *name, const char *title);
 
 
 const char *mwConference_getName(struct mwConference *conf);
 
 
-void mwConference_setName(struct mwConference *conf, const char *name);
-
-
 const char *mwConference_getTitle(struct mwConference *conf);
 
 
-void mwConference_setTitle(struct mwConference *conf, const char *title);
-
-
 /** a mwIdBlock list of the members of the conference. The GList will
-    need to be freed after use */
+    need to be free'd after use */
 GList *mwConference_getMembers(struct mwConference *conf);
 
 
 /** Initiate a conference. Conference must be in state NEW. If no name
     or title for the conference has been set, they will be
-    generated. Conference will be placed into state PENDING */
-int mwConference_create(struct mwConference *conf);
+    generated. Conference will be placed into state PENDING. */
+int mwConference_open(struct mwConference *conf);
 
 
-/** Leave and close an existing conference, or reject an invitation */
-int mwConference_destroy(struct mwConference *conf,
-			 guint32 reason, const char *text);
+/** Leave and close an existing conference, or reject an invitation.
+    Triggers mwServiceConfHandler::conf_closed and free's the
+    conference.
+ */
+int mwConference_close(struct mwConference *conf,
+		       guint32 reason, const char *text);
 
 
 /** accept a conference invitation. Conference must be in the state
-    INVITED. This will result in the got_welcome callback of the
-    service handler being triggered */
+    INVITED. */
 int mwConference_accept(struct mwConference *conf);
 
 

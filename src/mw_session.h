@@ -18,6 +18,11 @@
 #endif
 
 
+#define PROPERTY_SERVER_VER_MAJOR  "session.server.version.major"
+#define PROPERTY_SERVER_VER_MINOR  "session.server.version.minor"
+#define PROPERTY_SERVER_VER_
+
+
 /* place-holders */
 struct mwChannelSet;
 struct mwCipher;
@@ -253,6 +258,19 @@ struct mwCipher *mwSession_removeCipher(struct mwSession *, guint16 type);
 /** a GList of ciphers in this session. The GList needs to be freed
     after use */
 GList *mwSession_getCiphers(struct mwSession *);
+
+
+/** associate a key:value pair with the session. If an existing value is
+    associated with the same key, it will have its clear function called
+    and will be replaced with the new value */
+void mwSession_setProperty(struct mwSession *, const char *key,
+			   gconstpointer val, GDestroyNotify clear);
+
+
+gconstpointer mwSession_getProperty(struct mwSession *, const char *key);
+
+
+void mwSession_removeProperty(struct mwSession *, const char *key);
 
 
 #endif

@@ -27,7 +27,7 @@
     @see recv */
 enum msg_type {
   msg_WELCOME  = 0x0000,  /**< welcome message */
-  msg_INVITE   = 0x0001,  /**< received invitation */
+  msg_INVITE   = 0x0001,  /**< outgoing invitation */
   msg_JOIN     = 0x0002,  /**< someone joined */
   msg_PART     = 0x0003,  /**< someone left */
   msg_MESSAGE  = 0x0004,  /**< conference message */
@@ -56,16 +56,7 @@ struct mwConference {
   char *topic;  /**< topic for the conference */
 
   struct mwLoginInfo owner;  /**< person who created this conference */
-  GHashTable *members;       /**< mapping MEMBER_KEY(member):member */
-};
-
-
-/** sametime conferences send messages in relation to a conference member
-    ID. This structure relates that id to a user id block */
-struct mwConfMember {
-  struct mwConference *conf;
-  struct mwLoginInfo user;
-  guint16 id;
+  GHashTable *members;       /**< mapping guint16:mwLoginInfo */
 };
 
 
@@ -79,14 +70,15 @@ struct mwConfMember {
 /** free a conference structure */
 static void conference_free(gpointer c) {
   struct mwConference *conf = c;
-  if(! conf) return;
+
+  /* this shouldn't ever happen, but just to be sure */
+  g_return_if_fail(conf != NULL);
 
   if(conf->members)
     g_hash_table_destroy(conf->members);
 
   g_free(conf->name);
   g_free(conf->topic);
-
   g_free(conf);
 }
 
