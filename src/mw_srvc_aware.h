@@ -25,10 +25,6 @@
 #include "mw_common.h"
 
 
-/* place-holder */
-struct mwSession;
-
-
 /** Type identifier for the aware service */
 #define SERVICE_AWARE  0x00000011
 

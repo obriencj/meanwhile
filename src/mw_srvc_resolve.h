@@ -26,10 +26,6 @@
 #include <glib/glist.h>
 
 
-/* place-holder */
-struct mwSession;
-
-
 /** Type identifier for the conference service */
 #define SERVICE_RESOLVE  0x00000015
 

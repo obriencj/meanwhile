@@ -146,7 +146,8 @@ struct mwSession;
     code to provide I/O and event handling */
 struct mwSessionHandler {
   
-  /** write data to the server connection. Required */
+  /** write data to the server connection. Required. Should return
+      zero for success, non-zero for error */
   int (*io_write)(struct mwSession *, const char *buf, gsize len);
   
   /** close the server connection. Required */

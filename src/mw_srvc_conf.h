@@ -26,11 +26,6 @@
 #include "mw_common.h"
 
 
-/* place-holder */
-struct mwChannel;
-struct mwSession;
-
-
 /** Type identifier for the conference service */
 #define SERVICE_CONFERENCE  0x80000010
 

@@ -26,10 +26,6 @@
 #include "mw_common.h"
 
 
-/* place-holder */
-struct mwSession;
-
-
 /** Type identifier for the storage service */
 #define SERVICE_STORAGE  0x00000018
 
@@ -54,13 +50,14 @@ struct mwStorageUnit;
 
 /** Check if a key is in the range of Lotus reserved keys */
 #define KEY_IS_LOTUS_RESERVED(key) \
-  (((guint32) key) > (LOTUS_RESERVED_LIMIT))
+  (((guint32) key) <= (LOTUS_RESERVED_LIMIT))
 
 
 /** Some common keys storage keys. Anything in the range 0x00 to
-    0x186a0 (100000 decimal) is reserved for use by the Lotus
+    0x186a0 (100000) is reserved for use by the Lotus
     clients. */
 enum mwStorageKey {
+
   /** The buddy list, in the Sametime .dat file format. String */
   mwStore_AWARE_LIST      = 0x00000000,
 
@@ -69,6 +66,15 @@ enum mwStorageKey {
 
   /** Default text for meeting invitations. String */
   mwStore_INVITE_MEETING  = 0x0000000e,
+
+  /** Last five Away messages, separated by semicolon. String */
+  mwStore_AWAY_MESSAGES   = 0x00000050,
+
+  /** Last five Busy (DND) messages, separated by semicolon. String */
+  mwStore_BUSY_MESSAGES   = 0x0000005a,
+
+  /** Last five Active messages, separated by semicolon. String */
+  mwStore_ACTIVE_MESSAGES = 0x00000064,
 };
 
 

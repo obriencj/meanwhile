@@ -26,12 +26,6 @@
 #include "mw_common.h"
 
 
-/* place-holders */
-struct mwChannel;
-struct mwService;
-struct mwSession;
-
-
 /** @file srvc_im.h
  */
 
