@@ -73,15 +73,12 @@ enum mwImSendType {
   mwImSend_TYPING,  /**< gboolean, typing status */
   mwImSend_HTML,    /**< char *, HTML formatted message (NOTESBUDDY) */
   mwImSend_SUBJECT, /**< char *, conversation subject (NOTESBUDDY) */
-  mwImSend_MIME,    /**< mwOpaque *, MIME-encoded message (NOTESBUDDY) */
+  mwImSend_MIME,    /**< char *, MIME-encoded message (NOTESBUDDY) */
 };
 
 
 
-/** @relates mwConversation_getState
-    @relates MW_CONVO_IS_CLOSED
-    @relates MW_CONVO_IS_PENDING
-    @relates MW_CONVO_IS_OPEN */
+/** @relates mwConversation_getState */
 enum mwConversationState {
   mwConversation_CLOSED,   /**< conversation is not open */
   mwConversation_PENDING,  /**< conversation is opening */
@@ -90,17 +87,17 @@ enum mwConversationState {
 };
 
 
-#define MW_CONVO_IS_STATE(conv, state) \
+#define mwConversation_isState(conv, state) \
   (mwConversation_getState(conv) == (state))
 
-#define MW_CONVO_IS_CLOSED(conv) \
-  MW_CONVO_IS_STATE((conv), mwConversation_CLOSED)
+#define mwConversation_isClosed(conv) \
+  mwConversation_isState((conv), mwConversation_CLOSED)
 
-#define MW_CONVO_IS_PENDING(conv) \
-  MW_CONVO_IS_STATE((conv), mwConversation_PENDING)
+#define mwConversation_isPending(conv) \
+  mwConversation_isState((conv), mwConversation_PENDING)
 
-#define MW_CONVO_IS_OPEN(conv) \
-  MW_CONVO_IS_STATE((conv), mwConversation_OPEN)
+#define mwConversation_isOpen(conv) \
+  mwConversation_isState((conv), mwConversation_OPEN)
 
 
 

@@ -4,6 +4,8 @@ version 0.4.1 (cvs)
 	Features
 	- Support sending the LoginCont message in response to a
 	LoginRedirect
+	- Support for multi-segment messages from NotesBuddy (fixes
+	problems with large MIME, text, and HTML messages)
 	
 	Buf Fixes
 	- Bug #1168421 crash when opening specific contacts

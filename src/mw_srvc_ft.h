@@ -23,27 +23,50 @@
 #define _MW_SRVC_FT_H
 
 
+#include "mw_common.h"
+
+
 /** @file mw_srvc_ft.h
 
     File transfer service
 */
 
 
+/** @struct mwServiceFileTransfer
+    File transfer service
+*/
 struct mwServiceFileTransfer;
 
 
+/** @struct mwFileTransfer
+    A single file trasfer session
+ */
 struct mwFileTransfer;
+
+
+#define mwService_FILE_TRANSFER  0x00000038
+
+
+enum mwFileTranferCode {
+  mwFileTranfer_SUCCESS   = 0x00000000,
+  mwFileTranfer_REJECTED  = 0x08000606,
+};
 
 
 struct mwFileTransferHandler {
 
+  /** an incoming file transfer has been offered */
   void (*ft_offered)(struct mwFileTransfer *ft);
 
+  /** a file transfer has been initiated */
   void (*ft_opened)(struct mwFileTransfer *ft);
 
-  void (*ft_closed)(struct mwFileTransfer *ft, guint32 reason);
+  /** a file transfer has been terminated */
+  void (*ft_closed)(struct mwFileTransfer *ft, guint32 code);
 
-  void (*ft_recv)(struct mwFileTransfer *ft, struct mwOpaque *data);
+  /** receive a chunk of a file from an inbound file transfer */
+  void (*ft_recv)(struct mwFileTransfer *ft,
+		  struct mwOpaque *data, gboolean done);
 
   /** optional. called from mwService_free */
   void (*clear)(struct mwServiceFileTransfer *srvc);
@@ -62,9 +85,47 @@ mwServiceFileTransfer_getHandler(struct mwServiceFileTransfer *srvc);
 struct mwFileTransfer *
 mwFileTransfer_new(struct mwServiceFileTransfer *srvc,
 		   struct mwIdBlock *who, const char *msg,
-		   const char *filename);
+		   const char *filename, guint32 filesize);
 
 
+/** the user on the other end of the file transfer */
+const struct mwIdBlock *
+mwFileTransfer_getUser(struct mwFileTransfer *ft);
+
+
+const char *
+mwFileTransfer_getMessage(struct mwFileTransfer *ft);
+
+
+const char *
+mwFileTransfer_getFileName(struct mwFileTransfer *ft);
+
+
+guint32 mwFileTransfer_getFileSize(struct mwFileTransfer *ft);
+
+
+guint32 mwFileTransfer_getRemaining(struct mwFileTransfer *ft);
+
+
+#define mwFileTransfer_getSent(ft) \
+  (mwFileTransfer_getFileSize(ft) - mwFileTransfer_getRemaining(ft))
+
+
+int mwFileTransfer_accept(struct mwFileTransfer *ft);
+
+
+#define mwFileTransfer_reject(ft) \
+  mwFileTransfer_close((ft), mwFileTranfer_REJECTED)
+
+
+#define mwFileTransfer_cancel(ft) \
+  mwFileTransfer_close((ft), mwFileTranfer_SUCCESS);
+
+
+int mwFileTransfer_close(struct mwFileTransfer *ft, guint32 code);
+
+
+/** send a chunk of data over an outbound file transfer */
 int mwFileTransfer_send(struct mwFileTransfer *ft,
 			struct mwOpaque *data, gboolean done);
 
@@ -77,12 +138,6 @@ gpointer mwFileTransfer_getClientData(struct mwFileTransfer *ft);
 
 
 void mwFileTransfer_removeClientData(struct mwFileTransfer *ft);
-
-
-int mwFileTransfer_accept(struct mwFileTransfer *ft);
-
-
-int mwFileTransfer_reject(struct mwFileTransfer *ft);
 
 
 #endif

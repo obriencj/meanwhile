@@ -63,8 +63,9 @@ void pretty_print(const char *buf, gsize len) {
 #ifdef DEBUG
   GString *str;
 
-  g_return_if_fail(buf != NULL);
   if(! len) return;
+
+  g_return_if_fail(buf != NULL);
 
   str = g_string_new(NULL);
   t_pretty_print(str, buf, len);
@@ -76,7 +77,7 @@ void pretty_print(const char *buf, gsize len) {
 
 
 void pretty_print_opaque(struct mwOpaque *o) {
-  g_return_if_fail(o != NULL);
+  if(! o) return;
   pretty_print(o->data, o->len);
 }
 

@@ -29,6 +29,7 @@
 #include "mw_service.h"
 #include "mw_session.h"
 #include "mw_srvc_im.h"
+#include "mw_util.h"
 
 
 #define PROTOCOL_TYPE  0x00001000
@@ -62,6 +63,9 @@ enum mwImDataType {
   mwImData_SUBJECT  = 0x00000003,  /**< notesbuddy IM topic */
   mwImData_HTML     = 0x00000004,  /**< notesbuddy HTML message */
   mwImData_MIME     = 0x00000005,  /**< notesbuddy MIME message, w/image */
+
+  mwImData_MULTI_START  = 0x00001388,
+  mwImData_MULTI_STOP   = 0x00001389,
 };
 
 
@@ -88,8 +92,10 @@ struct mwConversation {
 
   enum mwImClientType features;
 
-  gpointer data;
-  GDestroyNotify clean;
+  GString *multi;               /**< buffer for multi-chunk message */
+  enum mwImSendType multi_type; /**< type of incoming multi-chunk message */
+
+  struct mw_datum client_data;
 };
 
 
@@ -201,7 +207,7 @@ static void convo_create_chan(struct mwConversation *c) {
   /* we only should be calling this if there isn't a channel already
      associated with the conversation */
   g_return_if_fail(c != NULL);
-  g_return_if_fail(MW_CONVO_IS_PENDING(c));
+  g_return_if_fail(mwConversation_isPending(c));
   g_return_if_fail(c->channel == NULL);
 
   s = mwService_getSession(MW_SERVICE(c->service));
@@ -232,7 +238,7 @@ static void convo_create_chan(struct mwConversation *c) {
 
 void mwConversation_open(struct mwConversation *conv) {
   g_return_if_fail(conv != NULL);
-  g_return_if_fail(MW_CONVO_IS_CLOSED(conv));
+  g_return_if_fail(mwConversation_isClosed(conv));
 
   convo_set_state(conv, mwConversation_PENDING);
   convo_create_chan(conv);
@@ -258,11 +264,10 @@ static void convo_opened(struct mwConversation *conv) {
 static void convo_free(struct mwConversation *conv) {
   struct mwServiceIm *srvc;
 
+  mwConversation_removeClientData(conv);
+
   srvc = conv->service;
   srvc->convs = g_list_remove(srvc->convs, conv);
-
-  if(conv->clean)
-    conv->clean(conv->data);
 
   mwIdBlock_clear(&conv->target);
   g_free(conv);
@@ -423,7 +428,7 @@ static void recv_channelDestroy(struct mwService *srvc, struct mwChannel *chan,
 
   c->channel = NULL;
 
-  if(MW_CHANNEL_IS_STATE(chan, mwChannel_ERROR)) {
+  if(mwChannel_isState(chan, mwChannel_ERROR)) {
 
     /* checking for failure on the receiving end to accept html
        messages. Fail-over to a non-html format on a new channel for
@@ -459,19 +464,46 @@ static void convo_recv(struct mwConversation *conv, enum mwImSendType type,
 }
 
 
+static void convo_multi_start(struct mwConversation *conv) {
+  g_return_if_fail(conv->multi == NULL);
+  conv->multi = g_string_new(NULL);
+}
+
+
+static void convo_multi_stop(struct mwConversation *conv) {
+
+  g_return_if_fail(conv->multi != NULL);
+
+  /* actually send it */
+  convo_recv(conv, conv->multi_type, conv->multi->str);
+
+  /* clear up the multi buffer */
+  g_string_free(conv->multi, TRUE);
+  conv->multi = NULL;
+}
+
+
 static void recv_text(struct mwServiceIm *srvc, struct mwChannel *chan,
 		      struct mwGetBuffer *b) {
 
+  struct mwConversation *c;
   char *text = NULL;
+
   mwString_get(b, &text);
 
-  /* ignore NULL text messages. Zero-length messages get parsed as
-     NULL by mwString_get */
-  if(text) {
-    struct mwConversation *c = convo_find_by_chan(srvc, chan);
-    if(c) convo_recv(c, mwImSend_PLAIN, text); 
-    g_free(text);
+  if(! text) return;
+
+  c = convo_find_by_chan(srvc, chan);
+  if(c) {
+    if(c->multi) {
+      g_string_append(c->multi, text);
+
+    } else {
+      convo_recv(c, mwImSend_PLAIN, text); 
+    }
   }
+
+  g_free(text);
 }
 
 
@@ -502,32 +534,48 @@ static void recv_data(struct mwServiceIm *srvc, struct mwChannel *chan,
 
   case mwImData_HTML:
     if(o.len) {
-      x = (char *) g_malloc(o.len + 1);
-      x[o.len] = '\0';
-      memcpy(x, o.data, o.len);
+      if(conv->multi) {
+	g_string_append_len(conv->multi, o.data, o.len);
+	conv->multi_type = mwImSend_HTML;
 
-      convo_recv(conv, mwImSend_HTML, x);
-      g_free(x);
+      } else {
+	x = g_strndup(o.data, o.len);
+	convo_recv(conv, mwImSend_HTML, x);
+	g_free(x);
+      }
     }
     break;
 
   case mwImData_SUBJECT:
-    x = (char *) g_malloc(o.len + 1);
-    x[o.len] = '\0';
-    if(o.len) memcpy(x, o.data, o.len);
-
+    x = g_strndup(o.data, o.len);
     convo_recv(conv, mwImSend_SUBJECT, x);
     g_free(x);
     break;
 
   case mwImData_MIME:
-    convo_recv(conv, mwImSend_MIME, &o);
+    if(conv->multi) {
+      g_string_append_len(conv->multi, o.data, o.len);
+      conv->multi_type = mwImSend_MIME;
+
+    } else {
+      x = g_strndup(o.data, o.len);
+      convo_recv(conv, mwImSend_MIME, x);
+      g_free(x);
+    }
+    break;
+
+  case mwImData_MULTI_START:
+    convo_multi_start(conv);
+    break;
+
+  case mwImData_MULTI_STOP:
+    convo_multi_stop(conv);
     break;
 
   default:
-    g_warning("unknown data message type in IM service:"
-	      " (0x%08x, 0x%08x)", type, subtype);
-    pretty_print_opaque(&o);
+    
+    mw_debug_mailme(&o, "unknown data message type in IM service:"
+		    " (0x%08x, 0x%08x)", type, subtype);
   }
 
   mwOpaque_clear(&o);
@@ -638,7 +686,6 @@ struct mwServiceIm *mwServiceIm_new(struct mwSession *session,
 
   srvc_im->features = mwImClient_PLAIN;
   srvc_im->handler = hndl;
-  srvc_im->convs = NULL;
 
   return srvc_im;
 }
@@ -802,7 +849,7 @@ int mwConversation_send(struct mwConversation *conv, enum mwImSendType type,
 			 gconstpointer msg) {
 
   g_return_val_if_fail(conv != NULL, -1);
-  g_return_val_if_fail(MW_CONVO_IS_OPEN(conv), -1);
+  g_return_val_if_fail(mwConversation_isOpen(conv), -1);
   g_return_val_if_fail(conv->channel != NULL, -1);
 
   switch(type) {
@@ -879,25 +926,19 @@ struct mwLoginInfo *mwConversation_getTargetInfo(struct mwConversation *conv) {
 void mwConversation_setClientData(struct mwConversation *conv,
 				  gpointer data, GDestroyNotify clean) {
   g_return_if_fail(conv != NULL);
-  conv->data = data;
-  conv->clean = clean;
+  mw_datum_set(&conv->client_data, data, clean);
 }
 
 
 gpointer mwConversation_getClientData(struct mwConversation *conv) {
   g_return_val_if_fail(conv != NULL, NULL);
-  return conv->data;
+  return mw_datum_get(&conv->client_data);
 }
 
 
 void mwConversation_removeClientData(struct mwConversation *conv) {
   g_return_if_fail(conv != NULL);
-
-  if(conv->clean) {
-    conv->clean(conv->data);
-    conv->clean = NULL;
-  }
-  conv->data = NULL;
+  mw_datum_clear(&conv->client_data);
 }
 
 
@@ -926,7 +967,7 @@ void mwConversation_close(struct mwConversation *conv, guint32 reason) {
 void mwConversation_free(struct mwConversation *conv) {
   g_return_if_fail(conv != NULL);
 
-  if(! MW_CONVO_IS_CLOSED(conv))
+  if(! mwConversation_isClosed(conv))
     mwConversation_close(conv, ERR_SUCCESS);
 
   convo_free(conv);

@@ -322,7 +322,7 @@ int mwChannel_create(struct mwChannel *chan) {
 
   g_return_val_if_fail(chan != NULL, -1);
   g_return_val_if_fail(chan->state == mwChannel_INIT, -1);
-  g_return_val_if_fail(MW_CHAN_IS_OUTGOING(chan), -1);
+  g_return_val_if_fail(mwChannel_isOutgoing(chan), -1);
 
   msg = (struct mwMsgChannelCreate *)
     mwMessage_new(mwMessage_CHANNEL_CREATE);
@@ -377,7 +377,7 @@ int mwChannel_accept(struct mwChannel *chan) {
   int ret;
 
   g_return_val_if_fail(chan != NULL, -1);
-  g_return_val_if_fail(MW_CHAN_IS_INCOMING(chan), -1);
+  g_return_val_if_fail(mwChannel_isIncoming(chan), -1);
   g_return_val_if_fail(chan->state == mwChannel_WAIT, -1);
 
   session = chan->session;
@@ -695,7 +695,7 @@ void mwChannel_recvCreate(struct mwChannel *chan,
   session = chan->session;
   g_return_if_fail(session != NULL);
 
-  if(MW_CHAN_IS_OUTGOING(chan)) {
+  if(mwChannel_isOutgoing(chan)) {
     g_warning("channel 0x%08x not an incoming channel", chan->id);
     mwChannel_destroy(chan, ERR_REQUEST_INVALID, NULL);
     return;
@@ -754,7 +754,7 @@ void mwChannel_recvAccept(struct mwChannel *chan,
   g_return_if_fail(msg != NULL);
   g_return_if_fail(chan->id == msg->head.channel);
 
-  if(MW_CHAN_IS_INCOMING(chan)) {
+  if(mwChannel_isIncoming(chan)) {
     g_warning("channel 0x%08x not an outgoing channel", chan->id);
     mwChannel_destroy(chan, ERR_REQUEST_INVALID, NULL);
     return;

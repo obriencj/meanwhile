@@ -240,6 +240,8 @@ void mwService_free(struct mwService *srvc) {
 }
 
 
+/** @todo switch the following to using mw_datum */
+
 void mwService_setClientData(struct mwService *srvc,
 			     gpointer data, GDestroyNotify cleanup) {
 

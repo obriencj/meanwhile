@@ -355,14 +355,16 @@ void mwUserItem_get(struct mwGetBuffer *b, struct mwUserItem *user);
 void mwUserItem_clear(struct mwUserItem *user);
 
 
-void mwPrivacyInfo_put(struct mwPutBuffer *b, struct mwPrivacyInfo *info);
+void mwPrivacyInfo_put(struct mwPutBuffer *b,
+		       const struct mwPrivacyInfo *info);
 
 void mwPrivacyInfo_get(struct mwGetBuffer *b, struct mwPrivacyInfo *info);
 
 void mwPrivacyInfo_clear(struct mwPrivacyInfo *info);
 
 
-void mwUserStatus_put(struct mwPutBuffer *b, struct mwUserStatus *stat);
+void mwUserStatus_put(struct mwPutBuffer *b,
+		      const struct mwUserStatus *stat);
 
 void mwUserStatus_get(struct mwGetBuffer *b, struct mwUserStatus *stat);
 
@@ -371,17 +373,19 @@ void mwUserStatus_clear(struct mwUserStatus *stat);
 void mwUserStatus_clone(struct mwUserStatus *to, struct mwUserStatus *from);
 
 
-void mwIdBlock_put(struct mwPutBuffer *b, struct mwIdBlock *id);
+void mwIdBlock_put(struct mwPutBuffer *b, const struct mwIdBlock *id);
 
-void mwIdBlock_get(struct mwGetBuffer *b, struct mwIdBlock *id);
+void mwIdBlock_get(struct mwGetBuffer *b, const struct mwIdBlock *id);
 
 void mwIdBlock_clear(struct mwIdBlock *id);
 
-void mwIdBlock_clone(struct mwIdBlock *to, struct mwIdBlock *from);
+void mwIdBlock_clone(struct mwIdBlock *to,
+		     const struct mwIdBlock *from);
 
-guint mwIdBlock_hash(struct mwIdBlock *idb);
+guint mwIdBlock_hash(const struct mwIdBlock *idb);
 
-gboolean mwIdBlock_equal(struct mwIdBlock *a, struct mwIdBlock *b);
+gboolean mwIdBlock_equal(const struct mwIdBlock *a,
+			 const struct mwIdBlock *b);
 
 
 void mwAwareIdBlock_put(struct mwPutBuffer *b, struct mwAwareIdBlock *idb);

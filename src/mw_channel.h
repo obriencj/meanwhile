@@ -105,20 +105,20 @@ struct mwChannelSet;
 
 
 /** non-zero if a channel id appears to be that of an outgoing channel */
-#define MW_CHAN_ID_IS_OUTGOING(id) \
+#define mwChannel_idIsOutgoing(id) \
   (! (0x80000000 & (id)))
 
 /** non-zero if a channel id appears to be that of an incoming channel */
-#define MW_CHAN_ID_IS_INCOMING(id) \
-  (! MW_CHAN_ID_IS_OUTGOING(id))
+#define mwChannel_idIsIncoming(id) \
+  (! mwChannel_idIsOutgoing(id))
 
 /** non-zero if a channel appears to be an outgoing channel */
-#define MW_CHAN_IS_OUTGOING(chan) \
-  MW_CHAN_ID_IS_OUTGOING((chan)->id)
+#define mwChannel_isOutgoing(chan) \
+  mwChannel_idIsOutgoing(mwChannel_getId(chan))
 
 /** non-zero if a channel appears to be an incoming channel */
-#define MW_CHAN_IS_INCOMING(chan) \
-  MW_CHAN_ID_IS_INCOMING((chan)->id)
+#define mwChannel_isIncoming(chan) \
+  mwChannel_idIsIncoming(mwChannel_getId(chan))
 
 
 /** channel status */
@@ -133,7 +133,7 @@ enum mwChannelState {
 };
 
 
-#define MW_CHANNEL_IS_STATE(chan, state) \
+#define mwChannel_isState(chan, state) \
   (mwChannel_getState(chan) == (state))
 
 
