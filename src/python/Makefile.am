@@ -23,7 +23,6 @@ UNDERSCORE_meanwhile_la_SOURCES = \
 	py_srvc_store.c
 
 UNDERSCORE_meanwhile_la_CFLAGS = \
-	-fPIC \
 	-Wall -Werror -Wno-format \
 	$(DEBUG_CFLAGS) \
 	$(GLIB_CFLAGS) $(PYTHON_CFLAGS)
