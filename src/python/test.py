@@ -19,7 +19,7 @@ tSession = None
 tSrvcAware = None
 tSrvcIm = None
 tSrvcStore = None
-
+    
 
 
 def _cbExec_real(who, text):
@@ -112,11 +112,25 @@ class ServiceIm(meanwhile.ServiceIm):
         elif text.startswith('store '):
             _cbStore(who, text[6:])
 
-        elif text.startswith('echo '):
+        elif text.startswith('text '):
             self.sendText(who, text[5:])
+
+        elif text.startswith('html '):
+            self.sendHtml(who, text[5:])
 
         elif text.startswith('subj '):
             self.sendSubject(who, text[5:])
+
+        elif text == 'help':
+            help = '''Available test-bot Commands:
+~ <code>\n\texecutes code in the python interpreter
+load <n>\n\tloads string value from key n in the storage service
+store <n> <str>\n\tstores string str into key n in the storage service
+text <str>\n\techos plain-text str back to you
+html <str>\n\techos html formatted str back to you
+subj <str>\n\tsets the conversation subject to str
+help\n\tprints this information'''
+            self.sendText(who, help)
 
 
     def _queue(self, who, cb, data):
@@ -203,7 +217,7 @@ class ServiceIm(meanwhile.ServiceIm):
         print '<text>%s: "%s"' % (who[0], text)
         try:
             self.processCmd(who, text)
-        except e:
+        except Exception, e:
             self.sendText(who, e)
 
 
@@ -211,7 +225,7 @@ class ServiceIm(meanwhile.ServiceIm):
         print '<html>%s: "%s"' % (who[0], text)
         try:
             self.processCmd(who, text)
-        except e:
+        except Exception, e:
             self.sendText(who, e)
 
 

@@ -24,11 +24,12 @@ _meanwhile_so_CFLAGS = \
 
 _meanwhile_so_LDFLAGS = \
 	-no-undefined \
-	-shared -Wl,-soname,_meanwhile.so
+	-shared
+# -Wl,-soname,_meanwhile.so
 
 _meanwhile_so_LDADD = \
 	../.libs/libmeanwhile.so \
-	$(GLIB_LIBS) ${PYTHON_LIBS}
+	$(GLIB_LIBS) $(PYTHON_LIBS)
 
 AM_CPPFLAGS = \
 	-DG_LOG_DOMAIN=\"@PACKAGE@-python\"
