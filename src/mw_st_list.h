@@ -33,16 +33,16 @@
 
 
 enum mwSametimeGroupType {
-  mwSametimeGroup_NORMAL,   /**< a normal group of users */
-  mwSametimeGroup_DYNAMIC,  /**< a server-side group */
-  mwSametimeGroup_UNKNOWN,  /**< error determining group type */
+  mwSametimeGroup_NORMAL  = 1,  /**< a normal group of users */
+  mwSametimeGroup_DYNAMIC = 2,  /**< a server-side group */
+  mwSametimeGroup_UNKNOWN = 0,  /**< error determining group type */
 };
 
 
 enum mwSametimeUserType {
-  mwSametimeUser_NORMAL,    /**< user on same community */
-  mwSametimeUser_EXTERNAL,  /**< external user */
-  mwSametimeUser_UNKNOWN,   /**< error determining user type */
+  mwSametimeUser_NORMAL   = 1,  /**< user on same community */
+  mwSametimeUser_EXTERNAL = 2,  /**< external user */
+  mwSametimeUser_UNKNOWN  = 0,  /**< error determining user type */
 };
 
 

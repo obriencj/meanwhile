@@ -99,15 +99,6 @@ enum msg_types {
 };
 
 
-static void recv_create(struct mwServiceAware *srvc,
-			struct mwChannel *chan,
-			struct mwMsgChannelCreate *msg) {
-
-  /* We only like outgoing blist channels */
-  mwChannel_destroy(chan, ERR_FAILURE, NULL);
-}
-
-
 static void aware_entry_free(gpointer v) {
   struct aware_entry *ae = (struct aware_entry *) v;
   mwAwareSnapshot_clear(&ae->aware);
@@ -262,10 +253,10 @@ static void status_recv(struct mwServiceAware *srvc,
 
   aware = entry_find(srvc, &idb->id);
 
-  /* we don't deal with receiving status for something we're not
-     monitoring */
   if(! aware) {
-    g_debug("received data for id we're not monitoring");
+    /* we don't deal with receiving status for something we're not
+       monitoring, but it will happen sometimes, eg from manually set
+       status */
     return;
   }
   
@@ -322,7 +313,7 @@ static void group_member_recv(struct mwServiceAware *srvc,
 
   grp = entry_find(srvc, &gsrch);
   g_return_if_fail(grp != NULL); /* this could happen, with timing. */
-  
+
   for(m = grp->membership; m; m = m->next) {
     list_add(m->data, &idb->id);
     /* mwAwareList_addAware(m->data, &idb->id, 1); */
@@ -366,6 +357,9 @@ static void UPDATE_recv(struct mwServiceAware *srvc,
 
   snap = g_new0(struct mwAwareSnapshot, 1);
   mwAwareSnapshot_get(b, snap);
+
+  if(snap->group)
+    group_member_recv(srvc, snap);
 
   if(! mwGetBuffer_error(b))
     status_recv(srvc, snap);
@@ -416,7 +410,7 @@ static void recv(struct mwService *srvc, struct mwChannel *chan,
     break;
 
   default:
-    g_warning("unknown message type 0x%04x for aware service", type);
+    mw_debug_mailme(data, "unknown message in aware service: 0x%04x", type);   
   }
 
   mwGetBuffer_free(b);  
@@ -503,7 +497,6 @@ mwServiceAware_new(struct mwSession *session,
   service = MW_SERVICE(srvc);
   mwService_init(service, session, SERVICE_AWARE);
 
-  service->recv_create = (mwService_funcRecvCreate) recv_create;
   service->recv_accept = (mwService_funcRecvAccept) recv_accept;
   service->recv_destroy = (mwService_funcRecvDestroy) recv_destroy;
   service->recv = recv;
