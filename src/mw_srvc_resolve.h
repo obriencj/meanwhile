@@ -100,9 +100,10 @@ struct mwResolveResult {
     @param results  list of mwResolveResult
     @param data     optional user data attached to the request
 */
-typedef void (*mwResolveHandler)(struct mwServiceResolve *srvc,
-				 guint32 id, guint32 code, GList *results,
-				 gpointer data);
+typedef void (*mwResolveHandler)
+     (struct mwServiceResolve *srvc,
+      guint32 id, guint32 code, GList *results,
+      gpointer data);
 
 
 /** Allocate a new resolve service */
@@ -118,10 +119,10 @@ struct mwServiceResolve *mwServiceResolve_new(struct mwSession *);
     @param cleanup  optional function to clean up user data
     @return         generated ID for the search request, or SEARCH_ERROR
 */
-guint32 mwServiceResolve_search(struct mwServiceResolve *srvc,
-				GList *queries, enum mwResolveFlag flags,
-				mwResolveHandler handler,
-				gpointer data, GDestroyNotify cleanup);
+guint32 mwServiceResolve_resolve(struct mwServiceResolve *srvc,
+				 GList *queries, enum mwResolveFlag flags,
+				 mwResolveHandler handler,
+				 gpointer data, GDestroyNotify cleanup);
 
 
 /** Cancel a resolve request by its generated ID. The handler function

@@ -147,8 +147,8 @@ static PyObject *py_search(mwPyService *self, PyObject *args) {
   Py_INCREF(cb);
 
   queries = str_list(query);
-  id = mwServiceResolve_search(srvc, queries, flags,
-			       mw_search_cb, cb, NULL);
+  id = mwServiceResolve_resolve(srvc, queries, flags,
+				mw_search_cb, cb, NULL);
   g_list_free(queries);
 
   if(id != SEARCH_ERROR) {
@@ -168,14 +168,14 @@ static PyObject *py_cancel(mwPyService *self, PyObject *args) {
   if(! PyArg_ParseTuple(args, "l", &id))
     return NULL;
 
-  mwServiceResolve_cancelSearch(srvc, id);
+  mwServiceResolve_cancelResolve(srvc, id);
 
   mw_return_none();
 }
 
 
 static struct PyMethodDef tp_methods[] = {
-  { "search", (PyCFunction) py_search, METH_VARARGS,
+  { "resolve", (PyCFunction) py_search, METH_VARARGS,
     "initiate a user search" },
 
   { "cancel", (PyCFunction) py_cancel, METH_VARARGS,

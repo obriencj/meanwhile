@@ -50,6 +50,13 @@ struct mwAddressBook;
 struct mwDirectory;
 
 
+/** Appropriate function signature for handling directory search results */
+typedef void (*mwSearchHandler)
+     (struct mwDirectory *dir,
+      guint32 id, guint32 code, guint32 offset, GList *members,
+      gpointer data);
+
+
 /** handles asynchronous events for a directory service instance */
 struct mwDirectoryHandler {
 
@@ -63,10 +70,6 @@ struct mwDirectoryHandler {
 
   /** triggered when a directory has been closed */
   void (*dir_closed)(struct mwDirectory *dir, guint32 reason);
-
-  /** triggered when a directory search returns its results */
-  void (*dir_results)(struct mwDirectory *dir, guint32 code,
-		      guint32 offset, GList *members);
 
   /** optional. called from mwService_free */
   void (*clear)(struct mwServiceDirectory *srvc);
@@ -102,6 +105,10 @@ GList *mwServiceDirectory_getDirectories(struct mwServiceDirectory *srvc);
 GList *mwAddressBook_getDirectories(struct mwAddressBook *book);
 
 
+/** the name of the address book */
+const char *mwAddressBook_getName(struct mwAddressBook *book);
+
+
 /** allocate a new directory based off the given address book */
 struct mwDirectory *mwDirectory_new(struct mwAddressBook *book);
 
@@ -135,7 +142,10 @@ int mwDirectory_open(struct mwDirectory *dir);
 /** initiate a search on an open directory.
 
     @return identifier referencing the search */
-guint32 mwDirectory_search(struct mwDirectory *dir, const char *query);
+guint32 mwDirectory_search(struct mwDirectory *dir,
+			   const char *query,
+			   mwSearchHandler *cb,
+			   gpointer data, GDestroyNotify clean);
 
 
 /** continue a search into its next results */

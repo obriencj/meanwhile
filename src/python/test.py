@@ -95,6 +95,17 @@ def _cbStore(who, kstr):
     pass
 
 
+def _cbResolve(who, kstr):
+
+    ''' initiates a resolve request '''
+
+    try:
+        cb = lambda id,c,r,w=who: _cbResolved(w,id,c,r)
+        tSrvcResolve.resolve((kstr), RESOLVE_USERS, cd)
+        
+    except Exception, e:
+        tSrvcIm.sendText(who, "exception: %s" % e)
+
 
 class TestSession(meanwhile.SocketSession):
     def onAdmin(self, text):
@@ -136,6 +147,9 @@ class TestServiceIm(meanwhile.ServiceIm):
 
         elif text.startswith('subj '):
             self.sendSubject(who, text[5:])
+
+        elif text.startswith('resolve '):
+            _cbResolve(who, text[8:])
 
         elif text == 'help':
             help = '''Available test-bot Commands:

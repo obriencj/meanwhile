@@ -335,10 +335,10 @@ struct mwServiceResolve *mwServiceResolve_new(struct mwSession *session) {
 }
 
 
-guint32 mwServiceResolve_search(struct mwServiceResolve *srvc,
-				GList *queries, enum mwResolveFlag flags,
-				mwResolveHandler handler,
-				gpointer data, GDestroyNotify cleanup) {
+guint32 mwServiceResolve_resolve(struct mwServiceResolve *srvc,
+				 GList *queries, enum mwResolveFlag flags,
+				 mwResolveHandler handler,
+				 gpointer data, GDestroyNotify cleanup) {
 
   struct mw_search *search;
   struct mwPutBuffer *b;
@@ -376,8 +376,8 @@ guint32 mwServiceResolve_search(struct mwServiceResolve *srvc,
 }
 
 
-void mwServiceResolve_cancelSearch(struct mwServiceResolve *srvc,
-				   guint32 id) {
+void mwServiceResolve_cancelResolve(struct mwServiceResolve *srvc,
+				    guint32 id) {
 
   g_return_if_fail(srvc != NULL);
   g_return_if_fail(srvc->searches != NULL);

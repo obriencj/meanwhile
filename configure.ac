@@ -50,7 +50,7 @@ if test "$withval" != "no" ; then
 	if test "$withval" = "auto" ; then
 		AC_PATH_PROG(pythonpath, python)
 		if test "_$pythonpath" = _ ; then
-			AC_MSG_ERROR(python not found)
+			AC_MSG_RESULT(not found, building without python support)
 			withval="no"
 		fi
 	else
