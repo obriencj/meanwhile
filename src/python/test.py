@@ -1,12 +1,12 @@
 
-# simple test script to create, start, and stop a session
+# simple python test script to create, start, and stop a session
 
 import meanwhile
 import os
 import time
 
 
-# provided from test.conf via the test script
+# provided from test.conf via test.sh
 test_user = os.environ.get('mw_user')
 test_pass = os.environ.get('mw_pass')
 test_host = os.environ.get('mw_host')
@@ -30,10 +30,12 @@ def _cbExec_real(who, text):
         msg = "caught exception: %s" % err
         #print msg
         tSrvcIm.sendText(who, msg)
+
             
 
 def _cbExec_none(text):
     print "not executing code %s" % text    
+
 
 
 _cbExec = None
@@ -199,12 +201,18 @@ class ServiceIm(meanwhile.ServiceIm):
     
     def onText(self, who, text):
         print '<text>%s: "%s"' % (who[0], text)
-        self.processCmd(who, text)
+        try:
+            self.processCmd(who, text)
+        except e:
+            self.sendText(who, e)
 
 
     def onHtml(self, who, text):
         print '<html>%s: "%s"' % (who[0], text)
-        self.processCmd(who, text)
+        try:
+            self.processCmd(who, text)
+        except e:
+            self.sendText(who, e)
 
 
     def onMime(self, who, data):
@@ -241,9 +249,6 @@ class ServiceIm(meanwhile.ServiceIm):
     def onTyping(self, who, typing):
         str = ("stopped typing", "typing")
         print '<typing>%s: %s' % (who[0], str[typing])
-
-
-    
 
 
 
