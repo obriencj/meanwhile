@@ -98,7 +98,7 @@ enum mwLoginType {
   mwLogin_NOTES_6_5     = 0x1200,
   mwLogin_NOTES_7_0     = 0x1210,
   mwLogin_ICT           = 0x1300,
-  mwLogin_NOTESBUDDY    = 0x1400,
+  mwLogin_NOTESBUDDY    = 0x1400,  /**< 0xff00 mask */
   mwLogin_SANITY        = 0x1600,
   mwLogin_ST_PERL       = 0x1625,
   mwLogin_PMR_ALERT     = 0x1650,

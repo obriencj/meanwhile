@@ -177,6 +177,8 @@ static void LOGIN_REDIRECT_clear(struct mwMsgLoginRedirect *msg) {
 static void enc_offer_put(struct mwPutBuffer *b, struct mwEncryptOffer *enc) {
   char tail = 0x07;
 
+  guint16_put(b, enc->mode);
+
   if(enc->items) {
     guint32 count;
     struct mwPutBuffer *p;
@@ -189,9 +191,7 @@ static void enc_offer_put(struct mwPutBuffer *b, struct mwEncryptOffer *enc) {
     count = g_list_length(enc->items);
     p = mwPutBuffer_new();
 
-    /* guint16_put(b, enc->mode); */
-    guint16_put(b, 0x1000);
-
+  
     guint32_put(p, count);
     for(list = enc->items; list; list = list->next) {
       mwEncryptItem_put(p, list->data);
@@ -203,9 +203,6 @@ static void enc_offer_put(struct mwPutBuffer *b, struct mwEncryptOffer *enc) {
     mwPutBuffer_finalize(&o, p);
     mwOpaque_put(b, &o);
     mwOpaque_clear(&o);
-
-  } else {
-    guint16_put(b, 0x00);
   }
 
   guint32_put(b, 0x00);
@@ -306,12 +303,11 @@ static void enc_accept_put(struct mwPutBuffer *b,
 
   char tail = 0x07;
 
+  guint16_put(b, enc->mode);
+
   if(enc->item) {
     struct mwPutBuffer *p;
     struct mwOpaque o;
-
-    /* guint16_put(b, enc->mode); */
-    guint16_put(b, 0x1000);
 
     p = mwPutBuffer_new();
 
@@ -322,9 +318,6 @@ static void enc_accept_put(struct mwPutBuffer *b,
     mwPutBuffer_finalize(&o, p);
     mwOpaque_put(b, &o);
     mwOpaque_clear(&o);
-
-  } else {
-    guint16_put(b, 0x00);
   }
 
   guint32_put(b, 0x00);

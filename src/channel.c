@@ -340,6 +340,10 @@ int mwChannel_create(struct mwChannel *chan) {
     struct mwEncryptItem *ei = mwCipherInstance_newItem(l->data);
     msg->encrypt.items = g_list_append(msg->encrypt.items, ei);
   }
+  if(list) {
+    msg->encrypt.mode = 0x1000;
+    msg->encrypt.extra = 0x1000;
+  }
   g_list_free(list);
   
   ret = mwSession_send(chan->session, MW_MESSAGE(msg));
@@ -404,7 +408,7 @@ int mwChannel_accept(struct mwChannel *chan) {
     mwCipherInstance_accept(chan->cipher);
 
     msg->encrypt.item = mwCipherInstance_newItem(chan->cipher);
-    msg->encrypt.mode = 0x2000;
+    msg->encrypt.mode = 0x1000;
     msg->encrypt.extra = 0x1000;
   }
 
