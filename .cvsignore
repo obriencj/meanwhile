@@ -5,11 +5,12 @@ compile
 config.*
 configure
 depcomp
-*.in
 install-sh
 libtool
 Makefile
+Makefile.in
 missing
+*.pc
 *.rpm
 *.spec
 *.tar.gz
