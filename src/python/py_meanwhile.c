@@ -7,11 +7,16 @@
 #include "../mw_srvc_aware.h"
 #include "../mw_srvc_conf.h"
 #include "../mw_srvc_im.h"
+#include "../mw_srvc_resolve.h"
 
 
 #ifndef PyMODINIT_FUNC
 #define PyMODINIT_FUNC void
 #endif
+
+
+#define INT_CONSTANT(mod, name, val) \
+  PyModule_AddIntConstant((mod), (name), (val))
 
 
 static struct PyMethodDef py_methods[] = {
@@ -25,57 +30,69 @@ PyMODINIT_FUNC init_meanwhile() {
   m = Py_InitModule3("_meanwhile", py_methods, "Meanwhile client module");
 
   /* service state constants */
-  PyModule_AddIntConstant(m, "SERVICE_STARTING", mwServiceState_STARTING);
-  PyModule_AddIntConstant(m, "SERVICE_STARTED", mwServiceState_STARTED);
-  PyModule_AddIntConstant(m, "SERVICE_STOPPING", mwServiceState_STOPPING);
-  PyModule_AddIntConstant(m, "SERVICE_STOPPED", mwServiceState_STOPPED);
-  PyModule_AddIntConstant(m, "SERVICE_ERROR", mwServiceState_ERROR);
-  PyModule_AddIntConstant(m, "SERVICE_UNKNOWN", mwServiceState_UNKNOWN);
+  INT_CONSTANT(m, "SERVICE_STARTING", mwServiceState_STARTING);
+  INT_CONSTANT(m, "SERVICE_STARTED", mwServiceState_STARTED);
+  INT_CONSTANT(m, "SERVICE_STOPPING", mwServiceState_STOPPING);
+  INT_CONSTANT(m, "SERVICE_STOPPED", mwServiceState_STOPPED);
+  INT_CONSTANT(m, "SERVICE_ERROR", mwServiceState_ERROR);
+  INT_CONSTANT(m, "SERVICE_UNKNOWN", mwServiceState_UNKNOWN);
 
   /* session state constants */
-  PyModule_AddIntConstant(m, "SESSION_STARTING", mwSession_STARTING);
-  PyModule_AddIntConstant(m, "SESSION_HANDSHAKE", mwSession_HANDSHAKE);
-  PyModule_AddIntConstant(m, "SESSION_HANDSHAKE_ACK", mwSession_HANDSHAKE_ACK);
-  PyModule_AddIntConstant(m, "SESSION_LOGIN", mwSession_LOGIN);
-  PyModule_AddIntConstant(m, "SESSION_LOGIN_REDIR", mwSession_LOGIN_REDIR);
-  PyModule_AddIntConstant(m, "SESSION_LOGIN_ACK", mwSession_LOGIN_ACK);
-  PyModule_AddIntConstant(m, "SESSION_STARTED", mwSession_STARTED);
-  PyModule_AddIntConstant(m, "SESSION_STOPPING", mwSession_STOPPING);
-  PyModule_AddIntConstant(m, "SESSION_STOPPED", mwSession_STOPPED);
-  PyModule_AddIntConstant(m, "SESSION_UNKNOWN", mwSession_UNKNOWN);
+  INT_CONSTANT(m, "SESSION_STARTING", mwSession_STARTING);
+  INT_CONSTANT(m, "SESSION_HANDSHAKE", mwSession_HANDSHAKE);
+  INT_CONSTANT(m, "SESSION_HANDSHAKE_ACK", mwSession_HANDSHAKE_ACK);
+  INT_CONSTANT(m, "SESSION_LOGIN", mwSession_LOGIN);
+  INT_CONSTANT(m, "SESSION_LOGIN_REDIR", mwSession_LOGIN_REDIR);
+  INT_CONSTANT(m, "SESSION_LOGIN_ACK", mwSession_LOGIN_ACK);
+  INT_CONSTANT(m, "SESSION_STARTED", mwSession_STARTED);
+  INT_CONSTANT(m, "SESSION_STOPPING", mwSession_STOPPING);
+  INT_CONSTANT(m, "SESSION_STOPPED", mwSession_STOPPED);
+  INT_CONSTANT(m, "SESSION_UNKNOWN", mwSession_UNKNOWN);
 
   /* user state constants */
-  PyModule_AddIntConstant(m, "STATUS_ACTIVE", mwStatus_ACTIVE);
-  PyModule_AddIntConstant(m, "STATUS_IDLE", mwStatus_IDLE);
-  PyModule_AddIntConstant(m, "STATUS_AWAY", mwStatus_AWAY);
-  PyModule_AddIntConstant(m, "STATUS_BUSY", mwStatus_BUSY);
+  INT_CONSTANT(m, "STATUS_ACTIVE", mwStatus_ACTIVE);
+  INT_CONSTANT(m, "STATUS_IDLE", mwStatus_IDLE);
+  INT_CONSTANT(m, "STATUS_AWAY", mwStatus_AWAY);
+  INT_CONSTANT(m, "STATUS_BUSY", mwStatus_BUSY);
 
   /* awareness types */
-  PyModule_AddIntConstant(m, "AWARE_SERVER", mwAware_SERVER);
-  PyModule_AddIntConstant(m, "AWARE_USER", mwAware_USER);
-  PyModule_AddIntConstant(m, "AWARE_GROUP", mwAware_GROUP);
+  INT_CONSTANT(m, "AWARE_SERVER", mwAware_SERVER);
+  INT_CONSTANT(m, "AWARE_USER", mwAware_USER);
+  INT_CONSTANT(m, "AWARE_GROUP", mwAware_GROUP);
 
   /* IM message types */
-  PyModule_AddIntConstant(m, "IM_PLAIN", mwImSend_PLAIN);
-  PyModule_AddIntConstant(m, "IM_TYPING", mwImSend_TYPING);
-  PyModule_AddIntConstant(m, "IM_HTML", mwImSend_HTML);
-  PyModule_AddIntConstant(m, "IM_SUBJECT", mwImSend_SUBJECT);
-  PyModule_AddIntConstant(m, "IM_MIME", mwImSend_MIME);
+  INT_CONSTANT(m, "IM_PLAIN", mwImSend_PLAIN);
+  INT_CONSTANT(m, "IM_TYPING", mwImSend_TYPING);
+  INT_CONSTANT(m, "IM_HTML", mwImSend_HTML);
+  INT_CONSTANT(m, "IM_SUBJECT", mwImSend_SUBJECT);
+  INT_CONSTANT(m, "IM_MIME", mwImSend_MIME);
 
   /* IM conversation states */
-  PyModule_AddIntConstant(m, "CONVERSATION_CLOSED", mwConversation_CLOSED);
-  PyModule_AddIntConstant(m, "CONVERSATION_PENDING", mwConversation_PENDING);
-  PyModule_AddIntConstant(m, "CONVERSATION_OPEN", mwConversation_OPEN);
-  PyModule_AddIntConstant(m, "CONVERSATION_UNKNOWN", mwConversation_UNKNOWN);
+  INT_CONSTANT(m, "CONVERSATION_CLOSED", mwConversation_CLOSED);
+  INT_CONSTANT(m, "CONVERSATION_PENDING", mwConversation_PENDING);
+  INT_CONSTANT(m, "CONVERSATION_OPEN", mwConversation_OPEN);
+  INT_CONSTANT(m, "CONVERSATION_UNKNOWN", mwConversation_UNKNOWN);
 
   /* conference states */
-  PyModule_AddIntConstant(m, "CONFERENCE_NEW", mwConference_NEW);
-  PyModule_AddIntConstant(m, "CONFERENCE_PENDING", mwConference_PENDING);
-  PyModule_AddIntConstant(m, "CONFERENCE_INVITED", mwConference_INVITED);
-  PyModule_AddIntConstant(m, "CONFERENCE_OPEN", mwConference_OPEN);
-  PyModule_AddIntConstant(m, "CONFERENCE_CLOSING", mwConference_CLOSING);
-  PyModule_AddIntConstant(m, "CONFERENCE_ERROR", mwConference_ERROR);
-  PyModule_AddIntConstant(m, "CONFERENCE_UNKNOWN", mwConference_UNKNOWN);
+  INT_CONSTANT(m, "CONFERENCE_NEW", mwConference_NEW);
+  INT_CONSTANT(m, "CONFERENCE_PENDING", mwConference_PENDING);
+  INT_CONSTANT(m, "CONFERENCE_INVITED", mwConference_INVITED);
+  INT_CONSTANT(m, "CONFERENCE_OPEN", mwConference_OPEN);
+  INT_CONSTANT(m, "CONFERENCE_CLOSING", mwConference_CLOSING);
+  INT_CONSTANT(m, "CONFERENCE_ERROR", mwConference_ERROR);
+  INT_CONSTANT(m, "CONFERENCE_UNKNOWN", mwConference_UNKNOWN);
+
+  /* resolve options */
+  INT_CONSTANT(m, "RESOLVE_UNIQUE", mwResolveFlag_UNIQUE);
+  INT_CONSTANT(m, "RESOLVE_FIRST", mwResolveFlag_FIRST);
+  INT_CONSTANT(m, "RESOLVE_ALL_DIRS", mwResolveFlag_ALL_DIRS);
+  INT_CONSTANT(m, "RESOLVE_USERS", mwResolveFlag_USERS);
+
+  /* resolve result codes */
+  INT_CONSTANT(m, "RESOLVED_SUCCESS", mwResolveCode_SUCCESS);
+  INT_CONSTANT(m, "RESOLVED_PARTIAL", mwResolveCode_PARTIAL);
+  INT_CONSTANT(m, "RESOLVED_MULTIPLE", mwResolveCode_MULTIPLE);
+  INT_CONSTANT(m, "RESOLVED_BAD_FORMAT", mwResolveCode_BAD_FORMAT);
 
   /* basic classes */
   PyModule_AddObject(m, "Channel", (PyObject *) mwPyChannel_type());

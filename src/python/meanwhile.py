@@ -23,8 +23,8 @@ from _meanwhile import Session
 
 # service state values
 from _meanwhile import \
-     SERVICE_STARTING, SERVICE_STARTED, SERVICE_STOPPING, SERVICE_STOPPED, \
-     SERVICE_ERROR, SERVICE_UNKNOWN
+     SERVICE_STARTING, SERVICE_STARTED, SERVICE_STOPPING, \
+     SERVICE_STOPPED, SERVICE_ERROR, SERVICE_UNKNOWN
 
 # session state values
 from _meanwhile import \
@@ -55,6 +55,14 @@ from _meanwhile import \
      CONFERENCE_OPEN, CONFERENCE_CLOSING, CONFERENCE_ERROR, \
      CONFERENCE_UNKNOWN
 
+# resolve options
+from _meanwhile import \
+     RESOLVE_UNIQUE, RESOLVE_FIRST, RESOLVE_ALL_DIRS, RESOLVE_USERS
+
+# resolve result codes
+from _meanwhile import \
+     RESOLVED_SUCCESS, RESOLVED_PARTIAL, RESOLVED_MULTIPLE, \
+     RESOLVED_BAD_FORMAT
 
 
 class SocketSession(Session):
