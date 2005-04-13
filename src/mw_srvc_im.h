@@ -27,6 +27,13 @@
 
 
 /** @file srvc_im.h
+
+    The IM service provides one-on-one communication between
+    users. Messages sent over conversations may relay different types
+    of information, in a variety of formats. The basic feature-set
+    provides plain-text chat with typing notification. More complex
+    features may be negotiated transparently by setting the IM Client
+    Type for a conversation, or for the service as a whole.
  */
 
 
@@ -181,9 +188,9 @@ enum mwImClientType mwConversation_getClientType(struct mwConversation *conv);
 
 /** get the state of a conversation
 
-    @relates MW_CONVO_IS_OPEN
-    @relates MW_CONVO_IS_CLOSED
-    @relates MW_CONVO_IS_PENDING
+    @relates mwConversation_isOpen
+    @relates mwConversation_isClosed
+    @relates mwConversation_isPending
 */
 enum mwConversationState mwConversation_getState(struct mwConversation *conv);
 
@@ -217,15 +224,29 @@ gboolean mwConversation_isEncrypted(struct mwConversation *conv);
 
 
 /** Associates client data with a conversation. If there is existing data,
-    it will not have its cleanup function called. */
+    it will not have its cleanup function called.
+
+    @relates mwConversation_getClientData
+    @relates mwConversation_removeClientData
+*/
 void mwConversation_setClientData(struct mwConversation *conv,
 				  gpointer data, GDestroyNotify clean);
 
 
-/** Reference associated client data */
+/** Reference associated client data
+
+    @relates mwConversation_setClientData
+    @relates mwConversation_removeClientData
+ */
 gpointer mwConversation_getClientData(struct mwConversation *conv);
 
 
+/** Remove any associated client data, calling the optional cleanup
+    function if one was provided
+
+    @relates mwConversation_setClientData
+    @relates mwConversation_getClientData
+*/
 void mwConversation_removeClientData(struct mwConversation *conv);
 
 
