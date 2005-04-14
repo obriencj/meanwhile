@@ -105,6 +105,7 @@ static void recv_channelCreate(struct mwServiceFileTransfer *srvc,
 
     login_into_id(&idb, mwChannel_getUser(chan));
     ft = mwFileTransfer_new(srvc, &idb, txt, fnm, size);
+    ft->channel = chan;
 
     mwChannel_setServiceData(chan, ft, NULL);
 
@@ -152,7 +153,9 @@ static void recv_channelDestroy(struct mwServiceFileTransfer *srvc,
   g_return_if_fail(ft != NULL);
 
   if(handler->ft_closed)
-    handler->ft_closed(ft, code);  
+    handler->ft_closed(ft, code);
+
+  mwFileTransfer_free(ft);
 }
 
 
@@ -338,6 +341,7 @@ int mwFileTransfer_accept(struct mwFileTransfer *ft) {
 
 
 int mwFileTransfer_close(struct mwFileTransfer *ft, guint32 code) {
+  struct mwServiceFileTransfer *srvc;
   struct mwFileTransferHandler *handler;
   int ret;
 
@@ -346,6 +350,12 @@ int mwFileTransfer_close(struct mwFileTransfer *ft, guint32 code) {
 
   ret = mwChannel_destroy(ft->channel, code, NULL);
   ft->channel = NULL;
+
+  srvc = ft->service;
+  g_return_val_if_fail(srvc != NULL, ret);
+
+  handler = srvc->handler;
+  g_return_val_if_fail(handler != NULL, ret);
 
   if(!ret && handler->ft_closed)
     handler->ft_closed(ft, code);
