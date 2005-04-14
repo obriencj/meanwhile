@@ -25,6 +25,12 @@
 #include "mw_common.h"
 
 
+/** @file mw_srvc_aware.h
+
+    The aware service...
+*/
+
+
 /** Type identifier for the aware service */
 #define SERVICE_AWARE  0x00000011
 
@@ -119,12 +125,39 @@ mwServiceAware_new(struct mwSession *session,
 		   struct mwAwareHandler *handler);
 
 
+/** Set an attribute value for this session */
 int mwServiceAware_setAttribute(struct mwServiceAware *srvc,
 				struct mwAwareAttribute *attrib);
 
 
+int mwServiceAware_setAttributeBoolean(struct mwServiceAware *srvc,
+				       guint32 key, gboolean val);
+
+
+int mwServiceAware_setAttributeInteger(struct mwServiceAware *srvc,
+				       guint32 key, guint32 val);
+
+
+int mwServiceAware_setAttributeString(struct mwServiceAware *srvc,
+				      guint32 key, const char *str);
+
+
+/** Delete/unset an attribute for this session */
 int mwServiceAware_deleteAttribute(struct mwServiceAware *srvc,
 				   guint32 key);
+
+/** watch an attribute */
+int mwServiceAware_watchAttribute(struct mwServiceAware *srvc,
+				  guint32 key);
+
+
+/** watch a NULL terminated list of keys */
+int mwServiceAware_watchAttributes(struct mwServiceAware *srvc,
+				   guint32 key, ...);
+
+
+struct mwAwareAttribute *
+mwAwareAttribute_new(guint32 key);
 
 
 struct mwAwareAttribute *
@@ -149,6 +182,10 @@ guint32 mwAwareAttribute_asInteger(struct mwAwareAttribute *attrib);
 
 
 char *mwAwareAttribute_asString(struct mwAwareAttribute *attrib);
+
+
+struct mwOpaque *
+mwAwareAttribute_asOpaque(struct mwAwareAttribute *attrib);
 
 
 void mwAwareAttribute_free(struct mwAwareAttribute *attrib);

@@ -510,6 +510,233 @@ mwServiceAware_new(struct mwSession *session,
 }
 
 
+int mwServiceAware_setAttribute(struct mwServiceAware *srvc,
+				struct mwAwareAttribute *attrib) {
+  struct mwPutBuffer *b;
+  struct mwOpaque o;
+  int ret;
+
+  b = mwPutBuffer_new();
+
+  guint32_put(b, 0x00);
+  guint32_put(b, attrib->data.len);
+  guint32_put(b, 0x00);
+  guint32_put(b, attrib->key);
+  mwOpaque_put(b, &attrib->data);
+
+  mwPutBuffer_finalize(&o, b);
+  ret = mwChannel_send(srvc->channel, msg_OPT_DO_SET, &o);
+  mwOpaque_clear(&o);
+
+  return ret;
+}
+
+
+int mwServiceAware_setAttributeBoolean(struct mwServiceAware *srvc,
+				       guint32 key, gboolean val) {
+  struct mwAwareAttribute *attrib;
+  int ret;
+
+  attrib = mwAwareAttribute_newBoolean(key, val);
+  ret = mwServiceAware_setAttribute(srvc, attrib);
+
+  mwAwareAttribute_free(attrib);
+  return ret;
+}
+
+
+int mwServiceAware_setAttributeInteger(struct mwServiceAware *srvc,
+				       guint32 key, guint32 val) {
+  struct mwAwareAttribute *attrib;
+  int ret;
+
+  attrib = mwAwareAttribute_newInteger(key, val);
+  ret = mwServiceAware_setAttribute(srvc, attrib);
+
+  mwAwareAttribute_free(attrib);
+  return ret;
+}
+
+
+int mwServiceAware_setAttributeString(struct mwServiceAware *srvc,
+				      guint32 key, const char *str) {
+  struct mwAwareAttribute *attrib;
+  int ret;
+
+  attrib = mwAwareAttribute_newString(key, str);
+  ret = mwServiceAware_setAttribute(srvc, attrib);
+
+  mwAwareAttribute_free(attrib);
+  return ret;
+}
+
+
+int mwServiceAware_deleteAttribute(struct mwServiceAware *srvc,
+				   guint32 key) {
+  struct mwPutBuffer *b;
+  struct mwOpaque o;
+  int ret;
+
+  b = mwPutBuffer_new();
+
+  guint32_put(b, 0x00);
+  guint32_put(b, key);
+  
+  mwPutBuffer_finalize(&o, b);
+  ret = mwChannel_send(srvc->channel, msg_OPT_DO_UNSET, &o);
+  mwOpaque_clear(&o);
+
+  return ret;
+}
+
+
+int mwServiceAware_watchAttribute(struct mwServiceAware *srvc,
+				  guint32 key) {
+  struct mwPutBuffer *b;
+  struct mwOpaque o;
+  int ret;
+
+  b = mwPutBuffer_new();
+
+  guint32_put(b, 0x00);
+  guint32_put(b, key);
+  
+  mwPutBuffer_finalize(&o, b);
+  ret = mwChannel_send(srvc->channel, msg_OPT_DO_UNSET, &o);
+  mwOpaque_clear(&o);
+
+  return ret;
+}
+
+
+int mwServiceAware_watchAttributes(struct mwServiceAware *srvc,
+				   guint32 key, ...) {
+  struct mwPutBuffer *b;
+  guint32 k;
+  va_list args;
+  struct mwOpaque o;
+  int ret = 0;
+
+  /* count the number of keys in the null terminated vararg list */
+  va_start(args, key);
+  for(k = key; k; k = va_arg(args, guint32)) ret++;
+  va_end(args);
+
+  b = mwPutBuffer_new();
+
+  /* write the count */
+  guint32_put(b, (guint32) ret);
+  
+  /* write all the keys */
+  va_start(args, key);
+  for(k = key; k; k = va_arg(args, guint32)) guint32_put(b, k);
+  va_end(args);
+
+  mwPutBuffer_finalize(&o, b);
+  ret = mwChannel_send(srvc->channel, msg_OPT_WATCH, &o);
+  mwOpaque_clear(&o);
+
+  return ret;
+}
+
+
+struct mwAwareAttribute *mwAwareAttribute_new(guint32 key) {
+  struct mwAwareAttribute *attrib;
+
+  attrib = g_new0(struct mwAwareAttribute, 1);
+  attrib->key = key;
+
+  return attrib;
+}
+
+
+struct mwAwareAttribute *
+mwAwareAttribute_newBoolean(guint32 key, gboolean val) {
+  struct mwAwareAttribute *attrib;
+  struct mwPutBuffer *b;
+  
+  b = mwPutBuffer_new();
+  gboolean_put(b, FALSE);
+  gboolean_put(b, val);
+
+  attrib = mwAwareAttribute_new(key);
+  mwPutBuffer_finalize(&attrib->data, b);
+
+  return attrib;
+}
+
+
+struct mwAwareAttribute *
+mwAwareAttribute_newInteger(guint32 key, guint32 val) {
+  struct mwAwareAttribute *attrib;
+  struct mwPutBuffer *b;
+  
+  b = mwPutBuffer_new();
+  guint32_put(b, val);
+
+  attrib = mwAwareAttribute_new(key);
+  mwPutBuffer_finalize(&attrib->data, b);
+
+  return attrib;
+}
+
+
+struct mwAwareAttribute *
+mwAwareAttribute_newString(guint32 key, const char *str) {
+  struct mwAwareAttribute *attrib;
+  struct mwPutBuffer *b;
+  
+  b = mwPutBuffer_new();
+  mwString_put(b, str);
+
+  attrib = mwAwareAttribute_new(key);
+  mwPutBuffer_finalize(&attrib->data, b);
+
+  return attrib;
+}
+
+
+guint32 mwAwareAttribute_getKey(struct mwAwareAttribute *attrib) {
+  g_return_val_if_fail(attrib != NULL, 0x00);
+  return attrib->key;
+}
+
+
+gboolean mwAwareAttribute_asBoolean(struct mwAwareAttribute *attrib) {
+  if(! attrib) return FALSE;
+  /* @todo */
+  return FALSE;
+}
+
+
+guint32 mwAwareAttribute_asInteger(struct mwAwareAttribute *attrib) {
+  if(! attrib) return 0x00;
+  /* @todo */
+  return 0x00;
+}
+
+
+char *mwAwareAttribute_asString(struct mwAwareAttribute *attrib) {
+  if(! attrib) return NULL;
+  /* @todo */
+  return NULL;
+}
+
+
+struct mwOpaque *mwAwareAttribute_asOpaque(struct mwAwareAttribute *attrib) {
+  g_return_val_if_fail(attrib != NULL, NULL);
+  return &attrib->data;
+}
+
+
+void mwAwareAttribute_free(struct mwAwareAttribute *attrib) {
+  if(! attrib) return;
+
+  mwOpaque_clear(&attrib->data);
+  g_free(attrib);
+}
+			  
+
 struct mwAwareList *
 mwAwareList_new(struct mwServiceAware *srvc,
 		struct mwAwareListHandler *handler) {

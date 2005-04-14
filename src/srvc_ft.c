@@ -281,7 +281,7 @@ mwFileTransfer_new(struct mwServiceFileTransfer *srvc,
 
 
 const struct mwIdBlock *
-mwFileTransfer_getTarget(struct mwFileTransfer *ft) {
+mwFileTransfer_getUser(struct mwFileTransfer *ft) {
   g_return_val_if_fail(ft != NULL, NULL);
   return &ft->who;
 }
