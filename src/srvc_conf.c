@@ -433,7 +433,7 @@ static void text_recv(struct mwServiceConference *srvc,
   }
 
   h = srvc->handler;
-  if(h->on_text) {
+  if(text && h->on_text) {
     h->on_text(conf, m, text);
   }
 
