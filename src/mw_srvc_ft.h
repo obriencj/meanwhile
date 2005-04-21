@@ -48,9 +48,12 @@ struct mwFileTransfer;
 
 
 enum mwFileTransferState {
-  mwFileTransfer_CLOSED,   /**< file transfer is not open */
+  mwFileTransfer_NEW,   /**< file transfer is not open */
   mwFileTransfer_PENDING,  /**< file transfer is opening */
   mwFileTransfer_OPEN,     /**< file transfer is open */
+  mwFileTransfer_CANCEL_LOCAL,
+  mwFileTransfer_CANCEL_REMOTE,
+  mwFileTransfer_DONE,
   mwFileTransfer_ERROR,    /**< error in file transfer */
   mwFileTransfer_UNKNOWN,  /**< unknown state */
 };
@@ -59,14 +62,17 @@ enum mwFileTransferState {
 #define mwFileTransfer_isState(ft, state) \
   (mwFileTransfer_getState(ft) == (state))
 
-#define mwFileTransfer_isClosed(ft) \
-  mwFileTransfer_isState((ft), mwFileTransfer_CLOSED)
+#define mwFileTransfer_isNew(ft) \
+  mwFileTransfer_isState((ft), mwFileTransfer_NEW)
 
 #define mwFileTransfer_isPending(ft) \
   mwFileTransfer_isState((ft), mwFileTransfer_PENDING)
 
 #define mwFileTransfer_isOpen(ft) \
   mwFileTransfer_isState((ft), mwFileTransfer_OPEN)
+
+#define mwFileTransfer_isDone(ft) \
+  mwFileTransfer_isState((ft), mwFileTransfer_DONE)
 
 
 enum mwFileTranferCode {
@@ -116,7 +122,11 @@ mwFileTransfer_free(struct mwFileTransfer *ft);
 
 
 enum mwFileTransferState
-mwfileTransfer_getState(struct mwFileTransfer *ft);
+mwFileTransfer_getState(struct mwFileTransfer *ft);
+
+
+struct mwServiceFileTransfer *
+mwFileTransfer_getService(struct mwFileTransfer *ft);
 
 
 /** the user on the other end of the file transfer */

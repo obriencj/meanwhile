@@ -75,14 +75,23 @@ static void login_into_id(struct mwIdBlock *to, struct mwLoginInfo *from) {
 
 static const char *ft_state_str(enum mwFileTransferState state) {
   switch(state) {
-  case mwFileTransfer_CLOSED:
-    return "closed";
+  case mwFileTransfer_NEW:
+    return "new";
+
+  case mwFileTransfer_PENDING:
+    return "pending";
 
   case mwFileTransfer_OPEN:
     return "open";
 
-  case mwFileTransfer_PENDING:
-    return "pending";
+  case mwFileTransfer_CANCEL_LOCAL:
+    return "cancelled locally";
+
+  case mwFileTransfer_CANCEL_REMOTE:
+    return "cancelled remotely";
+
+  case mwFileTransfer_DONE:
+    return "done";
 
   case mwFileTransfer_ERROR:
     return "error";
@@ -97,12 +106,15 @@ static const char *ft_state_str(enum mwFileTransferState state) {
 static void ft_state(struct mwFileTransfer *ft,
 		     enum mwFileTransferState state) {
 
+  g_return_if_fail(ft != NULL);
+
   if(ft->state == state) return;
 
-  ft->state = state;
   g_info("setting ft (%s, %s) state: %s",
 	 NSTR(ft->who.user), NSTR(ft->who.community),
 	 ft_state_str(state));
+
+  ft->state = state;
 }
 
 
@@ -143,6 +155,7 @@ static void recv_channelCreate(struct mwServiceFileTransfer *srvc,
     login_into_id(&idb, mwChannel_getUser(chan));
     ft = mwFileTransfer_new(srvc, &idb, txt, fnm, size);
     ft->channel = chan;
+    ft_state(ft, mwFileTransfer_PENDING);
 
     mwChannel_setServiceData(chan, ft, NULL);
 
@@ -192,6 +205,9 @@ static void recv_channelDestroy(struct mwServiceFileTransfer *srvc,
   g_return_if_fail(ft != NULL);
 
   ft->channel = NULL;
+
+  if(! mwFileTransfer_isDone(ft))
+    ft_state(ft, mwFileTransfer_CANCEL_REMOTE);
 
   mwFileTransfer_close(ft, code);
 }
@@ -313,12 +329,20 @@ mwFileTransfer_new(struct mwServiceFileTransfer *srvc,
   ft->filename = g_strdup(filename);
   ft->message = g_strdup(msg);
   ft->size = ft->remaining = filesize;
-  ft->state = mwFileTransfer_CLOSED;
+
+  ft_state(ft, mwFileTransfer_NEW);
 
   /* stick a reference in the service */
   srvc->transfers = g_list_prepend(srvc->transfers, ft);
 
   return ft;
+}
+
+
+struct mwServiceFileTransfer *
+mwFileTransfer_getService(struct mwFileTransfer *ft) {
+  g_return_val_if_fail(ft != NULL, NULL);
+  return ft->service;
 }
 
 
@@ -404,7 +428,7 @@ static void ft_create_chan(struct mwFileTransfer *ft) {
   /* we only should be calling this if there isn't a channel already
      associated with the conversation */
   g_return_if_fail(ft != NULL);
-  g_return_if_fail(mwFileTransfer_isClosed(ft));
+  g_return_if_fail(mwFileTransfer_isNew(ft));
   g_return_if_fail(ft->channel == NULL);
 		   
   s = mwService_getSession(MW_SERVICE(ft->service));
@@ -447,7 +471,7 @@ int mwFileTransfer_offer(struct mwFileTransfer *ft) {
 
   g_return_val_if_fail(ft != NULL, -1);
   g_return_val_if_fail(ft->channel == NULL, -1);
-  g_return_val_if_fail(mwFileTransfer_isClosed(ft), -1);
+  g_return_val_if_fail(mwFileTransfer_isNew(ft), -1);
 
   g_return_val_if_fail(ft->service != NULL, -1);
   srvc = ft->service;
@@ -459,6 +483,7 @@ int mwFileTransfer_offer(struct mwFileTransfer *ft) {
   if(ft->channel) {
     ft_state(ft, mwFileTransfer_PENDING);
   } else {
+    ft_state(ft, mwFileTransfer_ERROR);
     mwFileTransfer_close(ft, ERR_FAILURE);
   }
 
@@ -472,7 +497,9 @@ int mwFileTransfer_close(struct mwFileTransfer *ft, guint32 code) {
   int ret;
 
   g_return_val_if_fail(ft != NULL, -1);
-  ft_state(ft, code? mwFileTransfer_ERROR: mwFileTransfer_CLOSED);
+
+  if(mwFileTransfer_isOpen(ft))
+    ft_state(ft, mwFileTransfer_CANCEL_LOCAL);
 
   if(ft->channel) {
     ret = mwChannel_destroy(ft->channel, code, NULL);
@@ -521,6 +548,7 @@ int mwFileTransfer_send(struct mwFileTransfer *ft,
   struct mwChannel *chan;
   int ret;
 
+  g_return_val_if_fail(mwFileTransfer_isOpen(ft), -1);
   g_return_val_if_fail(ft->channel != NULL, -1);
   chan = ft->channel;
 
@@ -533,6 +561,12 @@ int mwFileTransfer_send(struct mwFileTransfer *ft,
 
   ret = mwChannel_send(chan, msg_TRANSFER, data);
   if(! ret) ft->remaining -= data->len;
+
+  if(done) {
+    ft_state(ft, mwFileTransfer_DONE);
+    mwFileTransfer_close(ft, ERR_SUCCESS);
+  }
+
   return ret;
 }
 
