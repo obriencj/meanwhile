@@ -771,11 +771,16 @@ void mwChannel_recvAccept(struct mwChannel *chan,
     mwChannel_selectCipherInstance(chan, ci);
   }
 
+  /* mark it as open for the service */
+  state(chan, mwChannel_OPEN);
+
   /* let the service know */
   mwService_recvAccept(srvc, chan, msg);
 
-  /* mark it, flush it */
-  channel_open(chan);
+  /* flush it if the service didn't just immediately close it */
+  if(mwChannel_isState(chan, mwChannel_OPEN)) {
+    channel_open(chan);
+  }
 }
 
 
