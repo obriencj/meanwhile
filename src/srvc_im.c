@@ -120,20 +120,6 @@ static struct mwConversation *convo_find_by_user(struct mwServiceIm *srvc,
 }
 
 
-static struct mwConversation *convo_find_by_chan(struct mwServiceIm *srvc,
-						 struct mwChannel *chan) {
-  GList *l;
-
-  for(l = srvc->convs; l; l = l->next) {
-    struct mwConversation *c = l->data;
-    if(c->channel == chan)
-      return c;
-  }
-
-  return NULL;
-}
-
-
 static const char *conv_state_str(enum mwConversationState state) {
   switch(state) {
   case mwConversation_CLOSED:
@@ -233,6 +219,9 @@ static void convo_create_chan(struct mwConversation *c) {
   mwPutBuffer_finalize(mwChannel_getAddtlCreate(chan), b);
 
   c->channel = mwChannel_create(chan)? NULL: chan;
+  if(c->channel) {
+    mwChannel_setServiceData(c->channel, c, NULL);
+  }
 }
 
 
@@ -389,6 +378,7 @@ static void recv_channelCreate(struct mwService *srvc,
   mwIdBlock_clone(&c->target, &idb);
   c->features = y;
   convo_set_state(c, mwConversation_PENDING);
+  mwChannel_setServiceData(c->channel, c, NULL);
 
   if(send_accept(c)) {
     g_warning("sending IM channel accept failed");
@@ -403,10 +393,9 @@ static void recv_channelCreate(struct mwService *srvc,
 static void recv_channelAccept(struct mwService *srvc, struct mwChannel *chan,
 			       struct mwMsgChannelAccept *msg) {
 
-  struct mwServiceIm *srvc_im = (struct mwServiceIm *) srvc;
   struct mwConversation *conv;
 
-  conv = convo_find_by_chan(srvc_im, chan);
+  conv = mwChannel_getServiceData(chan);
   if(! conv) {
     g_warning("received channel accept for non-existant conversation");
     mwChannel_destroy(chan, ERR_FAILURE, NULL);
@@ -420,10 +409,9 @@ static void recv_channelAccept(struct mwService *srvc, struct mwChannel *chan,
 static void recv_channelDestroy(struct mwService *srvc, struct mwChannel *chan,
 				struct mwMsgChannelDestroy *msg) {
 
-  struct mwServiceIm *srvc_im = (struct mwServiceIm *) srvc;
   struct mwConversation *c;
 
-  c = convo_find_by_chan(srvc_im, chan);
+  c = mwChannel_getServiceData(chan);
   g_return_if_fail(c != NULL);
 
   c->channel = NULL;
@@ -493,7 +481,7 @@ static void recv_text(struct mwServiceIm *srvc, struct mwChannel *chan,
 
   if(! text) return;
 
-  c = convo_find_by_chan(srvc, chan);
+  c = mwChannel_getServiceData(chan);
   if(c) {
     if(c->multi) {
       g_string_append(c->multi, text);
@@ -524,7 +512,7 @@ static void recv_data(struct mwServiceIm *srvc, struct mwChannel *chan,
     return;
   }
 
-  conv = convo_find_by_chan(srvc, chan);
+  conv = mwChannel_getServiceData(chan);
   if(! conv) return;
 
   switch(type) {

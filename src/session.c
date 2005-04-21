@@ -410,15 +410,15 @@ static void LOGIN_ACK_recv(struct mwSession *s,
 
   state(s, mwSession_LOGIN_ACK, 0);
 
-  /* @todo any further startup stuff? */
-
-  state(s, mwSession_STARTED, 0);
-
   /* start up our services */
   for(ll = l = mwSession_getServices(s); l; l = l->next) {
     mwService_start(l->data);
   }
   g_list_free(ll);
+
+  /* @todo any further startup stuff? */
+
+  state(s, mwSession_STARTED, 0);
 }
 
 

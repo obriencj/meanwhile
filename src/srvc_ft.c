@@ -19,8 +19,11 @@
 */
 
 
+#include <glib/glist.h>
+
 #include "mw_channel.h"
 #include "mw_common.h"
+#include "mw_debug.h"
 #include "mw_error.h"
 #include "mw_message.h"
 #include "mw_service.h"
@@ -49,8 +52,9 @@ struct mwFileTransfer {
   struct mwServiceFileTransfer *service;
   
   struct mwChannel *channel;
-  
   struct mwIdBlock who;
+
+  enum mwFileTransferState state;
 
   char *filename;
   char *message;
@@ -66,6 +70,39 @@ struct mwFileTransfer {
 static void login_into_id(struct mwIdBlock *to, struct mwLoginInfo *from) {
   to->user = from->user_id;
   to->community = from->community;
+}
+
+
+static const char *ft_state_str(enum mwFileTransferState state) {
+  switch(state) {
+  case mwFileTransfer_CLOSED:
+    return "closed";
+
+  case mwFileTransfer_OPEN:
+    return "open";
+
+  case mwFileTransfer_PENDING:
+    return "pending";
+
+  case mwFileTransfer_ERROR:
+    return "error";
+
+  case mwFileTransfer_UNKNOWN:
+  default:
+    return "UNKNOWN";
+  }
+}
+
+
+static void ft_state(struct mwFileTransfer *ft,
+		     enum mwFileTransferState state) {
+
+  if(ft->state == state) return;
+
+  ft->state = state;
+  g_info("setting ft (%s, %s) state: %s",
+	 NSTR(ft->who.user), NSTR(ft->who.community),
+	 ft_state_str(state));
 }
 
 
@@ -131,6 +168,8 @@ static void recv_channelAccept(struct mwServiceFileTransfer *srvc,
   ft = mwChannel_getServiceData(chan);
   g_return_if_fail(ft != NULL);
 
+  ft_state(ft, mwFileTransfer_OPEN);
+
   if(handler->ft_opened)
     handler->ft_opened(ft);
 }
@@ -152,10 +191,9 @@ static void recv_channelDestroy(struct mwServiceFileTransfer *srvc,
   ft = mwChannel_getServiceData(chan);
   g_return_if_fail(ft != NULL);
 
-  if(handler->ft_closed)
-    handler->ft_closed(ft, code);
+  ft->channel = NULL;
 
-  mwFileTransfer_free(ft);
+  mwFileTransfer_close(ft, code);
 }
 
 
@@ -275,11 +313,19 @@ mwFileTransfer_new(struct mwServiceFileTransfer *srvc,
   ft->filename = g_strdup(filename);
   ft->message = g_strdup(msg);
   ft->size = ft->remaining = filesize;
+  ft->state = mwFileTransfer_CLOSED;
 
   /* stick a reference in the service */
   srvc->transfers = g_list_prepend(srvc->transfers, ft);
 
   return ft;
+}
+
+
+enum mwFileTransferState
+mwFileTransfer_getState(struct mwFileTransfer *ft) {
+  g_return_val_if_fail(ft != NULL, mwFileTransfer_UNKNOWN);
+  return ft->state;
 }
 
 
@@ -323,6 +369,7 @@ int mwFileTransfer_accept(struct mwFileTransfer *ft) {
 
   g_return_val_if_fail(ft != NULL, -1);
   g_return_val_if_fail(ft->channel != NULL, -1);
+  g_return_val_if_fail(mwFileTransfer_isPending(ft), -1);
   g_return_val_if_fail(mwChannel_isIncoming(ft->channel), -1);
   g_return_val_if_fail(mwChannel_isState(ft->channel, mwChannel_WAIT), -1);
 
@@ -333,10 +380,89 @@ int mwFileTransfer_accept(struct mwFileTransfer *ft) {
   handler = srvc->handler;
 
   ret = mwChannel_accept(ft->channel);
-  if(!ret && handler->ft_opened)
-    handler->ft_opened(ft);
+
+  if(ret) {
+    mwFileTransfer_close(ft, ERR_FAILURE);
+
+  } else {
+    ft_state(ft, mwFileTransfer_OPEN);
+    if(handler->ft_opened)
+      handler->ft_opened(ft);
+  }
 
   return ret;
+}
+
+
+static void ft_create_chan(struct mwFileTransfer *ft) {
+  struct mwSession *s;
+  struct mwChannelSet *cs;
+  struct mwChannel *chan;
+  struct mwLoginInfo *login;
+  struct mwPutBuffer *b;
+  
+  /* we only should be calling this if there isn't a channel already
+     associated with the conversation */
+  g_return_if_fail(ft != NULL);
+  g_return_if_fail(mwFileTransfer_isClosed(ft));
+  g_return_if_fail(ft->channel == NULL);
+		   
+  s = mwService_getSession(MW_SERVICE(ft->service));
+  cs = mwSession_getChannels(s);
+
+  chan = mwChannel_newOutgoing(cs);
+  mwChannel_setService(chan, MW_SERVICE(ft->service));
+  mwChannel_setProtoType(chan, PROTOCOL_TYPE);
+  mwChannel_setProtoVer(chan, PROTOCOL_VER);
+
+  /* offer all known ciphers */
+  mwChannel_populateSupportedCipherInstances(chan);
+
+  /* set the target */
+  login = mwChannel_getUser(chan);
+  login->user_id = g_strdup(ft->who.user);
+  login->community = g_strdup(ft->who.community);
+
+  /* compose the addtl create */
+  b = mwPutBuffer_new();
+  guint32_put(b, 0x00);
+  mwString_put(b, ft->filename);
+  mwString_put(b, ft->message);
+  guint32_put(b, ft->size);
+  guint32_put(b, 0x00);
+  guint16_put(b, 0x00);
+
+  mwPutBuffer_finalize(mwChannel_getAddtlCreate(chan), b);
+
+  ft->channel = mwChannel_create(chan)? NULL: chan;
+  if(ft->channel) {
+    mwChannel_setServiceData(ft->channel, ft, NULL);
+  }
+}
+
+
+int mwFileTransfer_offer(struct mwFileTransfer *ft) {
+  struct mwServiceFileTransfer *srvc;
+  struct mwFileTransferHandler *handler;
+
+  g_return_val_if_fail(ft != NULL, -1);
+  g_return_val_if_fail(ft->channel == NULL, -1);
+  g_return_val_if_fail(mwFileTransfer_isClosed(ft), -1);
+
+  g_return_val_if_fail(ft->service != NULL, -1);
+  srvc = ft->service;
+
+  g_return_val_if_fail(srvc->handler != NULL, -1);
+  handler = srvc->handler;
+
+  ft_create_chan(ft);
+  if(ft->channel) {
+    ft_state(ft, mwFileTransfer_PENDING);
+  } else {
+    mwFileTransfer_close(ft, ERR_FAILURE);
+  }
+
+  return 0;
 }
 
 
@@ -346,10 +472,12 @@ int mwFileTransfer_close(struct mwFileTransfer *ft, guint32 code) {
   int ret;
 
   g_return_val_if_fail(ft != NULL, -1);
-  g_return_val_if_fail(ft->channel != NULL, -1);
+  ft_state(ft, code? mwFileTransfer_ERROR: mwFileTransfer_CLOSED);
 
-  ret = mwChannel_destroy(ft->channel, code, NULL);
-  ft->channel = NULL;
+  if(ft->channel) {
+    ret = mwChannel_destroy(ft->channel, code, NULL);
+    ft->channel = NULL;
+  }
 
   srvc = ft->service;
   g_return_val_if_fail(srvc != NULL, ret);
@@ -357,7 +485,7 @@ int mwFileTransfer_close(struct mwFileTransfer *ft, guint32 code) {
   handler = srvc->handler;
   g_return_val_if_fail(handler != NULL, ret);
 
-  if(!ret && handler->ft_closed)
+  if(handler->ft_closed)
     handler->ft_closed(ft, code);
 
   return ret;
@@ -369,13 +497,16 @@ void mwFileTransfer_free(struct mwFileTransfer *ft) {
 
   if(! ft) return;
 
-  if(ft->channel)
-    mwFileTransfer_cancel(ft);
+  srvc = ft->service;
+  if(srvc)
+    srvc->transfers = g_list_remove(srvc->transfers, ft);
+
+  if(ft->channel) {
+    mwChannel_destroy(ft->channel, mwFileTransfer_SUCCESS, NULL);
+    ft->channel = NULL;
+  }
 
   mwFileTransfer_removeClientData(ft);
-
-  srvc = ft->service;
-  if(srvc) srvc->transfers = g_list_remove(srvc->transfers, ft);
 
   mwIdBlock_clear(&ft->who);
   g_free(ft->filename);

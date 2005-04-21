@@ -56,7 +56,7 @@ struct mwAwareList;
 
 /** @struct mwAwareAttribute
 
-    Key/Value pair indicating an identity's attribute.
+    Key/Opaque pair indicating an identity's attribute.
  */
 struct mwAwareAttribute;
 
@@ -127,7 +127,7 @@ mwServiceAware_new(struct mwSession *session,
 
 /** Set an attribute value for this session */
 int mwServiceAware_setAttribute(struct mwServiceAware *srvc,
-				struct mwAwareAttribute *attrib);
+				guint32 key, struct mwOpaque *opaque);
 
 
 int mwServiceAware_setAttributeBoolean(struct mwServiceAware *srvc,
@@ -142,34 +142,9 @@ int mwServiceAware_setAttributeString(struct mwServiceAware *srvc,
 				      guint32 key, const char *str);
 
 
-/** Delete/unset an attribute for this session */
-int mwServiceAware_deleteAttribute(struct mwServiceAware *srvc,
-				   guint32 key);
-
-/** watch an attribute */
-int mwServiceAware_watchAttribute(struct mwServiceAware *srvc,
+/** Unset an attribute for this session */
+int mwServiceAware_unsetAttribute(struct mwServiceAware *srvc,
 				  guint32 key);
-
-
-/** watch a NULL terminated list of keys */
-int mwServiceAware_watchAttributes(struct mwServiceAware *srvc,
-				   guint32 key, ...);
-
-
-struct mwAwareAttribute *
-mwAwareAttribute_new(guint32 key);
-
-
-struct mwAwareAttribute *
-mwAwareAttribute_newBoolean(guint32 key, gboolean val);
-
-
-struct mwAwareAttribute *
-mwAwareAttribute_newInteger(guint32 key, guint32 val);
-
-
-struct mwAwareAttribute *
-mwAwareAttribute_newString(guint32 key, const char *str);
 
 
 guint32 mwAwareAttribute_getKey(struct mwAwareAttribute *attrib);
@@ -181,14 +156,13 @@ gboolean mwAwareAttribute_asBoolean(struct mwAwareAttribute *attrib);
 guint32 mwAwareAttribute_asInteger(struct mwAwareAttribute *attrib);
 
 
+/** Copy of attribute string, must be g_free'd. If the attribute's
+    content cannot be loaded as a string, returns NULL */
 char *mwAwareAttribute_asString(struct mwAwareAttribute *attrib);
 
 
-struct mwOpaque *
-mwAwareAttribute_asOpaque(struct mwAwareAttribute *attrib);
-
-
-void mwAwareAttribute_free(struct mwAwareAttribute *attrib);
+/** Direct access to an attribute's underlying opaque */
+struct mwOpaque *mwAwareAttribute_asOpaque(struct mwAwareAttribute *attrib);
 
 
 /** Allocate and initialize an aware list */
@@ -218,6 +192,29 @@ int mwAwareList_addAware(struct mwAwareList *list, GList *id_list);
     @return  0      for success, non-zero to indicate an error.
 */
 int mwAwareList_removeAware(struct mwAwareList *list, GList *id_list);
+
+
+/** watch an NULL terminated array of keys */
+int mwAwareList_watchAttributeArray(struct mwServiceAware *srvc,
+				    guint32 *keys);
+
+
+/** watch a NULL terminated list of keys */
+int mwAwareList_watchAttributes(struct mwServiceAware *srvc,
+				guint32 key, ...);
+
+
+/** stop watching a NULL terminated array of keys */
+int mwAwareList_unwatchAttributeArray(struct mwServiceAware *srvc,
+				      guint32 *keys);
+
+/** stop watching a NULL terminated list of keys */
+int mwAwareList_unwatchAttributes(struct mwServiceAware *srvc,
+				  guint32 key, ...);
+
+
+/** remove all watched attributes */
+int mwAwareList_unwatchAllAttributes(struct mwServiceAware *srvc);
 
 
 void mwAwareList_setClientData(struct mwAwareList *list,

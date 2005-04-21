@@ -47,9 +47,31 @@ struct mwFileTransfer;
 #define mwService_FILE_TRANSFER  0x00000038
 
 
+enum mwFileTransferState {
+  mwFileTransfer_CLOSED,   /**< file transfer is not open */
+  mwFileTransfer_PENDING,  /**< file transfer is opening */
+  mwFileTransfer_OPEN,     /**< file transfer is open */
+  mwFileTransfer_ERROR,    /**< error in file transfer */
+  mwFileTransfer_UNKNOWN,  /**< unknown state */
+};
+
+
+#define mwFileTransfer_isState(ft, state) \
+  (mwFileTransfer_getState(ft) == (state))
+
+#define mwFileTransfer_isClosed(ft) \
+  mwFileTransfer_isState((ft), mwFileTransfer_CLOSED)
+
+#define mwFileTransfer_isPending(ft) \
+  mwFileTransfer_isState((ft), mwFileTransfer_PENDING)
+
+#define mwFileTransfer_isOpen(ft) \
+  mwFileTransfer_isState((ft), mwFileTransfer_OPEN)
+
+
 enum mwFileTranferCode {
-  mwFileTranfer_SUCCESS   = 0x00000000,
-  mwFileTranfer_REJECTED  = 0x08000606,
+  mwFileTransfer_SUCCESS   = 0x00000000,
+  mwFileTransfer_REJECTED  = 0x08000606,
 };
 
 
@@ -93,6 +115,10 @@ void
 mwFileTransfer_free(struct mwFileTransfer *ft);
 
 
+enum mwFileTransferState
+mwfileTransfer_getState(struct mwFileTransfer *ft);
+
+
 /** the user on the other end of the file transfer */
 const struct mwIdBlock *
 mwFileTransfer_getUser(struct mwFileTransfer *ft);
@@ -116,15 +142,18 @@ guint32 mwFileTransfer_getRemaining(struct mwFileTransfer *ft);
   (mwFileTransfer_getFileSize(ft) - mwFileTransfer_getRemaining(ft))
 
 
+int mwFileTransfer_offer(struct mwFileTransfer *ft);
+
+
 int mwFileTransfer_accept(struct mwFileTransfer *ft);
 
 
 #define mwFileTransfer_reject(ft) \
-  mwFileTransfer_close((ft), mwFileTranfer_REJECTED)
+  mwFileTransfer_close((ft), mwFileTransfer_REJECTED)
 
 
 #define mwFileTransfer_cancel(ft) \
-  mwFileTransfer_close((ft), mwFileTranfer_SUCCESS);
+  mwFileTransfer_close((ft), mwFileTransfer_SUCCESS);
 
 
 int mwFileTransfer_close(struct mwFileTransfer *ft, guint32 code);

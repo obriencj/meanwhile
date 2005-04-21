@@ -159,7 +159,7 @@ void mwChannelSet_free(struct mwChannelSet *);
 
 
 /** Create an incoming channel with the given channel id. Channel's state
-    will be set to WAIT */
+    will be set to WAIT. Primarily for use in mw_session */
 struct mwChannel *mwChannel_newIncoming(struct mwChannelSet *, guint32 id);
 
 
