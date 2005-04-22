@@ -217,38 +217,65 @@ static void recv_channelDestroy(struct mwServiceFileTransfer *srvc,
 }
 
 
-static void recv(struct mwService *srvc, struct mwChannel *chan,
-		 guint16 type, struct mwOpaque *data) {
+static void recv_TRANSFER(struct mwFileTransfer *ft,
+			  struct mwOpaque *data) {
 
-  struct mwServiceFileTransfer *srvc_ft;
+  struct mwServiceFileTransfer *srvc;
   struct mwFileTransferHandler *handler;
-  struct mwFileTransfer *ft;
-
-  g_return_if_fail(type == msg_TRANSFER);
-
-  srvc_ft = (struct mwServiceFileTransfer *) srvc;
-  handler = srvc_ft->handler;
-
-  g_return_if_fail(handler != NULL);
   
-  ft = mwChannel_getServiceData(chan);
-  g_return_if_fail(ft != NULL);
+  srvc = ft->service;
+  handler = srvc->handler;
+
+  g_return_if_fail(mwFileTransfer_isOpen(ft));
 
   if(data->len > ft->remaining) {
     /* @todo handle error */
 
   } else {
     ft->remaining -= data->len;
+
+    if(! ft->remaining)
+      ft_state(ft, mwFileTransfer_DONE);
     
     if(handler->ft_recv)
-      handler->ft_recv(ft, data, !ft->remaining);
+      handler->ft_recv(ft, data);
+  }
+}
 
-    /* acknowledge receipt */
-    if(ft->remaining) {
-      mwChannel_sendEncrypted(chan, msg_RECEIVED, NULL, FALSE);
-    } else {
-      ft_state(ft, mwFileTransfer_DONE);
-    }
+
+static void recv_RECEIVED(struct mwFileTransfer *ft,
+			  struct mwOpaque *data) {
+
+  struct mwServiceFileTransfer *srvc;
+  struct mwFileTransferHandler *handler;
+  
+  srvc = ft->service;
+  handler = srvc->handler;
+
+  if(handler->ft_ack)
+    handler->ft_ack(ft);
+}
+
+
+static void recv(struct mwService *srvc, struct mwChannel *chan,
+		 guint16 type, struct mwOpaque *data) {
+
+  struct mwFileTransfer *ft;
+  
+  ft = mwChannel_getServiceData(chan);
+  g_return_if_fail(ft != NULL);
+
+  switch(type) {
+  case msg_TRANSFER:
+    recv_TRANSFER(ft, data);
+    break;
+
+  case msg_RECEIVED:
+    recv_RECEIVED(ft, data);
+    break;
+
+  default:
+    mw_debug_mailme(data, "unknown message in ft service: 0x%04x", type);
   }
 }
 
@@ -559,6 +586,7 @@ int mwFileTransfer_send(struct mwFileTransfer *ft,
   struct mwChannel *chan;
   int ret;
 
+  g_return_val_if_fail(ft != NULL, -1);
   g_return_val_if_fail(mwFileTransfer_isOpen(ft), -1);
   g_return_val_if_fail(ft->channel != NULL, -1);
   chan = ft->channel;
@@ -579,6 +607,18 @@ int mwFileTransfer_send(struct mwFileTransfer *ft,
   }
 
   return ret;
+}
+
+
+int mwFileTransfer_ack(struct mwFileTransfer *ft) {
+  struct mwChannel *chan;
+
+  g_return_val_if_fail(ft != NULL, -1);
+  g_return_val_if_fail(mwFileTransfer_isOpen(ft), -1);
+  g_return_val_if_fail(ft->channel != NULL, -1);
+  chan = ft->channel;
+
+  return mwChannel_sendEncrypted(chan, msg_RECEIVED, NULL, FALSE);
 }
 
 

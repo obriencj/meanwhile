@@ -272,8 +272,12 @@ static void recv(struct mwServiceResolve *srvc,
   g_return_if_fail(srvc != NULL);
   g_return_if_fail(chan != NULL);
   g_return_if_fail(chan == srvc->channel);
-  g_return_if_fail(type == RESOLVE_ACTION);
   g_return_if_fail(data != NULL);
+
+  if(type != RESOLVE_ACTION) {
+    mw_debug_mailme(data, "unknown message in resolve service: 0x%04x", type);
+    return;
+  }
 
   b = mwGetBuffer_wrap(data);
   guint32_get(b, &junk);

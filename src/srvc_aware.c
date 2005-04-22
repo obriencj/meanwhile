@@ -337,7 +337,7 @@ static void group_member_recv(struct mwServiceAware *srvc,
 }
 
 
-static void SNAPSHOT_recv(struct mwServiceAware *srvc,
+static void recv_SNAPSHOT(struct mwServiceAware *srvc,
 			  struct mwGetBuffer *b) {
 
   guint32 count;
@@ -366,7 +366,7 @@ static void SNAPSHOT_recv(struct mwServiceAware *srvc,
 }
 
 
-static void UPDATE_recv(struct mwServiceAware *srvc,
+static void recv_UPDATE(struct mwServiceAware *srvc,
 			struct mwGetBuffer *b) {
 
   struct mwAwareSnapshot *snap;
@@ -385,14 +385,14 @@ static void UPDATE_recv(struct mwServiceAware *srvc,
 }
 
 
-static void GROUP_recv(struct mwServiceAware *srvc,
+static void recv_GROUP(struct mwServiceAware *srvc,
 		       struct mwGetBuffer *b) {
 
   struct mwAwareIdBlock idb = { 0, 0, 0 };
 
   /* really nothing to be done with this. The group should have
      already been added to the list and service, and is now simply
-     awaiting a snapshot with users listed as belonging in said
+     awaiting a snapshot/update with users listed as belonging in said
      group. */
 
   mwAwareIdBlock_get(b, &idb);
@@ -414,15 +414,15 @@ static void recv(struct mwService *srvc, struct mwChannel *chan,
 
   switch(type) {
   case msg_AWARE_SNAPSHOT:
-    SNAPSHOT_recv(srvc_aware, b);
+    recv_SNAPSHOT(srvc_aware, b);
     break;
 
   case msg_AWARE_UPDATE:
-    UPDATE_recv(srvc_aware, b);
+    recv_UPDATE(srvc_aware, b);
     break;
 
   case msg_AWARE_GROUP:
-    GROUP_recv(srvc_aware, b);
+    recv_GROUP(srvc_aware, b);
     break;
 
   default:

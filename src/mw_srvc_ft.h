@@ -74,6 +74,12 @@ enum mwFileTransferState {
 #define mwFileTransfer_isDone(ft) \
   mwFileTransfer_isState((ft), mwFileTransfer_DONE)
 
+#define mwFileTransfer_isCancelLocal(ft) \
+  mwFileTransfer_isState((ft), mwFileTransfer_CANCEL_LOCAL)
+
+#define mwFileTransfer_isCancelRemote(ft) \
+  mwFileTransfer_isState((ft), mwFileTransfer_CANCEL_REMOTE)
+
 
 enum mwFileTranferCode {
   mwFileTransfer_SUCCESS   = 0x00000000,
@@ -93,8 +99,10 @@ struct mwFileTransferHandler {
   void (*ft_closed)(struct mwFileTransfer *ft, guint32 code);
 
   /** receive a chunk of a file from an inbound file transfer */
-  void (*ft_recv)(struct mwFileTransfer *ft,
-		  struct mwOpaque *data, gboolean done);
+  void (*ft_recv)(struct mwFileTransfer *ft, struct mwOpaque *data);
+
+  /** received an ack for a sent chunk on an outbound file transfer */
+  void (*ft_ack)(struct mwFileTransfer *ft);
 
   /** optional. called from mwService_free */
   void (*clear)(struct mwServiceFileTransfer *srvc);
@@ -169,9 +177,26 @@ int mwFileTransfer_accept(struct mwFileTransfer *ft);
 int mwFileTransfer_close(struct mwFileTransfer *ft, guint32 code);
 
 
-/** send a chunk of data over an outbound file transfer */
+/** send a chunk of data over an outbound file transfer. The client at
+    the other end of the transfer should respond with an acknowledgement
+    message, which can be caught in the service's handler.
+
+    @relates mwFileTransferHandler::ft_ack
+*/
 int mwFileTransfer_send(struct mwFileTransfer *ft,
 			struct mwOpaque *data, gboolean done);
+
+
+/** acknowledge the receipt of a chunk of data from an inbound file
+    transfer.  This should be done after every received chunk, or the
+    transfer will stall. However, not all clients will wait for an ack
+    after sending a chunk before sending the next chunk, so it is
+    possible to have the handler's ft_recv function triggered again
+    even if no ack was sent.
+
+    @relates mwFileTransferHandler::ft_recv
+*/
+int mwFileTransfer_ack(struct mwFileTransfer *ft);
 
 
 void mwFileTransfer_setClientData(struct mwFileTransfer *ft,
