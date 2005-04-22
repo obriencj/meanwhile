@@ -40,6 +40,10 @@
 #define msg_TRANSFER  0x0001
 
 
+/** ack received transfer data */
+#define msg_RECEIVED  0x0002
+
+
 struct mwServiceFileTransfer {
   struct mwService service;
 
@@ -238,6 +242,13 @@ static void recv(struct mwService *srvc, struct mwChannel *chan,
     
     if(handler->ft_recv)
       handler->ft_recv(ft, data, !ft->remaining);
+
+    /* acknowledge receipt */
+    if(ft->remaining) {
+      mwChannel_sendEncrypted(chan, msg_RECEIVED, NULL, FALSE);
+    } else {
+      ft_state(ft, mwFileTransfer_DONE);
+    }
   }
 }
 

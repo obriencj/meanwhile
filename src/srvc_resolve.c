@@ -204,7 +204,6 @@ static void recv_destroy(struct mwServiceResolve *srvc,
 static GList *load_matches(struct mwGetBuffer *b, guint32 count) {
   GList *matches = NULL;
 
-  /** @todo actually load matches */
   while(count--) {
     struct mwResolveMatch *m = g_new0(struct mwResolveMatch, 1);
 
@@ -223,7 +222,6 @@ static GList *load_matches(struct mwGetBuffer *b, guint32 count) {
 static GList *load_results(struct mwGetBuffer *b, guint32 count) {
   GList *results = NULL;
 
-  /** @todo actually load results */
   while(count--) {
     struct mwResolveResult *r = g_new0(struct mwResolveResult, 1);
     guint32 junk, matches;

@@ -195,26 +195,30 @@ int mwAwareList_removeAware(struct mwAwareList *list, GList *id_list);
 
 
 /** watch an NULL terminated array of keys */
-int mwAwareList_watchAttributeArray(struct mwServiceAware *srvc,
+int mwAwareList_watchAttributeArray(struct mwAwareList *list,
 				    guint32 *keys);
 
 
 /** watch a NULL terminated list of keys */
-int mwAwareList_watchAttributes(struct mwServiceAware *srvc,
+int mwAwareList_watchAttributes(struct mwAwareList *list,
 				guint32 key, ...);
 
 
 /** stop watching a NULL terminated array of keys */
-int mwAwareList_unwatchAttributeArray(struct mwServiceAware *srvc,
+int mwAwareList_unwatchAttributeArray(struct mwAwareList *list,
 				      guint32 *keys);
 
+
 /** stop watching a NULL terminated list of keys */
-int mwAwareList_unwatchAttributes(struct mwServiceAware *srvc,
+int mwAwareList_unwatchAttributes(struct mwAwareList *list,
 				  guint32 key, ...);
 
 
 /** remove all watched attributes */
-int mwAwareList_unwatchAllAttributes(struct mwServiceAware *srvc);
+int mwAwareList_unwatchAllAttributes(struct mwAwareList *list);
+
+
+guint32 *mwAwareList_getWatchedAttributes(struct mwAwareList *list);
 
 
 void mwAwareList_setClientData(struct mwAwareList *list,
