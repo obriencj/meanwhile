@@ -167,11 +167,11 @@ struct mwGetBuffer *mwGetBuffer_new(struct mwOpaque *o) {
 }
 
 
-struct mwGetBuffer *mwGetBuffer_wrap(struct mwOpaque *o) {
+struct mwGetBuffer *mwGetBuffer_wrap(const struct mwOpaque *o) {
   struct mwGetBuffer *b = g_new0(struct mwGetBuffer, 1);
 
   if(o && o->len) {
-    b->buf = b->ptr = o->data;
+    b->buf = b->ptr = (char *) o->data;
     b->len = b->rem = o->len;
   }
   b->wrap = TRUE;

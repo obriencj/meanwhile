@@ -263,7 +263,7 @@ gsize mwGetBuffer_advance(struct mwGetBuffer *b, gsize len);
 /** allocate a new buffer backed by the given data. Calling
     mwGetBuffer_free will not result in the underlying data being
     freed */
-struct mwGetBuffer *mwGetBuffer_wrap(struct mwOpaque *data);
+struct mwGetBuffer *mwGetBuffer_wrap(const struct mwOpaque *data);
 
 
 /** destroy the buffer */
