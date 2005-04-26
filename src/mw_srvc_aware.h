@@ -194,6 +194,9 @@ int mwAwareList_addAware(struct mwAwareList *list, GList *id_list);
 int mwAwareList_removeAware(struct mwAwareList *list, GList *id_list);
 
 
+int mwAwareList_removeAllAware(struct mwAwareList *list);
+
+
 /** watch an NULL terminated array of keys */
 int mwAwareList_watchAttributeArray(struct mwAwareList *list,
 				    guint32 *keys);
