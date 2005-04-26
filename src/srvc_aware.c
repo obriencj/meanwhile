@@ -361,8 +361,9 @@ static void status_recv(struct mwServiceAware *srvc,
   for(l = aware->membership; l; l = l->next) {
     struct mwAwareList *alist = l->data;
     struct mwAwareListHandler *handler = alist->handler;
+
     if(handler && handler->on_aware)
-      handler->on_aware(alist, &aware->aware);
+      handler->on_aware(alist, idb);
   }
 }
 

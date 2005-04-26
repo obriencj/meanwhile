@@ -1,11 +1,9 @@
 
 version 0.4.1 (cvs)
-	
-	Todo
-	- Add attribute support to Aware Service
-	- Complete the File Transfer service
-	
+
 	Features
+	- Support for File Transfers (mwServiceFileTransfer)
+	- Support for getting/setting Aware attributes
 	- Support sending the LoginCont message in response to a
 	LoginRedirect
 	- Support for multi-segment messages from NotesBuddy (fixes
