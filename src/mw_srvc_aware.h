@@ -162,7 +162,7 @@ char *mwAwareAttribute_asString(const struct mwAwareAttribute *attrib);
 
 
 /** Direct access to an attribute's underlying opaque */
-struct mwOpaque *
+const struct mwOpaque *
 mwAwareAttribute_asOpaque(const struct mwAwareAttribute *attrib);
 
 

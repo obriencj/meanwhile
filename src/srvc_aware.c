@@ -868,7 +868,7 @@ char *mwAwareAttribute_asString(const struct mwAwareAttribute *attrib) {
 }
 
 
-struct mwOpaque *
+const struct mwOpaque *
 mwAwareAttribute_asOpaque(const struct mwAwareAttribute *attrib) {
   g_return_val_if_fail(attrib != NULL, NULL);
   return &attrib->data;
