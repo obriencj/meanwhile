@@ -247,6 +247,14 @@ const char *mwServiceAware_getText(struct mwServiceAware *srvc,
 				   struct mwAwareIdBlock *user);
 
 
+/** look up the last known copy of an attribute for a user by the
+    attribute's key */
+const struct mwAwareAttribute *
+mwServiceAware_getAttribute(struct mwServiceAware *srvc,
+			    struct mwAwareIdBlock *user,
+			    guint32 key);
+
+
 #endif
 
 

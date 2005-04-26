@@ -378,14 +378,17 @@ static void attrib_recv(struct mwServiceAware *srvc,
   gpointer k;
 
   aware = aware_find(srvc, idb);
-  if(! aware) return;
+  g_return_if_fail(aware != NULL);
 
   key = attrib->key;
   k = GUINT_TO_POINTER(key);
 
-  old_attrib = g_hash_table_lookup(aware->attribs, k);
+  g_debug("updating attrib for (%s, %s)",
+	  NSTR(idb->user), NSTR(idb->community));
 
+  old_attrib = g_hash_table_lookup(aware->attribs, k);
   if(! old_attrib) {
+    g_debug("no old value for attrib 0x%x", key);
     old_attrib = g_new0(struct mwAwareAttribute, 1);
     old_attrib->key = key;
     g_hash_table_insert(aware->attribs, k, old_attrib);
@@ -791,23 +794,77 @@ guint32 mwAwareAttribute_getKey(struct mwAwareAttribute *attrib) {
 
 
 gboolean mwAwareAttribute_asBoolean(struct mwAwareAttribute *attrib) {
+  struct mwGetBuffer *b;
+  gboolean ret;
+  
   if(! attrib) return FALSE;
-  /* @todo */
-  return FALSE;
+
+  b = mwGetBuffer_wrap(&attrib->data);
+  if(attrib->data.len >= 4) {
+    guint32 r32 = 0x00;
+    guint32_get(b, &r32);
+    ret = !! r32;
+
+  } else if(attrib->data.len >= 2) {
+    guint16 r16 = 0x00;
+    guint16_get(b, &r16);
+    ret = !! r16;
+
+  } else if(attrib->data.len) {
+    gboolean_get(b, &ret);
+  }
+
+  mwGetBuffer_free(b);
+
+  return ret;
 }
 
 
 guint32 mwAwareAttribute_asInteger(struct mwAwareAttribute *attrib) {
+  struct mwGetBuffer *b;
+  guint32 r32 = 0x00;
+  
   if(! attrib) return 0x00;
-  /* @todo */
-  return 0x00;
+
+  b = mwGetBuffer_wrap(&attrib->data);
+  if(attrib->data.len >= 4) {
+    guint32_get(b, &r32);
+
+  } else if(attrib->data.len == 3) {
+    gboolean rb = FALSE;
+    guint16 r16 = 0x00;
+    gboolean_get(b, &rb);
+    guint16_get(b, &r16);
+    r32 = (guint32) r16;
+
+  } else if(attrib->data.len == 2) {
+    guint16 r16 = 0x00;
+    guint16_get(b, &r16);
+    r32 = (guint32) r16;
+
+  } else if(attrib->data.len) {
+    gboolean rb = FALSE;
+    gboolean_get(b, &rb);
+    r32 = (guint32) rb;
+  }
+
+  mwGetBuffer_free(b);
+
+  return r32;
 }
 
 
 char *mwAwareAttribute_asString(struct mwAwareAttribute *attrib) {
+  struct mwGetBuffer *b;
+  char *ret = NULL;
+
   if(! attrib) return NULL;
-  /* @todo */
-  return NULL;
+
+  b = mwGetBuffer_wrap(&attrib->data);
+  mwString_get(b, &ret);
+  mwGetBuffer_free(b);
+
+  return ret;
 }
 
 
@@ -1162,6 +1219,24 @@ void mwServiceAware_setStatus(struct mwServiceAware *srvc,
   idb.name = NULL;
 
   status_recv(srvc, &idb);
+}
+
+
+const struct mwAwareAttribute *
+mwServiceAware_getAttribute(struct mwServiceAware *srvc,
+			    struct mwAwareIdBlock *user,
+			    guint32 key) {
+
+  struct aware_entry *aware;
+
+  g_return_val_if_fail(srvc != NULL, NULL);
+  g_return_val_if_fail(user != NULL, NULL);
+  g_return_val_if_fail(key != 0x00, NULL);
+
+  aware = aware_find(srvc, user);
+  g_return_val_if_fail(aware != NULL, NULL);
+
+  return g_hash_table_lookup(aware->attribs, GUINT_TO_POINTER(key));
 }
 
 
