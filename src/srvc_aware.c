@@ -787,13 +787,13 @@ int mwServiceAware_unsetAttribute(struct mwServiceAware *srvc,
 
 
 
-guint32 mwAwareAttribute_getKey(struct mwAwareAttribute *attrib) {
+guint32 mwAwareAttribute_getKey(const struct mwAwareAttribute *attrib) {
   g_return_val_if_fail(attrib != NULL, 0x00);
   return attrib->key;
 }
 
 
-gboolean mwAwareAttribute_asBoolean(struct mwAwareAttribute *attrib) {
+gboolean mwAwareAttribute_asBoolean(const struct mwAwareAttribute *attrib) {
   struct mwGetBuffer *b;
   gboolean ret;
   
@@ -820,7 +820,7 @@ gboolean mwAwareAttribute_asBoolean(struct mwAwareAttribute *attrib) {
 }
 
 
-guint32 mwAwareAttribute_asInteger(struct mwAwareAttribute *attrib) {
+guint32 mwAwareAttribute_asInteger(const struct mwAwareAttribute *attrib) {
   struct mwGetBuffer *b;
   guint32 r32 = 0x00;
   
@@ -854,7 +854,7 @@ guint32 mwAwareAttribute_asInteger(struct mwAwareAttribute *attrib) {
 }
 
 
-char *mwAwareAttribute_asString(struct mwAwareAttribute *attrib) {
+char *mwAwareAttribute_asString(const struct mwAwareAttribute *attrib) {
   struct mwGetBuffer *b;
   char *ret = NULL;
 
@@ -868,7 +868,8 @@ char *mwAwareAttribute_asString(struct mwAwareAttribute *attrib) {
 }
 
 
-struct mwOpaque *mwAwareAttribute_asOpaque(struct mwAwareAttribute *attrib) {
+struct mwOpaque *
+mwAwareAttribute_asOpaque(const struct mwAwareAttribute *attrib) {
   g_return_val_if_fail(attrib != NULL, NULL);
   return &attrib->data;
 }

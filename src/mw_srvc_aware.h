@@ -147,22 +147,23 @@ int mwServiceAware_unsetAttribute(struct mwServiceAware *srvc,
 				  guint32 key);
 
 
-guint32 mwAwareAttribute_getKey(struct mwAwareAttribute *attrib);
+guint32 mwAwareAttribute_getKey(const struct mwAwareAttribute *attrib);
 
 
-gboolean mwAwareAttribute_asBoolean(struct mwAwareAttribute *attrib);
+gboolean mwAwareAttribute_asBoolean(const struct mwAwareAttribute *attrib);
 
 
-guint32 mwAwareAttribute_asInteger(struct mwAwareAttribute *attrib);
+guint32 mwAwareAttribute_asInteger(const struct mwAwareAttribute *attrib);
 
 
 /** Copy of attribute string, must be g_free'd. If the attribute's
     content cannot be loaded as a string, returns NULL */
-char *mwAwareAttribute_asString(struct mwAwareAttribute *attrib);
+char *mwAwareAttribute_asString(const struct mwAwareAttribute *attrib);
 
 
 /** Direct access to an attribute's underlying opaque */
-struct mwOpaque *mwAwareAttribute_asOpaque(struct mwAwareAttribute *attrib);
+struct mwOpaque *
+mwAwareAttribute_asOpaque(const struct mwAwareAttribute *attrib);
 
 
 /** Allocate and initialize an aware list */
