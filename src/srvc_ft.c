@@ -615,9 +615,10 @@ int mwFileTransfer_ack(struct mwFileTransfer *ft) {
   struct mwChannel *chan;
 
   g_return_val_if_fail(ft != NULL, -1);
-  g_return_val_if_fail(mwFileTransfer_isOpen(ft), -1);
-  g_return_val_if_fail(ft->channel != NULL, -1);
+
   chan = ft->channel;
+  g_return_val_if_fail(chan != NULL, -1);
+  g_return_val_if_fail(mwChannel_isOutgoing(chan), -1);
 
   return mwChannel_sendEncrypted(chan, msg_RECEIVED, NULL, FALSE);
 }
