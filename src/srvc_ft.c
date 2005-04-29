@@ -606,6 +606,9 @@ int mwFileTransfer_send(struct mwFileTransfer *ft,
 
   ret = mwChannel_send(chan, msg_TRANSFER, data);
   if(! ret) ft->remaining -= data->len;
+  
+  /* we're not done until we receive an ACK for the last piece of
+     outgoing data */
 
   return ret;
 }
