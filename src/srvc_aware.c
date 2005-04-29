@@ -384,12 +384,8 @@ static void attrib_recv(struct mwServiceAware *srvc,
   key = attrib->key;
   k = GUINT_TO_POINTER(key);
 
-  g_debug("updating attrib for (%s, %s)",
-	  NSTR(idb->user), NSTR(idb->community));
-
   old_attrib = g_hash_table_lookup(aware->attribs, k);
   if(! old_attrib) {
-    g_debug("no old value for attrib 0x%x", key);
     old_attrib = g_new0(struct mwAwareAttribute, 1);
     old_attrib->key = key;
     g_hash_table_insert(aware->attribs, k, old_attrib);
@@ -526,8 +522,6 @@ static void recv_OPT_GOT_SET(struct mwServiceAware *srvc,
   struct mwAwareAttribute attrib;
   struct mwAwareIdBlock idb;
   guint32 junk, check;
-
-  g_debug("recv_OPT_GOT_SET");
 
   guint32_get(b, &junk);
   mwAwareIdBlock_get(b, &idb);
