@@ -28,7 +28,8 @@
 
 /** @file mw_srvc_ft.h
 
-    File transfer service
+    A file transfer is a simple way to get large chunks of binary data
+    from one client to another.
 */
 
 
@@ -92,16 +93,20 @@ struct mwFileTransferHandler {
   /** an incoming file transfer has been offered */
   void (*ft_offered)(struct mwFileTransfer *ft);
 
-  /** a file transfer has been initiated */
+  /** a file transfer has been fully initiated */
   void (*ft_opened)(struct mwFileTransfer *ft);
 
-  /** a file transfer has been terminated */
+  /** a file transfer has been closed. Check the status of the file
+      transfer to determine if the transfer was complete or if it had
+      been interrupted */
   void (*ft_closed)(struct mwFileTransfer *ft, guint32 code);
 
-  /** receive a chunk of a file from an inbound file transfer */
+  /** receive a chunk of a file from an inbound file transfer. */
   void (*ft_recv)(struct mwFileTransfer *ft, struct mwOpaque *data);
 
-  /** received an ack for a sent chunk on an outbound file transfer */
+  /** received an ack for a sent chunk on an outbound file transfer.
+      this indicates that a previous call to mwFileTransfer_send has
+      reached the target and that the target has responded. */
   void (*ft_ack)(struct mwFileTransfer *ft);
 
   /** optional. called from mwService_free */
@@ -124,11 +129,13 @@ mwFileTransfer_new(struct mwServiceFileTransfer *srvc,
 		   const char *filename, guint32 filesize);
 
 
-/** deallocate a file transfer */
+/** deallocate a file transfer. will call mwFileTransfer_close if
+    necessary */
 void
 mwFileTransfer_free(struct mwFileTransfer *ft);
 
 
+/** the status of this file transfer */
 enum mwFileTransferState
 mwFileTransfer_getState(struct mwFileTransfer *ft);
 
@@ -142,38 +149,54 @@ const struct mwIdBlock *
 mwFileTransfer_getUser(struct mwFileTransfer *ft);
 
 
+/** the message sent along with an offered file transfer */
 const char *
 mwFileTransfer_getMessage(struct mwFileTransfer *ft);
 
 
+/** the publicized file name. Not necessarily related to any actual
+    file on either system */
 const char *
 mwFileTransfer_getFileName(struct mwFileTransfer *ft);
 
 
+/** total bytes intended to be sent/received */
 guint32 mwFileTransfer_getFileSize(struct mwFileTransfer *ft);
 
 
+/** bytes remaining to be received/send */
 guint32 mwFileTransfer_getRemaining(struct mwFileTransfer *ft);
 
 
+/** count of bytes sent/received over this file transfer so far */
 #define mwFileTransfer_getSent(ft) \
   (mwFileTransfer_getFileSize(ft) - mwFileTransfer_getRemaining(ft))
 
 
+/** initiate an outgoing file transfer */
 int mwFileTransfer_offer(struct mwFileTransfer *ft);
 
 
+/** accept an incoming file transfer */
 int mwFileTransfer_accept(struct mwFileTransfer *ft);
 
 
+/** reject an incoming file transfer */
 #define mwFileTransfer_reject(ft) \
   mwFileTransfer_close((ft), mwFileTransfer_REJECTED)
 
 
+/** cancel an open file transfer */
 #define mwFileTransfer_cancel(ft) \
   mwFileTransfer_close((ft), mwFileTransfer_SUCCESS);
 
 
+/** Close a file transfer. This will trigger the ft_close function of the
+    session's handler.
+
+    @relates mwFileTransfer_reject
+    @relates mwFileTransfer_cancel
+*/
 int mwFileTransfer_close(struct mwFileTransfer *ft, guint32 code);
 
 

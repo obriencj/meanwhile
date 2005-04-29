@@ -1,6 +1,6 @@
 
 # version of meanwhile
-m4_define(meanwhile_version,		0.4.1cvs)
+m4_define(meanwhile_version,		0.4.1)
 
 # release of meanwhile
 m4_define(meanwhile_release,		0)
@@ -69,3 +69,4 @@ AC_CONFIG_FILES(
 )
 
 AC_OUTPUT()
+
