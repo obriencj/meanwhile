@@ -184,7 +184,7 @@ int mwFileTransfer_close(struct mwFileTransfer *ft, guint32 code);
     @relates mwFileTransferHandler::ft_ack
 */
 int mwFileTransfer_send(struct mwFileTransfer *ft,
-			struct mwOpaque *data, gboolean done);
+			struct mwOpaque *data);
 
 
 /** acknowledge the receipt of a chunk of data from an inbound file

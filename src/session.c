@@ -454,9 +454,12 @@ static void CHANNEL_DESTROY_recv(struct mwSession *s,
 
   } else {
     struct mwChannel *chan;
-
     chan = mwChannel_find(s->channels, msg->head.channel);
-    g_return_if_fail(chan != NULL);
+
+    /* we don't have any such channel... so I guess we destroyed it.
+       This is to remove a warning from timing errors when two clients
+       both try to close a channel at about the same time. */
+    if(! chan) return;
     
     /* hand off to channel */
     mwChannel_recvDestroy(chan, msg);
@@ -469,7 +472,9 @@ static void CHANNEL_SEND_recv(struct mwSession *s,
   struct mwChannel *chan;
   chan = mwChannel_find(s->channels, msg->head.channel);
 
-  g_return_if_fail(chan != NULL);
+  /* if we don't have any such channel, we're certainly not going to
+     accept data from it */
+  if(! chan) return;
 
   /* hand off to channel */
   mwChannel_recv(chan, msg);

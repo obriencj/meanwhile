@@ -87,14 +87,10 @@ void mwService_recvDestroy(struct mwService *s, struct mwChannel *chan,
 void mwService_recv(struct mwService *s, struct mwChannel *chan,
 		    guint16 msg_type, struct mwOpaque *data) {
 
-  /* ensure that none are null. data len should be something
-     greater-than zero, as empty messages are supposed to be filtered
-     at the session level. ensure that the service and channel belong
-     to the same session */
+  /* ensure that none are null. zero-length messages are acceptable */
   g_return_if_fail(s != NULL);
   g_return_if_fail(chan != NULL);
   g_return_if_fail(data != NULL);
-  g_return_if_fail(data->len > 0);
   g_return_if_fail(s->session == mwChannel_getSession(chan));
 
   /*

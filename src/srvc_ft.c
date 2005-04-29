@@ -252,8 +252,14 @@ static void recv_RECEIVED(struct mwFileTransfer *ft,
   srvc = ft->service;
   handler = srvc->handler;
 
+  if(! ft->remaining)
+    ft_state(ft, mwFileTransfer_DONE);
+
   if(handler->ft_ack)
     handler->ft_ack(ft);
+
+  if(! ft->remaining)
+    mwFileTransfer_close(ft, ERR_SUCCESS);
 }
 
 
@@ -581,7 +587,7 @@ void mwFileTransfer_free(struct mwFileTransfer *ft) {
 
 
 int mwFileTransfer_send(struct mwFileTransfer *ft,
-			struct mwOpaque *data, gboolean done) {
+			struct mwOpaque *data) {
 
   struct mwChannel *chan;
   int ret;
@@ -600,11 +606,6 @@ int mwFileTransfer_send(struct mwFileTransfer *ft,
 
   ret = mwChannel_send(chan, msg_TRANSFER, data);
   if(! ret) ft->remaining -= data->len;
-
-  if(done) {
-    ft_state(ft, mwFileTransfer_DONE);
-    mwFileTransfer_close(ft, ERR_SUCCESS);
-  }
 
   return ret;
 }
