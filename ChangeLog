@@ -10,6 +10,7 @@ version 0.4.1 (2004-05-29)
 	problems with large MIME, text, and HTML messages)
 	
 	Bug Fixes
+	- Bug #1192747 Crash when someone initiate talk with me
 	- Bug #1168421 crash when opening specific contacts
 	- Problem with NAB group members not being announced after the
 	initial group status update

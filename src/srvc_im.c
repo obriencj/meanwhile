@@ -266,7 +266,6 @@ static void convo_free(struct mwConversation *conv) {
 static int send_accept(struct mwConversation *c) {
   struct mwChannel *chan = c->channel;
   struct mwSession *s = mwChannel_getSession(chan);
-  struct mwUserStatus *stat = mwSession_getUserStatus(s);
   struct mwPutBuffer *b;
   struct mwOpaque *o;
 
@@ -278,8 +277,6 @@ static int send_accept(struct mwConversation *c) {
   o = mwChannel_getAddtlAccept(chan);
   mwOpaque_clear(o);
   mwPutBuffer_finalize(o, b);
-
-  mwUserStatus_put(b, stat);
 
   return mwChannel_accept(chan);
 }
