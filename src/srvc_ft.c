@@ -259,7 +259,7 @@ static void recv_RECEIVED(struct mwFileTransfer *ft,
     handler->ft_ack(ft);
 
   if(! ft->remaining)
-    mwFileTransfer_close(ft, ERR_SUCCESS);
+    mwFileTransfer_close(ft, mwFileTransfer_SUCCESS);
 }
 
 
