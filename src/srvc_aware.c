@@ -441,15 +441,24 @@ static void group_member_recv(struct mwServiceAware *srvc,
 
   struct mwAwareIdBlock gsrch = { mwAware_GROUP, idb->group, NULL };
   struct aware_entry *grp;
-  GList *m;
+  GList *l, *m;
 
   grp = aware_find(srvc, &gsrch);
   g_return_if_fail(grp != NULL); /* this could happen, with timing. */
 
+  l = g_list_prepend(NULL, &idb->id);
+
   for(m = grp->membership; m; m = m->next) {
-    list_add(m->data, &idb->id);
-    /* mwAwareList_addAware(m->data, &idb->id, 1); */
+
+    /* if we just list_add, we won't receive updates for attributes,
+       so annoyingly we have to turn around and send out an add aware
+       message for each incoming group member */
+
+    /* list_add(m->data, &idb->id); */
+    mwAwareList_addAware(m->data, l);
   }
+
+  g_list_free(l);
 }
 
 
@@ -779,9 +788,6 @@ int mwServiceAware_unsetAttribute(struct mwServiceAware *srvc,
 }
 
 
-
-
-
 guint32 mwAwareAttribute_getKey(const struct mwAwareAttribute *attrib) {
   g_return_val_if_fail(attrib != NULL, 0x00);
   return attrib->key;
@@ -924,8 +930,6 @@ static void watch_add(struct mwAwareList *list, guint32 key) {
   struct mwServiceAware *srvc;
   struct attrib_entry *watch;
   gpointer k = GUINT_TO_POINTER(key);
-
-  g_info("watch_add, key 0x%0x", key);
 
   if(g_hash_table_lookup(list->attribs, k))
     return;
