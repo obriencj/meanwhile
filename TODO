@@ -12,11 +12,7 @@
 
 - Directory Service
 
-- File Transfer Service
-  - need traces of multi-message transfers
-
 - Aware Service
-  - Attributes
   - remove getText stuff, make the clients records that stuff
 
 - IM Service
