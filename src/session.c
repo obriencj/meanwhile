@@ -481,6 +481,18 @@ static void CHANNEL_SEND_recv(struct mwSession *s,
 }
 
 
+static void SET_PRIVACY_LIST_recv(struct mwSession *s,
+				  struct mwMsgSetPrivacyList *msg) {
+  struct mwSessionHandler *sh = s->handler;
+
+  mwPrivacyInfo_clear(&s->privacy);
+  mwPrivacyInfo_clone(&s->privacy, &msg->privacy);
+
+  if(sh && sh->on_setPrivacyInfo)
+    sh->on_setPrivacyInfo(s);
+}
+
+
 static void SET_USER_STATUS_recv(struct mwSession *s,
 				 struct mwMsgSetUserStatus *msg) {
   struct mwSessionHandler *sh = s->handler;
@@ -556,6 +568,7 @@ static void session_process(struct mwSession *s,
     CASE(CHANNEL_DESTROY, mwMsgChannelDestroy);
     CASE(CHANNEL_SEND, mwMsgChannelSend);
     CASE(CHANNEL_ACCEPT, mwMsgChannelAccept);
+    CASE(SET_PRIVACY_LIST, mwMsgSetPrivacyList);
     CASE(SET_USER_STATUS, mwMsgSetUserStatus);
     CASE(SENSE_SERVICE, mwMsgSenseService);
     CASE(ADMIN, mwMsgAdmin);
@@ -810,11 +823,13 @@ int mwSession_forceLogin(struct mwSession *s) {
   struct mwMsgLoginContinue *msg;
   int ret;
 
+  g_return_val_if_fail(s != NULL, -1);
   g_return_val_if_fail(mwSession_isState(s, mwSession_LOGIN_REDIR), -1);
   
   state(s, mwSession_LOGIN_CONT, 0x00);
 
-  msg = (struct mwMsgLoginContinue *) mwMessage_new(mwMessage_LOGIN_CONTINUE);
+  msg = (struct mwMsgLoginContinue *)
+    mwMessage_new(mwMessage_LOGIN_CONTINUE);
 
   ret = mwSession_send(s, MW_MESSAGE(msg));
   mwMessage_free(MW_MESSAGE(msg));
@@ -837,8 +852,22 @@ struct mwLoginInfo *mwSession_getLoginInfo(struct mwSession *s) {
 
 int mwSession_setPrivacyInfo(struct mwSession *s,
 			     struct mwPrivacyInfo *privacy) {
-  /** @todo actually implement */
-  return 0;
+
+  struct mwMsgSetPrivacyList *msg;
+  int ret;
+
+  g_return_val_if_fail(s != NULL, -1);
+  g_return_val_if_fail(privacy != NULL, -1);
+
+  msg = (struct mwMsgSetPrivacyList *)
+    mwMessage_new(mwMessage_SET_PRIVACY_LIST);
+
+  mwPrivacyInfo_clone(&msg->privacy, privacy);
+
+  ret = mwSession_send(s, MW_MESSAGE(msg));
+  mwMessage_free(MW_MESSAGE(msg));
+
+  return ret;
 }
 
 

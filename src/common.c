@@ -628,6 +628,23 @@ void mwPrivacyInfo_get(struct mwGetBuffer *b, struct mwPrivacyInfo *info) {
 }
 
 
+void mwPrivacyInfo_clone(struct mwPrivacyInfo *to,
+			 const struct mwPrivacyInfo *from) {
+
+  guint32 c;
+
+  g_return_if_fail(to != NULL);
+  g_return_if_fail(from != NULL);
+
+  to->reserved = from->reserved;
+  to->deny = from->deny;
+  to->count = from->count;
+
+  to->users = g_new0(struct mwUserItem, c);
+  for(c = to->count; c--; ) mwUserItem_clone(to->users+c, from->users+c);
+}
+
+
 void mwPrivacyInfo_clear(struct mwPrivacyInfo *info) {
   struct mwUserItem *u;
   guint32 c;
