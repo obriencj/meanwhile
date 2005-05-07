@@ -137,14 +137,14 @@ struct mwLoginInfo {
 /* 8.2.2 Private Info Block */
 
 struct mwUserItem {
-  gboolean full;  /**< if FALSE, don't include name */
-  char *id;       /**< user id */
-  char *name;     /**< user name */
+  gboolean full;    /**< if FALSE, don't include name */
+  char *id;         /**< user id */
+  char *community;  /**< community */
+  char *name;       /**< user name */
 };
 
 
 struct mwPrivacyInfo {
-  guint16 reserved;          /**< reserved for internal use */
   gboolean deny;             /**< deny (true) or allow (false) users */
   guint32 count;             /**< count of users */
   struct mwUserItem *users;  /**< the users list */
@@ -356,6 +356,8 @@ void mwUserItem_put(struct mwPutBuffer *b, const struct mwUserItem *user);
 void mwUserItem_get(struct mwGetBuffer *b, struct mwUserItem *user);
 
 void mwUserItem_clear(struct mwUserItem *user);
+
+void mwUserItem_clone(struct mwUserItem *to, const struct mwUserItem *from);
 
 
 void mwPrivacyInfo_put(struct mwPutBuffer *b,

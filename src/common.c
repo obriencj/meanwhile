@@ -554,6 +554,7 @@ void mwUserItem_put(struct mwPutBuffer *b, const struct mwUserItem *user) {
 
   gboolean_put(b, user->full);
   mwString_put(b, user->id);
+  mwString_put(b, user->community);
   
   if(user->full)
     mwString_put(b, user->name);
@@ -568,6 +569,7 @@ void mwUserItem_get(struct mwGetBuffer *b, struct mwUserItem *user) {
 
   gboolean_get(b, &user->full);
   mwString_get(b, &user->id);
+  mwString_get(b, &user->community);
 
   if(user->full)
     mwString_get(b, &user->name);
@@ -578,9 +580,23 @@ void mwUserItem_clear(struct mwUserItem *user) {
   if(! user) return;
 
   g_free(user->id);
+  g_free(user->community);
   g_free(user->name);
 
   memset(user, 0x00, sizeof(struct mwUserItem));
+}
+
+
+void mwUserItem_clone(struct mwUserItem *to,
+		      const struct mwUserItem *from) {
+
+  g_return_if_fail(to != NULL);
+  g_return_if_fail(from != NULL);
+
+  to->full = from->full;
+  to->id = g_strdup(from->id);
+  to->community = g_strdup(from->community);
+  to->name = (to->full)? g_strdup(from->name): NULL;
 }
 
 
@@ -591,14 +607,10 @@ void mwPrivacyInfo_put(struct mwPutBuffer *b,
   g_return_if_fail(b != NULL);
   g_return_if_fail(info != NULL);
 
-  guint16_put(b, info->reserved);
   gboolean_put(b, info->deny);
   guint32_put(b, info->count);
 
-  for(c = info->count; c--; ) {
-    mwUserItem_put(b, info->users + c);
-    mwString_put(b, NULL);
-  }
+  for(c = info->count; c--; ) mwUserItem_put(b, info->users + c);
 }
 
 
@@ -608,22 +620,13 @@ void mwPrivacyInfo_get(struct mwGetBuffer *b, struct mwPrivacyInfo *info) {
 
   if(b->error) return;
 
-  guint16_get(b, &info->reserved);
   gboolean_get(b, &info->deny);
   guint32_get(b, &info->count);
 
   if(info->count) {
     guint32 c = info->count;
-
     info->users = g_new0(struct mwUserItem, c);
-
-    while(c--) {
-      char *unused = NULL;
-
-      mwUserItem_get(b, info->users + c);
-      mwString_get(b, &unused);
-      g_free(unused);
-    }
+    while(c--) mwUserItem_get(b, info->users + c);
   }
 }
 
@@ -636,12 +639,11 @@ void mwPrivacyInfo_clone(struct mwPrivacyInfo *to,
   g_return_if_fail(to != NULL);
   g_return_if_fail(from != NULL);
 
-  to->reserved = from->reserved;
   to->deny = from->deny;
-  to->count = from->count;
+  c = to->count = from->count;
 
   to->users = g_new0(struct mwUserItem, c);
-  for(c = to->count; c--; ) mwUserItem_clone(to->users+c, from->users+c);
+  while(c--) mwUserItem_clone(to->users+c, from->users+c);
 }
 
 
@@ -657,7 +659,8 @@ void mwPrivacyInfo_clear(struct mwPrivacyInfo *info) {
   while(c--) mwUserItem_clear(u + c);
   g_free(u);
 
-  memset(info, 0x00, sizeof(struct mwUserItem));
+  info->count = 0;
+  info->users = NULL;
 }
 
 

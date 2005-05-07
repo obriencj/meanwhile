@@ -485,6 +485,8 @@ static void SET_PRIVACY_LIST_recv(struct mwSession *s,
 				  struct mwMsgSetPrivacyList *msg) {
   struct mwSessionHandler *sh = s->handler;
 
+  g_info("SET_PRIVACY_LIST");
+
   mwPrivacyInfo_clear(&s->privacy);
   mwPrivacyInfo_clone(&s->privacy, &msg->privacy);
 
@@ -575,6 +577,11 @@ static void session_process(struct mwSession *s,
     
   default:
     g_warning("unknown message type 0x%04x, no handler", msg->type);
+  }
+
+  if(mwGetBuffer_error(b)) {
+    struct mwOpaque o = { .data = (char *) buf, .len = len };
+    mw_debug_mailme(&o, "parsing of message type 0x%04x failed", msg->type);
   }
 
   mwGetBuffer_free(b);

@@ -232,8 +232,7 @@ int mwSession_forceLogin(struct mwSession *s);
 
 
 /** set the internal privacy information, and inform the server as
-    necessary. Triggers the on_setPrivacyInfo call-back. Not yet
-    implemented */
+    necessary. Triggers the on_setPrivacyInfo call-back. */
 int mwSession_setPrivacyInfo(struct mwSession *, struct mwPrivacyInfo *);
 
 

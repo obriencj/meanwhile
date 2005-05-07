@@ -46,7 +46,7 @@ enum mwMessageType {
   mwMessage_CHANNEL_ACCEPT    = 0x0006,  /**< mwMsgChannelAccept */
 
   mwMessage_SET_USER_STATUS   = 0x0009,  /**< mwMsgSetUserStatus */
-  mwMessage_SET_PRIVACY_LIST  = 0x0010,  /**< mwMsgSetPrivacyList */
+  mwMessage_SET_PRIVACY_LIST  = 0x000b,  /**< mwMsgSetPrivacyList */
   mwMessage_SENSE_SERVICE     = 0x0011,  /**< mwMsgSenseService */
   mwMessage_ADMIN             = 0x0019,  /**< mwMsgAdmin */
 };

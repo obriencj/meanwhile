@@ -1,4 +1,12 @@
 
+version 0.4.2 (cvs)
+	
+	Features
+	- RFE #1054813 Privacy support
+
+	Bug Fixes
+	- Bug #1194631 Windows file transfer crashes gaim
+	
 version 0.4.1 (2005-05-01)
 
 	Features

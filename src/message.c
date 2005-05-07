@@ -20,6 +20,7 @@
 
 #include <glib.h>
 
+#include "mw_debug.h"
 #include "mw_message.h"
 
 
@@ -135,9 +136,12 @@ static void LOGIN_clear(struct mwMsgLogin *msg) {
 
 
 static void LOGIN_ACK_get(struct mwGetBuffer *b, struct mwMsgLoginAck *msg) {
+  guint16 junk;
+
   if(mwGetBuffer_error(b)) return;
 
   mwLoginInfo_get(b, &msg->login);
+  guint16_get(b, &junk);
   mwPrivacyInfo_get(b, &msg->privacy);
   mwUserStatus_get(b, &msg->status);
 }
