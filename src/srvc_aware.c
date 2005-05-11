@@ -110,7 +110,8 @@ enum msg_types {
   msg_AWARE_UPDATE    = 0x01f5,  /**< recv aware update */
   msg_AWARE_GROUP     = 0x01f6,  /**< recv group aware */
 
-  msg_OPT_GOT_SET     = 0x0259,  /**< recv attribute update */
+  msg_OPT_GOT_SET     = 0x0259,  /**< recv attribute set update */
+  msg_OPT_GOT_UNSET   = 0x025a,  /**< recv attribute unset update */
 
   msg_OPT_DID_SET     = 0x025d,  /**< attribute set response */
   msg_OPT_DID_UNSET   = 0x025e,  /**< attribute unset response */
@@ -553,6 +554,27 @@ static void recv_OPT_GOT_SET(struct mwServiceAware *srvc,
 }
 
 
+static void recv_OPT_GOT_UNSET(struct mwServiceAware *srvc,
+			       struct mwGetBuffer *b) {
+
+  struct mwAwareAttribute attrib;
+  struct mwAwareIdBlock idb;
+  guint32 junk;
+
+  attrib.key = 0;
+  attrib.data.len = 0;
+  attrib.data.data = NULL;
+
+  guint32_get(b, &junk);
+  mwAwareIdBlock_get(b, &idb);
+  guint32_get(b, &attrib.key);
+
+  attrib_recv(srvc, &idb, &attrib);
+
+  mwAwareIdBlock_clear(&idb);
+}
+
+
 static void recv(struct mwService *srvc, struct mwChannel *chan,
 		 guint16 type, struct mwOpaque *data) {
 
@@ -580,6 +602,10 @@ static void recv(struct mwService *srvc, struct mwChannel *chan,
 
   case msg_OPT_GOT_SET:
     recv_OPT_GOT_SET(srvc_aware, b);
+    break;
+
+  case msg_OPT_GOT_UNSET:
+    recv_OPT_GOT_UNSET(srvc_aware, b);
     break;
 
   case msg_OPT_DID_SET:

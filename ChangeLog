@@ -3,6 +3,7 @@ version 0.4.2 (cvs)
 	
 	Features
 	- RFE #1054813 Privacy support
+	- Support for updates from attribute deletes in aware service
 
 	Bug Fixes
 	- Bug #1194631 Windows file transfer crashes gaim
