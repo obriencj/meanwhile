@@ -765,7 +765,9 @@ int mwConference_invite(struct mwConference *conf,
   struct mwOpaque o;
   int ret;
 
-  g_return_val_if_fail(conf->state == mwConference_OPEN, -1);
+  g_return_val_if_fail(conf != NULL, -1);
+  g_return_val_if_fail(conf->channel != NULL, -1);
+  g_return_val_if_fail(who != NULL, -1);
 
   b = mwPutBuffer_new();
 
@@ -806,7 +808,7 @@ int mwConference_sendText(struct mwConference *conf, const char *text) {
 
 int mwConference_sendTyping(struct mwConference *conf, gboolean typing) {
   struct mwPutBuffer *b;
-  struct mwOpaque o = { .len = 0, .data = NULL };
+  struct mwOpaque o;
   int ret;
 
   g_return_val_if_fail(conf != NULL, -1);

@@ -372,9 +372,12 @@ static void enc_accept_get(struct mwGetBuffer *b,
   guint16_get(b, &enc->mode);
   guint32_get(b, &skip);
 
-  if(skip >= 9) {
+  if(skip >= 6) {
     enc->item = g_new0(struct mwEncryptItem, 1);
     mwEncryptItem_get(b, enc->item);
+  }
+
+  if(skip >= 9) {
     guint16_get(b, &enc->extra);
     gboolean_get(b, &enc->flag);
   }
