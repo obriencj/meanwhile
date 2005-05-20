@@ -57,6 +57,7 @@ struct mwConversation;
 enum mwImClientType {
   mwImClient_PLAIN       = 0x00000001,  /**< text, typing */
   mwImClient_NOTESBUDDY  = 0x00033453,  /**< adds html, subject, mime */
+  mwImClient_PRECONF     = 0x00000019,  /**< pre-conference, legacy */
   mwImClient_UNKNOWN     = 0xffffffff,  /**< trouble determining type */
 };
 
@@ -121,6 +122,14 @@ struct mwImHandler {
   /** A message has been received on a conversation */
   void (*conversation_recv)(struct mwConversation *conv,
 			    enum mwImSendType type, gconstpointer msg);
+
+  /** Legacy conference invitation. Set this NULL to automatically
+      reject legacy invitation conversations, which will cause most
+      clients to use the more modern invitation method via the actual
+      conferencing service */
+  void (*conference_invite)(struct mwConversation *conv,
+			    const char *message,
+			    const char *title, const char *name);
 
   /** optional. called from mwService_free */
   void (*clear)(struct mwServiceIm *srvc);

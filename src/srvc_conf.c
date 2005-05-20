@@ -137,7 +137,6 @@ static struct mwConference *conf_new(struct mwServiceConference *srvc) {
 
   session = mwService_getSession(MW_SERVICE(srvc));
   user = mwSession_getProperty(session, mwSession_AUTH_USER_ID);
-  if(user) conf->name = conf_generate_name(user);
 
   srvc->confs = g_list_prepend(srvc->confs, conf);
 
@@ -189,6 +188,8 @@ static const char *conf_state_str(enum mwConferenceState state) {
   case mwConference_PENDING:  return "pending";
   case mwConference_INVITED:  return "invited";
   case mwConference_OPEN:     return "open";
+  case mwConference_CLOSING:  return "closing";
+  case mwConference_ERROR:    return "error";
 
   case mwConference_UNKNOWN:  /* fall through */
   default:                    return "UNKNOWN";
@@ -626,6 +627,22 @@ struct mwConference *mwConference_new(struct mwServiceConference *srvc,
 
   conf = conf_new(srvc);
   conf->title = g_strdup(title);
+
+  return conf;
+}
+
+
+struct mwConference *
+mwConference_newExisting(struct mwServiceConference *srvc,
+			 const char *title, const char *name) {
+
+  struct mwConference *conf;
+
+  g_return_val_if_fail(srvc != NULL, NULL);
+
+  conf = conf_new(srvc);
+  conf->title = g_strdup(title);
+  conf->name = g_strdup(name);
 
   return conf;
 }

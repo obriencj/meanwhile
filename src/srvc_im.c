@@ -64,6 +64,8 @@ enum mwImDataType {
   mwImData_HTML     = 0x00000004,  /**< notesbuddy HTML message */
   mwImData_MIME     = 0x00000005,  /**< notesbuddy MIME message, w/image */
 
+  mwImData_INVITE   = 0x0000000a,  /**< legacy pre-conf invitation */
+
   mwImData_MULTI_START  = 0x00001388,
   mwImData_MULTI_STOP   = 0x00001389,
 };
@@ -264,8 +266,11 @@ static void convo_free(struct mwConversation *conv) {
 
 
 static int send_accept(struct mwConversation *c) {
+
   struct mwChannel *chan = c->channel;
   struct mwSession *s = mwChannel_getSession(chan);
+  struct mwUserStatus *stat = mwSession_getUserStatus(s);
+
   struct mwPutBuffer *b;
   struct mwOpaque *o;
 
@@ -273,6 +278,7 @@ static int send_accept(struct mwConversation *c) {
   guint32_put(b, mwImAddtlA_NORMAL);
   guint32_put(b, c->features);
   guint32_put(b, mwImAddtlC_NORMAL);
+  mwUserStatus_put(b, stat);
 
   o = mwChannel_getAddtlAccept(chan);
   mwOpaque_clear(o);
@@ -293,13 +299,15 @@ static void recv_channelCreate(struct mwService *srvc,
   */
 
   struct mwServiceIm *srvc_im = (struct mwServiceIm *) srvc;
+  struct mwImHandler *handler;
   struct mwSession *s;
   struct mwUserStatus *stat;
   guint32 x, y, z;
   struct mwGetBuffer *b;
-  struct mwConversation *c;
+  struct mwConversation *c = NULL;
   struct mwIdBlock idb;
 
+  handler = srvc_im->handler;
   s = mwChannel_getSession(chan);
   stat = mwSession_getUserStatus(s);
 
@@ -333,28 +341,31 @@ static void recv_channelCreate(struct mwService *srvc,
     return;
     
   } else if(y == mwImAddtlB_PRECONF) {
-    g_info("rejecting pre-conference as per normal");
-    mwChannel_destroy(chan, ERR_IM_NOT_REGISTERED, NULL);
-    return;
+    if(! handler->conference_invite) {
+      g_info("rejecting pre-conference");
+      mwChannel_destroy(chan, ERR_IM_NOT_REGISTERED, NULL);
+      return;
+
+    } else {
+      g_info("accepting pre-conference");
+    }
 
   } else if(y != mwImClient_PLAIN && y != srvc_im->features) {
+    /** reject what we do not understand */
     mwChannel_destroy(chan, ERR_IM_NOT_REGISTERED, NULL);
     return;
 
   } else if(stat->status == mwStatus_BUSY) {
-    /** @todo it's reasonable to permit a new channel to attach to an
-	existing conversation in this event */
     g_info("rejecting IM channel due to DND status");
     mwChannel_destroy(chan, ERR_CLIENT_USER_DND, NULL);
     return;
   }
 
-  /** @todo later implementations may want to reject mwImAddtlB_HTML
-      channels in order to force the other side to send only
-      plain-text */
-
   login_into_id(&idb, mwChannel_getUser(chan));
+
+#if 0
   c = convo_find_by_user(srvc_im, &idb);
+#endif
 
   if(! c) {
     c = g_new0(struct mwConversation, 1);
@@ -362,12 +373,14 @@ static void recv_channelCreate(struct mwService *srvc,
     srvc_im->convs = g_list_prepend(srvc_im->convs, c);
   }
 
+#if 0
   /* we're going to re-associate any existing conversations with this
      new channel. That means closing any existing ones */
   if(c->channel) {
     g_info("closing existing IM channel 0x%08x", mwChannel_getId(c->channel));
     mwConversation_close(c, ERR_SUCCESS);
   }
+#endif
 
   /* set up the conversation with this channel, target, and be fancy
      if the other side requested it */
@@ -492,6 +505,41 @@ static void recv_text(struct mwServiceIm *srvc, struct mwChannel *chan,
 }
 
 
+static void convo_invite(struct mwConversation *conv,
+			 struct mwOpaque *o) {
+
+  struct mwServiceIm *srvc;
+  struct mwImHandler *handler;
+
+  struct mwGetBuffer *b;
+  char *title, *name, *msg;
+
+  g_info("convo_invite");
+
+  srvc = conv->service;
+  handler = srvc->handler;
+
+  g_return_if_fail(handler != NULL);
+  g_return_if_fail(handler->conference_invite != NULL);
+
+  b = mwGetBuffer_wrap(o);
+  mwGetBuffer_advance(b, 4);
+  mwString_get(b, &title);
+  mwString_get(b, &msg);
+  mwGetBuffer_advance(b, 19);
+  mwString_get(b, &name);
+
+  if(! mwGetBuffer_error(b)) {
+    handler->conference_invite(conv, msg, title, name);
+  }
+
+  mwGetBuffer_free(b);
+  g_free(msg);
+  g_free(title);
+  g_free(name);
+}
+
+
 static void recv_data(struct mwServiceIm *srvc, struct mwChannel *chan,
 		      struct mwGetBuffer *b) {
 
@@ -547,6 +595,10 @@ static void recv_data(struct mwServiceIm *srvc, struct mwChannel *chan,
       convo_recv(conv, mwImSend_MIME, x);
       g_free(x);
     }
+    break;
+
+  case mwImData_INVITE:
+    convo_invite(conv, &o);
     break;
 
   case mwImData_MULTI_START:
