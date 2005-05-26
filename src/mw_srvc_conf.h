@@ -122,14 +122,6 @@ struct mwConference *mwConference_new(struct mwServiceConference *srvc,
 				      const char *title);
 
 
-/** Allocate a new conference, in state NEW with the given title and
-    name.  Useful for re-joining an existing conference, or joining one
-    based on a legacy invitation from the IM service. */
-struct mwConference *
-mwConference_newExisting(struct mwServiceConference *srvc,
-			 const char *title, const char *name);
-
-
 /** @returns the owning service of a conference */
 struct mwServiceConference *mwConference_getService(struct mwConference *conf);
 

@@ -64,7 +64,7 @@ enum mwImDataType {
   mwImData_HTML     = 0x00000004,  /**< notesbuddy HTML message */
   mwImData_MIME     = 0x00000005,  /**< notesbuddy MIME message, w/image */
 
-  mwImData_INVITE   = 0x0000000a,  /**< legacy pre-conf invitation */
+  mwImData_INVITE   = 0x0000000a,  /**< Places invitation */
 
   mwImData_MULTI_START  = 0x00001388,
   mwImData_MULTI_STOP   = 0x00001389,
@@ -341,13 +341,13 @@ static void recv_channelCreate(struct mwService *srvc,
     return;
     
   } else if(y == mwImAddtlB_PRECONF) {
-    if(! handler->conference_invite) {
-      g_info("rejecting pre-conference");
+    if(! handler->place_invite) {
+      g_info("rejecting place-invite channel");
       mwChannel_destroy(chan, ERR_IM_NOT_REGISTERED, NULL);
       return;
 
     } else {
-      g_info("accepting pre-conference");
+      g_info("accepting place-invite channel");
     }
 
   } else if(y != mwImClient_PLAIN && y != srvc_im->features) {
@@ -520,7 +520,7 @@ static void convo_invite(struct mwConversation *conv,
   handler = srvc->handler;
 
   g_return_if_fail(handler != NULL);
-  g_return_if_fail(handler->conference_invite != NULL);
+  g_return_if_fail(handler->place_invite != NULL);
 
   b = mwGetBuffer_wrap(o);
   mwGetBuffer_advance(b, 4);
@@ -530,7 +530,7 @@ static void convo_invite(struct mwConversation *conv,
   mwString_get(b, &name);
 
   if(! mwGetBuffer_error(b)) {
-    handler->conference_invite(conv, msg, title, name);
+    handler->place_invite(conv, msg, title, name);
   }
 
   mwGetBuffer_free(b);

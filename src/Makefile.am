@@ -20,7 +20,8 @@ mwinclude_HEADERS = \
 
 noinst_HEADERS = \
 	mw_debug.h \
-	mw_util.h
+	mw_util.h \
+	mw_srvc_place.h
 
 mwincludedir = $(includedir)/meanwhile
 

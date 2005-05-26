@@ -632,22 +632,6 @@ struct mwConference *mwConference_new(struct mwServiceConference *srvc,
 }
 
 
-struct mwConference *
-mwConference_newExisting(struct mwServiceConference *srvc,
-			 const char *title, const char *name) {
-
-  struct mwConference *conf;
-
-  g_return_val_if_fail(srvc != NULL, NULL);
-
-  conf = conf_new(srvc);
-  conf->title = g_strdup(title);
-  conf->name = g_strdup(name);
-
-  return conf;
-}
-
-
 struct mwServiceConference *
 mwConference_getService(struct mwConference *conf) {
   g_return_val_if_fail(conf != NULL, NULL);

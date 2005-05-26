@@ -123,13 +123,11 @@ struct mwImHandler {
   void (*conversation_recv)(struct mwConversation *conv,
 			    enum mwImSendType type, gconstpointer msg);
 
-  /** Legacy conference invitation. Set this NULL to automatically
-      reject legacy invitation conversations, which will cause most
-      clients to use the more modern invitation method via the actual
-      conferencing service */
-  void (*conference_invite)(struct mwConversation *conv,
-			    const char *message,
-			    const char *title, const char *name);
+  /** Handle a Place invitation. Set this to NULL and we should end up
+      receiving a conference invitation instead. */
+  void (*place_invite)(struct mwConversation *conv,
+		       const char *message,
+		       const char *title, const char *name);
 
   /** optional. called from mwService_free */
   void (*clear)(struct mwServiceIm *srvc);
