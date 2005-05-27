@@ -1,6 +1,6 @@
 
 # version of meanwhile
-m4_define(meanwhile_version,		0.4.2cvs)
+m4_define(meanwhile_version,		0.4.2)
 
 # release of meanwhile
 m4_define(meanwhile_release,		0)
