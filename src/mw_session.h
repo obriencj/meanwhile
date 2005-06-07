@@ -25,13 +25,30 @@
 #include "mw_common.h"
 
 
+/** @file session.h
+
+    A client session with a Sametime server is encapsulated in the
+    mwSession structure. The session controls channels, provides
+    encryption ciphers, and manages services using messages over the
+    Master channel.
+
+    A session does not directly communicate with a socket or stream,
+    instead the session is initialized from client code with an
+    instance of a mwSessionHandler structure. This session handler
+    provides functions as call-backs for common session events, and
+    provides functions for writing-to and closing the connection to
+    the server.
+
+    A session does not perform reads on a socket directly. Instead, it
+    must be fed from an outside source via the mwSession_recv
+    function. The session will buffer and merge data passed to this
+    function to build complete protocol messages, and will act upon
+    each complete message accordingly.
+*/
+
+
 struct mwCipher;
 struct mwMessage;
-
-
-/** @file mw_session.h
-    ...
-*/
 
 
 /** default protocol major version */
@@ -74,28 +91,6 @@ struct mwMessage;
 /*@}*/
 
 
-/** @file session.h
-
-    A client session with a Sametime server is encapsulated in the
-    mwSession structure. The session controls channels, provides
-    encryption ciphers, and manages services using messages over the
-    Master channel.
-
-    A session does not directly communicate with a socket or stream,
-    instead the session is initialized from client code with an
-    instance of a mwSessionHandler structure. This session handler
-    provides functions as call-backs for common session events, and
-    provides functions for writing-to and closing the connection to
-    the server.
-
-    A session does not perform reads on a socket directly. Instead, it
-    must be fed from an outside source via the mwSession_recv
-    function. The session will buffer and merge data passed to this
-    function to build complete protocol messages, and will act upon
-    each complete message accordingly.
-*/
-
-
 enum mwSessionState {
   mwSession_STARTING,      /**< session is starting */
   mwSession_HANDSHAKE,     /**< session has sent handshake */
@@ -134,11 +129,14 @@ enum mwSessionState {
 
 
 /** @struct mwSession
+
     Represents a Sametime client session */
 struct mwSession;
 
 
-/** session handler. Structure which interfaces a session with client
+/** @struct mwSessionHandler
+
+    session handler. Structure which interfaces a session with client
     code to provide I/O and event handling */
 struct mwSessionHandler {
   
@@ -326,12 +324,23 @@ void mwSession_setProperty(struct mwSession *, const char *key,
 			   gpointer val, GDestroyNotify clear);
 
 
+/** obtain the value of a previously set property, or NULL */
 gpointer mwSession_getProperty(struct mwSession *, const char *key);
 
 
+/** remove a property, calling the optional GDestroyNotify function
+    indicated in mwSession_setProperty if applicable */
 void mwSession_removeProperty(struct mwSession *, const char *key);
 
 
+/** associate arbitrary data with the session for use by the client
+    code. Only client applications should use this, never services.
+
+    @param session  the session to associate the data with
+    @param data     arbitrary client data
+    @param clear    optional cleanup function called on data from
+                    mwSession_removeClientData and mwSession_free
+*/
 void mwSession_setClientData(struct mwSession *session,
 			     gpointer data, GDestroyNotify clear);
 
@@ -339,6 +348,8 @@ void mwSession_setClientData(struct mwSession *session,
 gpointer mwSession_getClientData(struct mwSession *session);
 
 
+/** remove client data, calling the optional GDestroyNotify function
+    indicated in mwSession_setClientData if applicable */
 void mwSession_removeClientData(struct mwSession *session);
 
 

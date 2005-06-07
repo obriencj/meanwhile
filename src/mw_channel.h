@@ -26,16 +26,6 @@
 #include "mw_common.h"
 
 
-/* place-holders */
-struct mwCipherInstance;
-struct mwMsgChannelAccept;
-struct mwMsgChannelCreate;
-struct mwMsgChannelDestroy;
-struct mwMsgChannelSend;
-struct mwService;
-struct mwSession;
-
-
 /** @file channel.h
     
 Life-cycle of an outgoing channel:
@@ -88,6 +78,17 @@ to be used.
 local action. If by local action, then a close message is sent to
 the server.  The channel is cleaned up, its queues dumped, and it
 is deallocated. */
+
+
+/* place-holders */
+struct mwCipherInstance;
+struct mwMsgChannelAccept;
+struct mwMsgChannelCreate;
+struct mwMsgChannelDestroy;
+struct mwMsgChannelSend;
+struct mwService;
+struct mwSession;
+
 
 
 /** @struct mwChannel
@@ -317,17 +318,17 @@ int mwChannel_sendEncrypted(struct mwChannel *chan,
 			    gboolean encrypt);
 
 
-/**  */
+/** pass a create message to a channel for handling */
 void mwChannel_recvCreate(struct mwChannel *chan,
 			  struct mwMsgChannelCreate *msg);
 
 
-/**  */
+/** pass an accept message to a channel for handling */
 void mwChannel_recvAccept(struct mwChannel *chan,
 			  struct mwMsgChannelAccept *msg);
 
 
-/**  */
+/** pass a destroy message to a channel for handling */
 void mwChannel_recvDestroy(struct mwChannel *chan,
 			   struct mwMsgChannelDestroy *msg);
 
