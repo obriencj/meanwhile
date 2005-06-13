@@ -941,7 +941,8 @@ const char *mwLoginType_getName(enum mwLoginType type) {
     return "Lotus Notes Client 7";
 
   case mwLogin_ICT:
-    return "IBM Community Tools (ICT)";
+  case mwLogin_ICT_1_7_8_2:
+    return "IBM Community Tools";
 
   case mwLogin_NOTESBUDDY:
   case mwLogin_NOTESBUDDY_4_15:

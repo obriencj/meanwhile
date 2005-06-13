@@ -258,7 +258,7 @@ static void convo_free(struct mwConversation *conv) {
   mwConversation_removeClientData(conv);
 
   srvc = conv->service;
-  srvc->convs = g_list_remove(srvc->convs, conv);
+  srvc->convs = g_list_remove_all(srvc->convs, conv);
 
   mwIdBlock_clear(&conv->target);
   g_free(conv);
