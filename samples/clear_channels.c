@@ -60,6 +60,19 @@ static struct proxy_side server;
 
 
 static void hexout(const char *txt, const unsigned char *buf, gsize len) {
+#if 1
+
+  FILE *fp;
+
+  if(txt) printf("\n%s\n", txt);
+
+  fp = popen("hexdump -C", "w");
+  fwrite(buf, len, 1, fp);
+  fflush(fp);
+  pclose(fp);
+
+#else
+
   if(txt) printf("\n%s\n", txt);
 
   while(len >= 16) {
@@ -106,6 +119,7 @@ static void hexout(const char *txt, const unsigned char *buf, gsize len) {
   }
 
   putchar('\n');
+#endif
 }
 
 
@@ -340,6 +354,13 @@ static int read_recv(struct proxy_side *side) {
 }
 
 
+static void done() {
+  close(client.sock);
+  close(server.sock);
+  exit(0);
+}
+
+
 static gboolean read_cb(GIOChannel *chan,
 			GIOCondition cond,
 			gpointer data) {
@@ -360,7 +381,7 @@ static gboolean read_cb(GIOChannel *chan,
     side->chan_io = 0;
   }
 
-  exit(0);
+  done();
   
   return FALSE;
 }
