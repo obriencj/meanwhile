@@ -493,23 +493,42 @@ static void init_server(const char *host, int port) {
 
 
 int main(int argc, char *argv[]) {
-  const char *host = NULL;
-  int client_port = 1533, server_port = 1533;
+  char *host = NULL;
+  int client_port = 0, server_port = 0;
 
   memset(&client, 0, sizeof(struct proxy_side));
   memset(&server, 0, sizeof(struct proxy_side));
 
-  /* @todo print help text */
-  /* @todo get local port and server host/port from argv */
+  if(argc > 1) {
+    char *z;
 
-  if(argc > 1) host = argv[1];
-  g_assert(host);
+    host = argv[1];
+    z = host;
+
+    host = strchr(z, ':');
+    if(host) *host++ = '\0';
+    client_port = atoi(z);
+
+    z = strchr(host, ':');
+    if(z) *z++ = '\0';
+    server_port = atoi(z);
+  }
+
+  if(!host || !*host || !client_port || !server_port) {
+    fprintf(stderr,
+	    ( " Usage: %s local_port:remote_host:remote_port\n"
+	      " Creates a locally-running sametime proxy which enforces"
+	      " unencrypted channels\n" ),
+	    argv[0]);
+    exit(1);
+  }
+
+  /* @todo create signal handlers to cleanup sockets */
 
   init_client(client_port);
   init_server(host, server_port);
 
   g_main_loop_run(g_main_loop_new(NULL, FALSE)); 
-  
   return 0;
 }
 
