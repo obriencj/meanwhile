@@ -60,7 +60,7 @@ static struct proxy_side server;
 
 
 static void hexout(const char *txt, const unsigned char *buf, gsize len) {
-#if 1
+#if USE_HEXDUMP
 
   FILE *fp;
 
