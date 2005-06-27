@@ -72,7 +72,7 @@ static void hexout(const char *txt, const unsigned char *buf, gsize len) {
     buf += 16;
     len -= 16;
 
-    if(len > 16) putchar('\n');
+    if(len) putchar('\n');
   }
 
   if(len >= 8) {
