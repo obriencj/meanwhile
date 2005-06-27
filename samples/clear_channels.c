@@ -64,7 +64,8 @@ static void hexout(const char *txt, const unsigned char *buf, gsize len) {
 
   FILE *fp;
 
-  if(txt) printf("\n%s\n", txt);
+  if(txt) fprintf(stdout, "\n%s\n", txt);
+  fflush(stdout);
 
   fp = popen("hexdump -C", "w");
   fwrite(buf, len, 1, fp);
