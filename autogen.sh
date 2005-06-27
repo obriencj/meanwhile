@@ -69,9 +69,13 @@ automake Makefile 2> /dev/null
 
 
 
-ECHO "Running ./configure $@"
-./configure $@
-
+if test -f "configwrap" ; then
+	ECHO "Running ./configwrap $@"
+	./configwrap $@
+else
+	ECHO "Running ./configure $@"
+	./configure $@
+fi
 
 
 ECHO "Done"

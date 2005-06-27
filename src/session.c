@@ -544,7 +544,7 @@ case mwMessage_ ## var: \
 static void session_process(struct mwSession *s,
 			    const char *buf, gsize len) {
 
-  struct mwOpaque o = { len, (char *) buf };
+  struct mwOpaque o = { .len = len, .data = (char *) buf };
   struct mwGetBuffer *b;
   struct mwMessage *msg;
 
@@ -559,6 +559,13 @@ static void session_process(struct mwSession *s,
 
   /* attempt to parse the message. */
   msg = mwMessage_get(b);
+
+  if(mwGetBuffer_error(b)) {
+    mw_debug_mailme(&o, "parsing of message failed");
+  }
+
+  mwGetBuffer_free(b);
+
   g_return_if_fail(msg != NULL);
 
   /* handle each of the appropriate incoming types of mwMessage */
@@ -579,12 +586,6 @@ static void session_process(struct mwSession *s,
     g_warning("unknown message type 0x%04x, no handler", msg->type);
   }
 
-  if(mwGetBuffer_error(b)) {
-    struct mwOpaque o = { .data = (char *) buf, .len = len };
-    mw_debug_mailme(&o, "parsing of message type 0x%04x failed", msg->type);
-  }
-
-  mwGetBuffer_free(b);
   mwMessage_free(msg);
 }
 
@@ -592,7 +593,7 @@ static void session_process(struct mwSession *s,
 #undef CASE
 
 
-#define ADVANCE(b, n, count) (b += count, n -= count)
+#define ADVANCE(b, n, count) { b += count; n -= count; }
 
 
 /* handle input to complete an existing buffer */
@@ -765,9 +766,6 @@ void mwSession_recv(struct mwSession *s, const char *buf, gsize n) {
 
   g_return_if_fail(s != NULL);
 
-  /* g_message(" mwSession_recv: session = %p, b = %p, n = %u",
-	    s, b, n); */
-
   while(n > 0) {
     remain = session_recv(s, b, n);
     b += (n - remain);
@@ -779,7 +777,6 @@ void mwSession_recv(struct mwSession *s, const char *buf, gsize n) {
 int mwSession_send(struct mwSession *s, struct mwMessage *msg) {
   struct mwPutBuffer *b;
   struct mwOpaque o;
-  gsize len;
   int ret = 0;
 
   g_return_val_if_fail(s != NULL, -1);
@@ -799,7 +796,6 @@ int mwSession_send(struct mwSession *s, struct mwMessage *msg) {
   mwPutBuffer_finalize(&o, b);
 
   /* then we use that opaque's data and length to write to the socket */
-  len = o.len;
   ret = io_write(s, o.data, o.len);
   mwOpaque_clear(&o);
 

@@ -123,6 +123,10 @@ struct mwFileTransferHandler *
 mwServiceFileTransfer_getHandler(struct mwServiceFileTransfer *srvc);
 
 
+const GList *
+mwServiceFileTransfer_getTransfers(struct mwServiceFileTransfer *srvc);
+
+
 struct mwFileTransfer *
 mwFileTransfer_new(struct mwServiceFileTransfer *srvc,
 		   const struct mwIdBlock *who, const char *msg,

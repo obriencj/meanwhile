@@ -357,6 +357,13 @@ mwServiceFileTransfer_getHandler(struct mwServiceFileTransfer *srvc) {
 }
 
 
+const GList *
+mwServiceFileTransfer_getTransfers(struct mwServiceFileTransfer *srvc) {
+  g_return_val_if_fail(srvc != NULL, NULL);
+  return srvc->transfers;
+}
+
+
 struct mwFileTransfer *
 mwFileTransfer_new(struct mwServiceFileTransfer *srvc,
 		   const struct mwIdBlock *who, const char *msg,

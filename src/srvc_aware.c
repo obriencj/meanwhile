@@ -171,6 +171,8 @@ static int send_add(struct mwChannel *chan, GList *id_list) {
   struct mwOpaque o;
   int ret;
 
+  g_return_val_if_fail(chan != NULL, 0);
+
   compose_list(b, id_list);
 
   mwPutBuffer_finalize(&o, b);
@@ -186,6 +188,8 @@ static int send_rem(struct mwChannel *chan, GList *id_list) {
   struct mwPutBuffer *b = mwPutBuffer_new();
   struct mwOpaque o;
   int ret;
+
+  g_return_val_if_fail(chan != NULL, 0);
 
   compose_list(b, id_list);
   mwPutBuffer_finalize(&o, b);
@@ -248,6 +252,9 @@ static int send_attrib_list(struct mwServiceAware *srvc) {
 
   int tmp;
   GList *l;
+
+  g_return_val_if_fail(srvc != NULL, -1);
+  g_return_val_if_fail(srvc->channel != NULL, 0);
 
   l = map_collect_keys(srvc->attribs);
   tmp = g_list_length(l);
@@ -659,7 +666,7 @@ static struct mwChannel *make_blist(struct mwServiceAware *srvc,
 
 static void start(struct mwService *srvc) {
   struct mwServiceAware *srvc_aware;
-  struct mwChannel *chan;
+  struct mwChannel *chan = NULL;
 
   srvc_aware = (struct mwServiceAware *) srvc;
   chan = make_blist(srvc_aware, mwSession_getChannels(srvc->session));
@@ -712,6 +719,8 @@ mwServiceAware_new(struct mwSession *session,
   service->clear = clear;
   service->get_name = name;
   service->get_desc = desc;
+
+  g_info("srvc_aware returning %p", srvc);
 
   return srvc;
 }
