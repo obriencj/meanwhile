@@ -1,10 +1,16 @@
 
+version 0.4.3 (cvs)
+
+	Features
+	- Automatically breaks up large messages for transport (using
+	NotesBuddy multi-segment messages)
+	
 version 0.4.2 (2005-05-27)
 	
 	Features
 	- RFE #1054813 Privacy support
 	- Support for updates from attribute deletes in aware service
-
+	
 	Bug Fixes
 	- Bug #1194631 Windows file transfer crashes gaim
 	- Bug #1200841 Sametime 2.0 clients responses not seen

@@ -38,16 +38,24 @@ struct mwServicePlace;
 struct mwPlace;
 
 
-/** @struct mwPlaceSection */
-struct mwPlaceSection;
-
-
-/** @struct mwPlaceAction */
-struct mwPlaceAction;
-
-
 struct mwPlaceHandler {
+  void (*place_opened)(struct mwPlace *place);
+  void (*place_joined)(struct mwPlace *place);
+  void (*place_closed)(struct mwPlace *place, guint32 code);
 
+  void (*place_peerJoined)(struct mwPlace *place,
+			   struct mwIdBlock *peer);
+
+  void (*place_peerParted)(struct mwPlace *place,
+			   struct mwIdBlock *peer);
+
+  void (*place_peerTyping)(struct mwPlace *place,
+			   struct mwIdBlock *peer, gboolean typing);
+
+  void (*place_message)(struct mwPlace *place,
+			struct mwIdBlock *peer, const char *msg);
+
+  void (*clear)(struct mwServicePlace *srvc);
 };
 
 
@@ -55,17 +63,43 @@ struct mwServicePlace *mwServicePlace_new(struct mwSession *session,
 					  struct mwPlaceHandler *handler);
 
 
-struct mwPlace *mwPlace_new(struct mwServicePlace *place,
-			    const char *title, const char *name);
+struct mwPlaceHandler *
+mwServicePlace_getHandler(struct mwServicePlace *srvc);
+
+
+const GList *mwServicePlace_getPlaces(struct mwServicePlace *srvc);
+
+
+struct mwPlace *mwPlace_new(struct mwServicePlace *srvc,
+			    const char *name, const char *title);
+
+
+struct mwServicePlace *mwPlace_getService(struct mwPlace *place);
+
+
+const char *mwPlace_getName(struct mwPlace *place);
+
+
+const char *mwPlace_getTitle(struct mwPlace *place);
 
 
 int mwPlace_open(struct mwPlace *place);
 
 
-int mwPlace_close(struct mwPlace *place);
+int mwPlace_close(struct mwPlace *place, guint32 code);
 
 
 void mwPlace_free(struct mwPlace *place);
 
 
+const struct mwLoginInfo *mwPlace_getPeerInfo(const struct mwIdBlock *who);
+
+
+const GList *mwPlace_getPeers(struct mwPlace *place);
+
+
+const struct mwLoginInfo *mwPlace_getSelf(struct mwPlace *place);
+
+
 const GList *mwPlace_getSections(struct mwPlace *place);
+

@@ -106,18 +106,15 @@ static void login_free(struct mwLoginInfo *li) {
 /** generates a random conference name built around a user name */
 static char *conf_generate_name(const char *user) {
   guint a, b;
-  char c[16]; /* limited space. Used only to hold sprintf output */
   char *ret;
   
   user = user? user: "";
 
-  srand(clock());
+  srand(clock() + rand());
   a = ((rand() & 0xff) << 8) | (rand() & 0xff);
   b = time(NULL);
-  sprintf(c, "(%08x,%04x)", b, a);
 
-  ret = g_strconcat(user, c, NULL);
-
+  ret = g_strconcat("%s(%08x,%04x)", user, b, a);
   g_debug("generated random conference name: '%s'", ret);
   return ret;
 }
