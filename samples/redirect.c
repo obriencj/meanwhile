@@ -43,7 +43,7 @@ static gsize sbuf_size;
 static gsize sbuf_recv;
 
 
-static void sendmsg(struct mwMessage *msg) {
+static void send_msg(struct mwMessage *msg) {
   struct mwPutBuffer *b;
   struct mwOpaque o = { 0, 0 };
 
@@ -68,7 +68,7 @@ static void handshake_ack() {
   msg = (struct mwMsgHandshakeAck *)
     mwMessage_new(mwMessage_HANDSHAKE_ACK);
 
-  sendmsg(MW_MESSAGE(msg));
+  send_msg(MW_MESSAGE(msg));
   mwMessage_free(MW_MESSAGE(msg));
 }
 
@@ -81,7 +81,7 @@ static void login_redir() {
   msg->host = g_strdup(host);
   msg->server_id = NULL;
 
-  sendmsg(MW_MESSAGE(msg));
+  send_msg(MW_MESSAGE(msg));
   mwMessage_free(MW_MESSAGE(msg));
 }
 
@@ -163,9 +163,9 @@ static gsize side_recv_cont(const char *b, gsize n) {
 	
 	sbuf_free();
 	
-	s->buf = t;
-	s->buf_size = x;
-	s->buf_recv = n + 4;
+	sbuf = t;
+	sbuf_size = x;
+	sbuf_recv = n + 4;
 	return 0;
 	
       } else {
@@ -206,7 +206,7 @@ static gsize side_recv_empty(const char *b, gsize n) {
   if(n < (x + 4)) {
 
     x += 4;
-    s->buf = (char *) g_malloc(x);
+    sbuf = (char *) g_malloc(x);
     memcpy(sbuf, b, n);
     sbuf_size = x;
     sbuf_recv = n;
@@ -273,7 +273,7 @@ static gboolean read_cb(GIOChannel *chan,
     if(ret > 0) return TRUE;
   }
 
-  if(side->sock) {
+  if(sock) {
     g_source_remove(chan_io);
     close(sock);
     sock = 0;
@@ -350,7 +350,7 @@ int main(int argc, char *argv[]) {
     fprintf(stderr,
 	    ( " Usage: %s local_port:redirect_host\n"
 	      " Creates a locally-running sametime proxy which redirects"
-	      " logins to the specified host\n" ),
+	      " logins to the\n specified host\n" ),
 	    argv[0]);
     exit(1);
   }
