@@ -9,14 +9,12 @@
   easier.
 
   It also outputs the messages sent to and from the client to stdout
-  as hex pairs.
+  as hex pairs. If compiled with USE_HEXDUMP, output will be printed
+  via `hexdump -C`
   
   All it really does is nab all Channel Create messages, strip the
   offered ciphers portion from the message and replace it with an
   empty ciphers list.
-
-  TODO: also catch Login Redirect messages and auto-reply with a Force
-  Login message
 
   Christopher O'Brien <siege@preoccupied.net>
 */

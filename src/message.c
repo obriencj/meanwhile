@@ -81,6 +81,18 @@ static void HANDSHAKE_put(struct mwPutBuffer *b, struct mwMsgHandshake *msg) {
 }
 
 
+static void HANDSHAKE_get(struct mwGetBuffer *b, struct mwMsgHandshake *msg) {
+  if(mwGetBuffer_error(b)) return;
+
+  guint16_get(b, &msg->major);
+  guint16_get(b, &msg->minor);
+  guint32_get(b, &msg->head.channel);
+  guint32_get(b, &msg->srvrcalc_addr);
+  guint16_get(b, &msg->login_type);
+  guint32_get(b, &msg->loclcalc_addr);
+}
+
+
 static void HANDSHAKE_clear(struct mwMsgHandshake *msg) {
   ; /* nothing to clean up */
 }
@@ -108,6 +120,20 @@ static void HANDSHAKE_ACK_get(struct mwGetBuffer *b,
 }
 
 
+static void HANDSHAKE_ACK_put(struct mwPutBuffer *b,
+			      struct mwMsgHandshakeAck *msg) {
+
+  guint16_put(b, msg->major);
+  guint16_put(b, msg->minor);
+  guint32_put(b, msg->srvrcalc_addr);
+
+  if(msg->major >= 0x1e && msg->minor > 0x18) {
+    guint32_put(b, msg->unknown);
+    mwOpaque_put(b, &msg->data);
+  }
+}
+
+
 static void HANDSHAKE_ACK_clear(struct mwMsgHandshakeAck *msg) {
   mwOpaque_clear(&msg->data);
 }
@@ -126,8 +152,18 @@ static void LOGIN_put(struct mwPutBuffer *b, struct mwMsgLogin *msg) {
 }
 
 
+static void LOGIN_get(struct mwGetBuffer *b, struct mwMsgLogin *msg) {
+  if(mwGetBuffer_error(b)) return;
+
+  guint16_get(b, &msg->login_type);
+  mwString_get(b, &msg->name);
+  mwOpaque_get(b, &msg->auth_data);
+  guint16_get(b, &msg->auth_type);
+}
+
+
 static void LOGIN_clear(struct mwMsgLogin *msg) {
-  g_free(msg->name);
+  g_free(msg->name);  msg->name = NULL;
   mwOpaque_clear(&msg->auth_data);
 }
 
@@ -164,6 +200,13 @@ static void LOGIN_CONTINUE_put(struct mwPutBuffer *b,
 }
 
 
+static void LOGIN_CONTINUE_get(struct mwGetBuffer *b,
+			       struct mwMsgLoginContinue *msg) {
+
+  ; /* nothing but a message header */
+}
+
+
 static void LOGIN_CONTINUE_clear(struct mwMsgLoginContinue *msg) {
   ; /* this is a very simple message */
 }
@@ -178,6 +221,13 @@ static void LOGIN_REDIRECT_get(struct mwGetBuffer *b,
   if(mwGetBuffer_error(b)) return;
   mwString_get(b, &msg->host);
   mwString_get(b, &msg->server_id);  
+}
+
+
+static void LOGIN_REDIRECT_put(struct mwPutBuffer *b,
+			       struct mwMsgLoginRedirect *msg) {
+  mwString_put(b, msg->host);
+  mwString_put(b, msg->server_id);
 }
 
 
@@ -611,8 +661,11 @@ struct mwMessage *mwMessage_get(struct mwGetBuffer *b) {
 
   /* load the rest of the message depending on the header type */
   switch(head.type) {
+    CASE(HANDSHAKE, mwMsgHandshake);
     CASE(HANDSHAKE_ACK, mwMsgHandshakeAck);
+    CASE(LOGIN, mwMsgLogin);
     CASE(LOGIN_REDIRECT, mwMsgLoginRedirect);
+    CASE(LOGIN_CONTINUE, mwMsgLoginContinue);
     CASE(LOGIN_ACK, mwMsgLoginAck);
     CASE(CHANNEL_CREATE, mwMsgChannelCreate);
     CASE(CHANNEL_DESTROY, mwMsgChannelDestroy);
@@ -656,7 +709,9 @@ void mwMessage_put(struct mwPutBuffer *b, struct mwMessage *msg) {
 
   switch(msg->type) {
     CASE(HANDSHAKE, mwMsgHandshake);
+    CASE(HANDSHAKE_ACK, mwMsgHandshakeAck);
     CASE(LOGIN, mwMsgLogin);
+    CASE(LOGIN_REDIRECT, mwMsgLoginRedirect);
     CASE(LOGIN_CONTINUE, mwMsgLoginContinue);
     CASE(CHANNEL_CREATE, mwMsgChannelCreate);
     CASE(CHANNEL_DESTROY, mwMsgChannelDestroy);
