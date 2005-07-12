@@ -332,7 +332,6 @@ static void init_socket(int port) {
 
 
 int main(int argc, char *argv[]) {
-  char *host = NULL;
   int port = 0;
 
   if(argc > 1) {
