@@ -1,3 +1,8 @@
-clear_channels
+.deps
+.libs
+Makefile
+Makefile.in
+nocipher_proxy
+*.o
+redirect_proxy
 socket
-

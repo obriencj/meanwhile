@@ -18,11 +18,14 @@
   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
+#include <netdb.h>
+#include <netinet/in.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <sys/socket.h>
 #include <sys/types.h>
-#include <netinet/in.h>
-#include <netdb.h>
+#include <unistd.h>
 
 #include <glib.h>
 
@@ -236,7 +239,7 @@ static int init_sock(const char *host, int port) {
 }
 
 
-int main(char *argv[], int argc) {
+int main(int argc, char *argv[]) {
 
   /* the meanwhile session itself */
   struct mwSession *session;
