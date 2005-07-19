@@ -740,9 +740,11 @@ static gsize session_recv(struct mwSession *s, const char *b, gsize n) {
   /* g_message(" session_recv: session = %p, b = %p, n = %u",
 	    s, b, n); */
   
-  if(n && (s->buf_len == 0) && (*b & 0x80)) {
-    /* keep-alive and series bytes are ignored */
-    ADVANCE(b, n, 1);
+  if(s->buf_len == 0) {
+    while(n && (*b & 0x80)) {
+      /* keep-alive and series bytes are ignored */
+      ADVANCE(b, n, 1);
+    }
   }
 
   if(n == 0) {
