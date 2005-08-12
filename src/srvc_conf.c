@@ -114,7 +114,7 @@ static char *conf_generate_name(const char *user) {
   a = ((rand() & 0xff) << 8) | (rand() & 0xff);
   b = time(NULL);
 
-  ret = g_strconcat("%s(%08x,%04x)", user, b, a);
+  ret = g_strdup_printf("%s(%08x,%04x)", user, b, a);
   g_debug("generated random conference name: '%s'", ret);
   return ret;
 }
