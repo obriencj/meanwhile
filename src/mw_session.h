@@ -22,9 +22,6 @@
 #define _MW_SESSION_H
 
 
-#include "mw_common.h"
-
-
 /** @file session.h
 
     A client session with a Sametime server is encapsulated in the
@@ -47,8 +44,13 @@
 */
 
 
+#include "mw_common.h"
+
+
+struct mwChannelSet;
 struct mwCipher;
 struct mwMessage;
+struct mwService;
 
 
 /** default protocol major version */
@@ -60,7 +62,7 @@ struct mwMessage;
 
 
 /** @section Session Properties
-    ...
+    for use with mwSession_setProperty, et al.
 */
 /*@{*/
 
@@ -234,6 +236,7 @@ int mwSession_forceLogin(struct mwSession *s);
 int mwSession_setPrivacyInfo(struct mwSession *, struct mwPrivacyInfo *);
 
 
+/** direct reference to the session's internal privacy structure */
 struct mwPrivacyInfo *mwSession_getPrivacyInfo(struct mwSession *);
 
 

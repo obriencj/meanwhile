@@ -18,6 +18,26 @@
   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
+
+
+/**
+   @file socket.c
+   
+   This file is a simple demonstration of using unix socket code to
+   connect a mwSession to a sametime server and get it fully logged
+   in.
+   
+   Here you'll find examples of:
+    - opening a socket to the host
+    - using the socket to feed data to the session
+    - using a session handler to allow the session to write data to the
+      socket
+    - using a session handler to allow the session to close the socket
+    - watching for error conditions on read/write
+*/
+
+
+
 #include <netdb.h>
 #include <netinet/in.h>
 #include <stdio.h>
@@ -30,24 +50,23 @@
 #include <glib.h>
 
 #include <mw_common.h>
-#include <mw_service.h>
 #include <mw_session.h>
-#include <mw_srvc_im.h>
 
 
 
-/*
-  This file is a simple demonstration of using unix socket code to
-  connect a mwSession to a sametime server and get it fully logged in.
-*/
+/** help text if you don't give the right number of arguments */
+#define HELP \
+"Meanwhile sample socket client\n" \
+"Usage: %s server userid password\n" \
+"\n" \
+"Connects to a sametime server and logs in with the supplied user ID\n" \
+"and password. Doesn't actually do anything useful after that.\n\n"
 
 
+
+/** how much to read from the socket in a single call */
 #define BUF_LEN 2048
 
-
-#define USER  "username"
-#define PASS  "password"
-#define HOST  "server.wherever.com"
 
 
 /* client data should be put into a structure and associated with the
@@ -58,6 +77,7 @@ struct sample_client {
   int sock;                   /* the socket connecting to the server */
   int sock_event;             /* glib event id polling the socket */
 };
+
 
 
 /* the io_close function from the session handler */
@@ -78,6 +98,7 @@ static void mw_session_io_close(struct mwSession *session) {
     client->sock_event = 0;
   }
 }
+
 
 
 /* the io_write function from the session handler */
@@ -125,6 +146,7 @@ static int mw_session_io_write(struct mwSession *session,
 }
 
 
+
 /* the on_stateChange function from the session handler */
 static void mw_session_stateChange(struct mwSession *session,
 				   enum mwSessionState state, guint32 info) {
@@ -136,20 +158,22 @@ static void mw_session_stateChange(struct mwSession *session,
 }
 
 
+
 /* the session handler structure is where you should indicate what
    functions will perform many of the functions necessary for the
    session to operate. Among these, only io_write and io_close are
    absolutely required. */
 static struct mwSessionHandler mw_session_handler = {
-  .io_write = mw_session_io_write,
-  .io_close = mw_session_io_close,
-  .clear = NULL,
-  .on_stateChange = mw_session_stateChange,
-  .on_setPrivacyInfo = NULL,
-  .on_setUserStatus = NULL,
-  .on_admin = NULL,
-  .on_loginRedirect = NULL,
+  .io_write = mw_session_io_write,  /**< handle session to socket */
+  .io_close = mw_session_io_close,  /**< handle session closing socket */
+  .clear = NULL,                    /**< cleanup function */
+  .on_stateChange = mw_session_stateChange,  /**< session status changed */
+  .on_setPrivacyInfo = NULL,        /**< received privacy information */
+  .on_setUserStatus = NULL,         /**< received status information */
+  .on_admin = NULL,                 /**< received an admin message */
+  .on_loginRedirect = NULL,         /**< connection redirected */
 };
+
 
 
 /** called from read_cb, attempts to read available data from sock and
@@ -165,6 +189,7 @@ static int read_recv(struct mwSession *session, int sock) {
 
   return len;
 }
+
 
 
 /** callback registerd via g_io_add_watch in main, watches the socket
@@ -204,6 +229,7 @@ static gboolean read_cb(GIOChannel *chan,
 }
 
 
+
 /* address lookup used by init_sock */
 static void init_sockaddr(struct sockaddr_in *addr,
 			  const char *host, int port) {
@@ -219,6 +245,7 @@ static void init_sockaddr(struct sockaddr_in *addr,
   }
   addr->sin_addr = *(struct in_addr *) hostinfo->h_addr;
 }
+
 
 
 /* open and return a network socket fd connected to host:port */
@@ -239,6 +266,7 @@ static int init_sock(const char *host, int port) {
 }
 
 
+
 int main(int argc, char *argv[]) {
 
   /* the meanwhile session itself */
@@ -250,10 +278,16 @@ int main(int argc, char *argv[]) {
   /* something glib uses to watch the socket for available data */
   GIOChannel *io_chan;
 
+  /* specify host, user, pass on the command line */
+  if(argc != 4) {
+    fprintf(stderr, HELP, *argv);
+    return 1;
+  }
+
   /* create the session and set the user and password */
   session = mwSession_new(&mw_session_handler);
-  mwSession_setProperty(session, mwSession_AUTH_USER_ID, USER, NULL);
-  mwSession_setProperty(session, mwSession_AUTH_PASSWORD, PASS, NULL);
+  mwSession_setProperty(session, mwSession_AUTH_USER_ID, argv[2], NULL);
+  mwSession_setProperty(session, mwSession_AUTH_PASSWORD, argv[3], NULL);
 
   /* create the client data. This is arbitrary data that a client will
      want to store along with the session for its own use */
@@ -266,7 +300,7 @@ int main(int argc, char *argv[]) {
   mwSession_setClientData(session, client, g_free);
 
   /* set up a connection to the host */
-  client->sock = init_sock(HOST, 1533);
+  client->sock = init_sock(argv[1], 1533);
 
   /* start the session. This will cause the session to send the
      handshake message (using the io_write function specified in the

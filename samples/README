@@ -1,5 +1,73 @@
 
-These samples demonstrate how to do a few things with the Meanwhile library,
-but primarily they are also tools used to help in debugging and obtaining
-protocol information
+These samples demonstrate how to do a few things with the Meanwhile
+library. Some of these are also tools which can be used to help in
+debugging and obtaining protocol information.
+
+
+
+Examples
+========
+
+ socket.c
+
+Compile with `make socket`. This is the simplest possible client. All
+it does is connect and authenticate to a host (specified on the
+command line). Most of the code is dedicated to performing I/O.
+
+
+ echo.c  (forthcoming)
+
+Compile with `make echo`. This extends on the socket example above,
+but introduces the use of the IM service. All incoming messages will
+be echo'd verbatim back at whomever sends them. Can anger co-workers.
+
+
+ pipe.c  (forthcoming)
+
+Compile with `make pipe`. Extending upon the echo example, but is
+slightly more amusing and can be possibly useful for scripting. Will
+output all incoming IM messages to stdout. Listens on stdin and will
+write each line from stdin back to anyone who sent us a message
+(responding in order received)
+
+Since this application uses stdout, glib logging is smothered.
+
+
+ blist_storage.c  (forthcoming)
+
+Compile with `make blist_storage`. An example of the Storage service
+and buddy list parser. Operates in two modes, up and down. In up mode,
+this sample will read a buddy list file on stdin, check it for
+validity, then upload it to the storage service. In down mode, this
+sample will fetch the buddy list from the storage service and write it
+to stdout.
+
+Since this application uses stdout, glib logging is smothered.
+
+
+
+Utilities
+=========
+
+ redirect_proxy.c
+
+Compile with `make redirect_proxy`. Acts as a redirecting sametime
+server; any client attempting to connect to the socket this utility
+listens on will be instructed to redirect its connection to an
+alternative host (which is specified on the command line). Useful for
+ensuring client code can handle redirects correctly when there's no
+real redirecting server to test against.
+
+
+ nocipher_proxy.c
+
+Compile with `make nocipher_proxy`. Acts as a sametime server proxy,
+passing messages between a real client and server. However, it will
+intercept and mangle channel creation messages to ensure that they
+will not be used with encryption. This will cause many clients to fail
+in strange places (where they demand encryption), but is useful for
+getting some messages from a service in the clear. Will print all
+messages in hex pairs to stdout using the hexdump utility. This may be
+more useful than using ethereal, as it will actually group its output
+by message rather than by receipt from the TCP stream.
 
