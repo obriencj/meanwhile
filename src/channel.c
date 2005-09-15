@@ -98,13 +98,21 @@ static const char *state_str(enum mwChannelState state) {
 }
 
 
-static void state(struct mwChannel *chan, enum mwChannelState state) {
+static void state(struct mwChannel *chan, enum mwChannelState state,
+		  guint32 err_code) {
+
   g_return_if_fail(chan != NULL);
 
   if(chan->state == state) return;
 
   chan->state = state;
-  g_message("channel 0x%08x state: %s", chan->id, state_str(state));
+
+  if(err_code) {
+    g_message("channel 0x%08x state: %s (0x%08x)",
+	      chan->id, state_str(state), err_code);
+  } else {
+    g_message("channel 0x%08x state: %s", chan->id, state_str(state));
+  }
 }
 
 
@@ -166,7 +174,7 @@ struct mwChannel *mwChannel_newIncoming(struct mwChannelSet *cs, guint32 id) {
 
   g_hash_table_insert(cs->map, GUINT_TO_POINTER(id), chan);
 
-  state(chan, mwChannel_WAIT);
+  state(chan, mwChannel_WAIT, 0);
 
   return chan;
 }
@@ -186,7 +194,7 @@ struct mwChannel *mwChannel_newOutgoing(struct mwChannelSet *cs) {
   } while(g_hash_table_lookup(cs->map, GUINT_TO_POINTER(id)));
   
   chan = mwChannel_newIncoming(cs, id);
-  state(chan, mwChannel_INIT);
+  state(chan, mwChannel_INIT, 0);
 
   return chan;
 }
@@ -358,14 +366,14 @@ int mwChannel_create(struct mwChannel *chan) {
   ret = mwSession_send(chan->session, MW_MESSAGE(msg));
   mwMessage_free(MW_MESSAGE(msg));
 
-  state(chan, (ret)? mwChannel_ERROR: mwChannel_WAIT);
+  state(chan, (ret)? mwChannel_ERROR: mwChannel_WAIT, ret);
 
   return ret;
 }
 
 
 static void channel_open(struct mwChannel *chan) {
-  state(chan, mwChannel_OPEN);
+  state(chan, mwChannel_OPEN, 0);
   timestamp_stat(chan, mwChannelStat_OPENED_AT);
   flush_channel(chan);
 }
@@ -418,7 +426,7 @@ int mwChannel_accept(struct mwChannel *chan) {
   mwMessage_free(MW_MESSAGE(msg));
 
   if(ret) {
-    state(chan, mwChannel_ERROR);
+    state(chan, mwChannel_ERROR, ret);
   } else {
     channel_open(chan);
   }
@@ -484,7 +492,7 @@ int mwChannel_destroy(struct mwChannel *chan,
   /* may make this not a warning in the future */
   g_return_val_if_fail(chan != NULL, 0);
 
-  state(chan, reason? mwChannel_ERROR: mwChannel_DESTROY);
+  state(chan, reason? mwChannel_ERROR: mwChannel_DESTROY, reason);
 
   session = chan->session;
   g_return_val_if_fail(session != NULL, -1);
@@ -772,7 +780,7 @@ void mwChannel_recvAccept(struct mwChannel *chan,
   }
 
   /* mark it as open for the service */
-  state(chan, mwChannel_OPEN);
+  state(chan, mwChannel_OPEN, 0);
 
   /* let the service know */
   mwService_recvAccept(srvc, chan, msg);
@@ -794,7 +802,7 @@ void mwChannel_recvDestroy(struct mwChannel *chan,
   g_return_if_fail(msg != NULL);
   g_return_if_fail(chan->id == msg->head.channel);
 
-  state(chan, msg->reason? mwChannel_ERROR: mwChannel_DESTROY);
+  state(chan, msg->reason? mwChannel_ERROR: mwChannel_DESTROY, msg->reason);
 
   srvc = mwChannel_getService(chan);
   if(srvc) mwService_recvDestroy(srvc, chan, msg);

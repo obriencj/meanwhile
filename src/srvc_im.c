@@ -435,7 +435,8 @@ static void recv_channelDestroy(struct mwService *srvc, struct mwChannel *chan,
        messages. Fail-over to a non-html format on a new channel for
        the convo */
     if(c->features != mwImClient_PLAIN
-       && msg->reason == ERR_IM_NOT_REGISTERED) {
+       && (msg->reason == ERR_IM_NOT_REGISTERED ||
+	   msg->reason == ERR_SERVICE_NO_SUPPORT)) {
 
       g_debug("falling back on a plaintext conversation");
       c->features = mwImClient_PLAIN;
