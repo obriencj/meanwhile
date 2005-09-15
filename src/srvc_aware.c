@@ -113,6 +113,8 @@ enum msg_types {
   msg_OPT_GOT_SET     = 0x0259,  /**< recv attribute set update */
   msg_OPT_GOT_UNSET   = 0x025a,  /**< recv attribute unset update */
 
+  msg_OPT_GOT_UNKNOWN = 0x025b,  /**< UNKNOWN */
+  
   msg_OPT_DID_SET     = 0x025d,  /**< attribute set response */
   msg_OPT_DID_UNSET   = 0x025e,  /**< attribute unset response */
   msg_OPT_DID_ERROR   = 0x025f,  /**< attribute set/unset error */
@@ -615,13 +617,14 @@ static void recv(struct mwService *srvc, struct mwChannel *chan,
     recv_OPT_GOT_UNSET(srvc_aware, b);
     break;
 
+  case msg_OPT_GOT_UNKNOWN:
   case msg_OPT_DID_SET:
   case msg_OPT_DID_UNSET:
   case msg_OPT_DID_ERROR:
     break;
 
   default:
-    mw_debug_mailme(data, "unknown message in aware service: 0x%04x", type);   
+    mw_mailme_opaque(data, "unknown message in aware service: 0x%04x", type);
   }
 
   mwGetBuffer_free(b);  

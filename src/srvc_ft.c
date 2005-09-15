@@ -281,7 +281,7 @@ static void recv(struct mwService *srvc, struct mwChannel *chan,
     break;
 
   default:
-    mw_debug_mailme(data, "unknown message in ft service: 0x%04x", type);
+    mw_mailme_opaque(data, "unknown message in ft service: 0x%04x", type);
   }
 }
 

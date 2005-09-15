@@ -614,8 +614,8 @@ static void recv_data(struct mwServiceIm *srvc, struct mwChannel *chan,
 
   default:
     
-    mw_debug_mailme(&o, "unknown data message type in IM service:"
-		    " (0x%08x, 0x%08x)", type, subtype);
+    mw_mailme_opaque(&o, "unknown data message type in IM service:"
+		     " (0x%08x, 0x%08x)", type, subtype);
   }
 
   mwOpaque_clear(&o);

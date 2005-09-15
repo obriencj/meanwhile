@@ -258,6 +258,11 @@ void mwSession_start(struct mwSession *s) {
   g_return_if_fail(s != NULL);
   g_return_if_fail(mwSession_isStopped(s));
 
+  if(mwSession_isStarted(s) || mwSession_isStarting(s)) {
+    g_debug("attempted to start session that is already started/starting");
+    return;
+  }
+  
   state(s, mwSession_STARTING, 0);
 
   msg = (struct mwMsgHandshake *) mwMessage_new(mwMessage_HANDSHAKE);
@@ -281,8 +286,11 @@ void mwSession_stop(struct mwSession *s, guint32 reason) {
   struct mwMsgChannelDestroy *msg;
 
   g_return_if_fail(s != NULL);
-  g_return_if_fail(! mwSession_isStopping(s));
-  g_return_if_fail(! mwSession_isStopped(s));
+  
+  if(mwSession_isStopped(s) || mwSession_isStopping(s)) {
+    g_debug("attempted to stop session that is already stopped/stopping");
+    return;
+  }
 
   state(s, mwSession_STOPPING, reason);
 
@@ -561,7 +569,7 @@ static void session_process(struct mwSession *s,
   msg = mwMessage_get(b);
 
   if(mwGetBuffer_error(b)) {
-    mw_debug_mailme(&o, "parsing of message failed");
+    mw_mailme_opaque(&o, "parsing of message failed");
   }
 
   mwGetBuffer_free(b);

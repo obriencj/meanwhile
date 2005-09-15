@@ -275,7 +275,7 @@ static void recv(struct mwServiceResolve *srvc,
   g_return_if_fail(data != NULL);
 
   if(type != RESOLVE_ACTION) {
-    mw_debug_mailme(data, "unknown message in resolve service: 0x%04x", type);
+    mw_mailme_opaque(data, "unknown message in resolve service: 0x%04x", type);
     return;
   }
 

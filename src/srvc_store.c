@@ -362,7 +362,7 @@ static void recv(struct mwService *srvc, struct mwChannel *chan,
   request_get(b, req);
 
   if(mwGetBuffer_error(b)) {
-    mw_debug_mailme(data, "storage request 0x%x, type: 0x%x", id, type);
+    mw_mailme_opaque(data, "storage request 0x%x, type: 0x%x", id, type);
 
   } else {
     request_trigger(srvc_stor, req);

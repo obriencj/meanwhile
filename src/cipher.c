@@ -76,13 +76,6 @@ void mwIV_init(char *iv) {
     0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef
   };
   memcpy(iv, normal_iv, 8);
-
-  /*
-  *iv++ = 0x01; *iv++ = 0x23;
-  *iv++ = 0x45; *iv++ = 0x67;
-  *iv++ = 0x89; *iv++ = 0xab;
-  *iv++ = 0xcd; *iv   = 0xef;
-  */
 }
 
 
@@ -93,10 +86,8 @@ void mwKeyExpand(int *ekey, const char *key, gsize keylen) {
   char tmp[128];
   int i, j;
 
-  /*
-  g_message("expanding key from:");
-  pretty_print(key, keylen);
-  */
+  g_return_if_fail(keylen >= 128);
+  mw_debug_data(key, keylen, "Expanding key from:");
 
   if(keylen > 128) keylen = 128;
   memcpy(tmp, key, keylen);
@@ -117,12 +108,14 @@ void mwKeyExpand(int *ekey, const char *key, gsize keylen) {
 
 /* normal RC2 encryption given a full 128-byte (as 64 ints) key */
 static void mwEncryptBlock(const int *ekey, char *out) {
-  int a = (out[7] << 8) | (out[6] & 0xff);
-  int b = (out[5] << 8) | (out[4] & 0xff);
-  int c = (out[3] << 8) | (out[2] & 0xff);
-  int d = (out[1] << 8) | (out[0] & 0xff);
 
+  int a, b, c, d;
   int i, j;
+
+  a = (out[7] << 8) | (out[6] & 0xff);
+  b = (out[5] << 8) | (out[4] & 0xff);
+  c = (out[3] << 8) | (out[2] & 0xff);
+  d = (out[1] << 8) | (out[0] & 0xff);
 
   for(i = 0; i < 16; i++) {
     j = i * 4;
@@ -204,12 +197,14 @@ void mwEncrypt(const char *key, gsize keylen, char *iv,
 
 
 static void mwDecryptBlock(const int *ekey, char *out) {
-  int a = (out[7] << 8) | (out[6] & 0xff);
-  int b = (out[5] << 8) | (out[4] & 0xff);
-  int c = (out[3] << 8) | (out[2] & 0xff);
-  int d = (out[1] << 8) | (out[0] & 0xff);
 
+  int a, b, c, d;
   int i, j;
+
+  a = (out[7] << 8) | (out[6] & 0xff);
+  b = (out[5] << 8) | (out[4] & 0xff);
+  c = (out[3] << 8) | (out[2] & 0xff);
+  d = (out[1] << 8) | (out[0] & 0xff);
 
   for(i = 16; i--; ) {
     j = i * 4 + 3;
@@ -438,7 +433,7 @@ struct mwSession *mwCipher_getSession(struct mwCipher *cipher) {
 guint16 mwCipher_getType(struct mwCipher *cipher) {
   /* oh man, this is a bad failover... who the hell decided to make
      zero a real cipher id?? */
-  g_return_val_if_fail(cipher != NULL, 0x00);
+  g_return_val_if_fail(cipher != NULL, 0xffff);
   return cipher->type;
 }
 

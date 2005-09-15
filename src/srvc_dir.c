@@ -265,7 +265,7 @@ static void recv_list(struct mwServiceDirectory *srvc,
   guint16_get(b, &foo_2);
 
   if(foo_1 || foo_2) {
-    mw_debug_mailme(data, "received strange address book list");
+    mw_mailme_opaque(data, "received strange address book list");
     mwGetBuffer_free(b);
     return;
   }
@@ -326,7 +326,7 @@ static void recv(struct mwServiceDirectory *srvc,
     break;
 
   default:
-    mw_debug_mailme(data, "msg type 0x%04x in directory service", msg_type);
+    mw_mailme_opaque(data, "msg type 0x%04x in directory service", msg_type);
   }
 }
 
