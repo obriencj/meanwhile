@@ -86,12 +86,19 @@ void mwKeyExpand(int *ekey, const char *key, gsize keylen) {
   char tmp[128];
   int i, j;
 
-  g_return_if_fail(keylen >= 128);
-  mw_debug_data(key, keylen, "Expanding key from:");
+  g_info("mwKeyExpand keylen %u", keylen);
+
+  g_return_if_fail(keylen > 0);
+  g_return_if_fail(key != NULL);
+
+  mw_debug_data(key, keylen, "Expanding key from (%u bytes):", keylen);
 
   if(keylen > 128) keylen = 128;
+
+  /* fill the first chunk with what key bytes we have */
   memcpy(tmp, key, keylen);
 
+  /* build the remaining key from the given data */
   for(i = 0; keylen < 128; i++) {
     tmp[keylen] = PT[ (tmp[keylen - 1] + tmp[i]) & 0xff ];
     keylen++;

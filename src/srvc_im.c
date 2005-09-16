@@ -91,6 +91,8 @@ struct mwConversation {
   struct mwChannel *channel;    /**< channel */
   struct mwIdBlock target;      /**< conversation target */
 
+  gboolean ext_id;              /**< special treatment, external ID */
+
   /** state of the conversation, based loosely on the state of its
       underlying channel */
   enum mwConversationState state;
@@ -180,6 +182,9 @@ struct mwConversation *mwServiceIm_getConversation(struct mwServiceIm *srvc,
     mwIdBlock_clone(&c->target, to);
     c->state = mwConversation_CLOSED;
     c->features = srvc->features;
+
+    /* mark external users */
+    c->ext_id = g_str_has_prefix(to->user, "@E ");
 
     srvc->convs = g_list_prepend(srvc->convs, c);
   }
@@ -793,7 +798,7 @@ static int convo_send_data(struct mwConversation *conv,
 
   mwPutBuffer_finalize(&o, b);
 
-  ret = mwChannel_send(chan, msg_MESSAGE, &o);
+  ret = mwChannel_sendEncrypted(chan, msg_MESSAGE, &o, !conv->ext_id);
   mwOpaque_clear(&o);
 
   return ret;
@@ -863,7 +868,7 @@ static int convo_sendText(struct mwConversation *conv, const char *text) {
   mwString_put(b, text);
 
   mwPutBuffer_finalize(&o, b);
-  ret = mwChannel_send(conv->channel, msg_MESSAGE, &o);
+  ret = mwChannel_sendEncrypted(conv->channel, msg_MESSAGE, &o, !conv->ext_id);
   mwOpaque_clear(&o);
 
   return ret;
