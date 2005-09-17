@@ -536,18 +536,15 @@ static void offered_RC2_128(struct mwCipherInstance *ci,
   mpz_init(shared);
 
   mpz_import(remote_key, item->info.len, 1, 1, 1, 0, item->info.data);
-  mw_debug_opaque(&item->info, "remote key opaque:");
-  gmp_printf("remote_key: \n%Zx\n", remote_key);
-
   mpz_powm(shared, remote_key, cr->private_key, cr->prime);
-  gmp_printf("shared secret: \n%Zx\n", shared);
 
   sh_len = (mpz_sizeinbase(shared,2) + 7) / 8;
-
   sh_buf = g_malloc0(sh_len);
   mpz_export(sh_buf, NULL, 1, 1, 1, 0, shared);
 
-  mwKeyExpand(cir->shared, sh_buf, sh_len /* 16 */);
+  /* key expanded from the last 16 bytes of the DH shared secret. This
+     took me forever to figure out. 16 bytes is 128 bit. */
+  mwKeyExpand(cir->shared, sh_buf+48, 16);
   
   mpz_clear(remote_key);
   mpz_clear(shared);

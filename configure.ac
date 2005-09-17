@@ -64,9 +64,12 @@ AC_SUBST(GLIB_CFLAGS)
 AC_SUBST(GLIB_LIBS)
 
 
-# GMP
+# GNU multiple precision arithmetic library
 AC_CHECK_LIB(gmp, __gmpz_init, ,
 	[AC_MSG_ERROR([GNU MP not found, see http://swox.com/gmp])])
+
+GMP_LIBS=-lgmp
+AC_SUBST(GMP_LIBS)
 
 
 AC_CONFIG_FILES(
