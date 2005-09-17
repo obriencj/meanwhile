@@ -36,6 +36,13 @@
 /** @todo reorganize this file, stuff is just strewn about */
 
 
+#define MW_ENC_NONE       0x0000  /* no messages encrypted */
+#define MW_ENC_WHATEVER   0x0001  /* don't care */
+#define MW_ENC_ALL        0x0002  /* all messages encrypted */
+#define MW_ENC_RC2_40     0x1000  /* all messages encrypted with rc2/40 */
+#define MW_ENC_RC2_128    0x2000  /* all messages encrypted with rc2/128 */
+
+
 struct mwChannel {
 
   /** session this channel belongs to */
@@ -59,6 +66,7 @@ struct mwChannel {
 
   /** all those supported ciphers */
   GHashTable *supported;
+  guint16 enclevel;
 
   /** cipher information determined at channel acceptance */
   struct mwCipherInstance *cipher;
@@ -358,10 +366,14 @@ int mwChannel_create(struct mwChannel *chan) {
     msg->encrypt.items = g_list_append(msg->encrypt.items, ei);
   }
   if(list) {
-    msg->encrypt.mode = 0x1000;
-    msg->encrypt.extra = 0x1000;
+    chan->enclevel = MW_ENC_WHATEVER;
+  } else {
+    chan->enclevel = MW_ENC_NONE;
   }
   g_list_free(list);
+
+  msg->encrypt.mode = chan->enclevel;
+  msg->encrypt.extra = chan->enclevel;
   
   ret = mwSession_send(chan->session, MW_MESSAGE(msg));
   mwMessage_free(MW_MESSAGE(msg));
@@ -402,25 +414,35 @@ int mwChannel_accept(struct mwChannel *chan) {
 
   /* if nobody selected a cipher, we'll just pick the last in the list */
   if(chan->supported) {
-    GList *l = mwChannel_getSupportedCipherInstances(chan);
-
-    if(l) {
-      GList *ll = l;
-      for(ll = l; ll->next; ll = ll->next);
-      mwChannel_selectCipherInstance(chan, ll->data);
-      g_list_free(l);
-
-    } else {
+    struct mwCipherInstance *ci;
+    
+    if(! chan->enclevel) {
       mwChannel_selectCipherInstance(chan, NULL);
+      
+    } else if(chan->enclevel == MW_ENC_RC2_40) {
+      ci = get_supported(chan, mwCipher_RC2_40);
+      mwChannel_selectCipherInstance(chan, ci);
+      
+    } else if(chan->enclevel == MW_ENC_RC2_128) {
+      ci = get_supported(chan, mwCipher_RC2_128);
+      mwChannel_selectCipherInstance(chan, ci);
+      
+    } else {
+      GList *l = mwChannel_getSupportedCipherInstances(chan);
+      
+      if(l) {
+	GList *ll = l;
+	for(ll = l; ll->next; ll = ll->next);
+	mwChannel_selectCipherInstance(chan, ll->data);
+	g_list_free(l);
+      }
     }
-  }
+  }    
 
   if(chan->cipher) {
     msg->encrypt.item = mwCipherInstance_accept(chan->cipher);
-
-    /** @todo figure out encrypt modes */
-    msg->encrypt.mode = 0x1000;
-    msg->encrypt.extra = 0x1000;
+    msg->encrypt.mode = chan->enclevel;
+    msg->encrypt.extra = chan->enclevel;
   }
 
   ret = mwSession_send(session, MW_MESSAGE(msg));
@@ -433,7 +455,7 @@ int mwChannel_accept(struct mwChannel *chan) {
   }
 
   return ret;
-}
+  }
 
 
 static void channel_free(struct mwChannel *chan) {
@@ -700,6 +722,9 @@ void mwChannel_recvCreate(struct mwChannel *chan,
     return;
   }
 
+  chan->enclevel = msg->encrypt.mode;
+  g_message("channel offered with encrypt mode 0x%04x", chan->enclevel);
+
   for(list = msg->encrypt.items; list; list = list->next) {
     struct mwEncryptItem *ei = list->data;
     struct mwCipher *cipher;
@@ -762,6 +787,9 @@ void mwChannel_recvAccept(struct mwChannel *chan,
     mwChannel_destroy(chan, ERR_SERVICE_NO_SUPPORT, NULL);
     return;
   }
+
+  chan->enclevel = msg->encrypt.mode;
+  g_message("channel accepted with encrypt mode 0x%04x", chan->enclevel);
 
   if(! msg->encrypt.mode || ! msg->encrypt.item) {
     mwChannel_selectCipherInstance(chan, NULL);
