@@ -4,6 +4,7 @@ version 0.4.3 (cvs)
 	Features
 	- Automatically breaks up large messages for transport (using
 	NotesBuddy multi-segment messages)
+	- Support for DH RC2/128 channel encryption
 
 	Bug Fixes
 	- Bug #1239210 Unspecified fatal error when VPN disconnects

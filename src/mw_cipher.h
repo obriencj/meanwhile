@@ -50,7 +50,10 @@ typedef struct mwCipherInstance *(*mwCipherInstantiator)
 
 
 /** Generate a descriptor for use in a channel create message to
-    indicate the availability of this cipher */
+    indicate the availability of this cipher
+
+    @todo remove for 1.0
+*/
 typedef struct mwEncryptItem *(*mwCipherDescriptor)
      (struct mwCipherInstance *instance);
 
@@ -82,13 +85,15 @@ struct mwCipher {
       @see mwCipher_newInstance */
   mwCipherInstantiator new_instance;
 
-  /** @see mwCipher_newItem */
+  /** @see mwCipher_newItem
+      @todo remove for 1.0
+   */
   mwCipherDescriptor new_item;
 
   void (*offered)(struct mwCipherInstance *ci, struct mwEncryptItem *item);
-  void (*offer)(struct mwCipherInstance *ci);
+  struct mwEncryptItem *(*offer)(struct mwCipherInstance *ci);
   void (*accepted)(struct mwCipherInstance *ci, struct mwEncryptItem *item);
-  void (*accept)(struct mwCipherInstance *ci);
+  struct mwEncryptItem *(*accept)(struct mwCipherInstance *ci);
 
   mwCipherProcessor encrypt; /**< @see mwCipherInstance_encrypt */
   mwCipherProcessor decrypt; /**< @see mwCipherInstance_decrypt */
@@ -121,10 +126,7 @@ struct mwCipherInstance {
 struct mwCipher *mwCipher_new_RC2_40(struct mwSession *s);
 
 
-#if 0
-/* @todo write this */
-struct mwCipher *mwCipher_new_DH_RC2_128(struct mwSession *s);
-#endif
+struct mwCipher *mwCipher_new_RC2_128(struct mwSession *s);
 
 
 struct mwSession *mwCipher_getSession(struct mwCipher *cipher);
@@ -160,7 +162,8 @@ void mwCipherInstance_offered(struct mwCipherInstance *ci,
 
 
 /** Offer a cipher */
-void mwCipherInstance_offer(struct mwCipherInstance *ci);
+struct mwEncryptItem *
+mwCipherInstance_offer(struct mwCipherInstance *ci);
 
 
 /** Indicates an offered cipher has been accepted */
@@ -169,7 +172,8 @@ void mwCipherInstance_accepted(struct mwCipherInstance *ci,
 
 
 /** Accept a cipher offered to our channel */
-void mwCipherInstance_accept(struct mwCipherInstance *ci);
+struct mwEncryptItem *
+mwCipherInstance_accept(struct mwCipherInstance *ci);
 
 
 /** encrypt data */

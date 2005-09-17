@@ -51,7 +51,7 @@ AC_SUBST(os_so_ext)
 AC_SUBST(os_ld_flags)
 
 
-# Glib-2.0 option with some version detection for compat.h
+# Glib-2.0
 PKG_CHECK_MODULES(GLIB,
 [glib-2.0 >= glib_required_version],
 [
@@ -62,6 +62,11 @@ GLIB_VERSION=glib_required_version
 AC_SUBST(GLIB_VERSION)
 AC_SUBST(GLIB_CFLAGS)
 AC_SUBST(GLIB_LIBS)
+
+
+# GMP
+AC_CHECK_LIB(gmp, __gmpz_init, ,
+	[AC_MSG_ERROR([GNU MP not found, see http://swox.com/gmp])])
 
 
 AC_CONFIG_FILES(

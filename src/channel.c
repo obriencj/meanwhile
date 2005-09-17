@@ -354,7 +354,7 @@ int mwChannel_create(struct mwChannel *chan) {
   mwOpaque_clone(&msg->addtl, &chan->addtl_create);
 
   for(list = l = mwChannel_getSupportedCipherInstances(chan); l; l = l->next) {
-    struct mwEncryptItem *ei = mwCipherInstance_newItem(l->data);
+    struct mwEncryptItem *ei = mwCipherInstance_offer(l->data);
     msg->encrypt.items = g_list_append(msg->encrypt.items, ei);
   }
   if(list) {
@@ -400,22 +400,23 @@ int mwChannel_accept(struct mwChannel *chan) {
   msg->proto_ver = chan->proto_ver;
   mwOpaque_clone(&msg->addtl, &chan->addtl_accept);
 
-  /* if nobody selected a cipher, we'll just pick the first that comes
-     handy */
+  /* if nobody selected a cipher, we'll just pick the last in the list */
   if(chan->supported) {
     GList *l = mwChannel_getSupportedCipherInstances(chan);
+
     if(l) {
-      mwChannel_selectCipherInstance(chan, l->data);
+      GList *ll = l;
+      for(ll = l; ll->next; ll = ll->next);
+      mwChannel_selectCipherInstance(chan, ll->data);
       g_list_free(l);
+
     } else {
       mwChannel_selectCipherInstance(chan, NULL);
     }
   }
 
   if(chan->cipher) {
-    mwCipherInstance_accept(chan->cipher);
-
-    msg->encrypt.item = mwCipherInstance_newItem(chan->cipher);
+    msg->encrypt.item = mwCipherInstance_accept(chan->cipher);
 
     /** @todo figure out encrypt modes */
     msg->encrypt.mode = 0x1000;
