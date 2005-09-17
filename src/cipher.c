@@ -665,13 +665,8 @@ struct mwCipher *mwCipher_new_RC2_128(struct mwSession *s) {
   mpz_init(cr->private_key);
   
   mpz_import(cr->prime, 64, 1, 1, 0, 0, dh_prime);
-  gmp_printf("prime is:\n%#Zx\n", cr->prime);
-
   mpz_urandomb(cr->private_key, rstate, 512); /* 64 * 8 */
-  gmp_printf("private_key is:\n%#Zx\n", cr->private_key);
-
   mpz_powm(pubkey, base, cr->private_key, cr->prime);
-  gmp_printf("public_key is:\n%#Zx\n", pubkey);
   
   {
     char *buf;
