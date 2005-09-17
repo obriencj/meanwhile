@@ -777,10 +777,10 @@ struct mwEncryptItem *
 mwCipherInstance_offer(struct mwCipherInstance *ci) {
   struct mwCipher *cipher;
 
-  g_return_if_fail(ci != NULL);
+  g_return_val_if_fail(ci != NULL, NULL);
 
   cipher = ci->cipher;
-  g_return_if_fail(cipher != NULL);
+  g_return_val_if_fail(cipher != NULL, NULL);
 
   return cipher->offer(ci);
 }
@@ -803,10 +803,10 @@ struct mwEncryptItem *
 mwCipherInstance_accept(struct mwCipherInstance *ci) {
   struct mwCipher *cipher;
 
-  g_return_if_fail(ci != NULL);
+  g_return_val_if_fail(ci != NULL, NULL);
 
   cipher = ci->cipher;
-  g_return_if_fail(cipher != NULL);
+  g_return_val_if_fail(cipher != NULL, NULL);
 
   return cipher->accept(ci);
 }
