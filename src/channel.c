@@ -412,7 +412,6 @@ int mwChannel_accept(struct mwChannel *chan) {
   msg->proto_ver = chan->proto_ver;
   mwOpaque_clone(&msg->addtl, &chan->addtl_accept);
 
-  /* if nobody selected a cipher, we'll just pick the last in the list */
   if(chan->supported) {
     struct mwCipherInstance *ci;
     
@@ -428,6 +427,8 @@ int mwChannel_accept(struct mwChannel *chan) {
       mwChannel_selectCipherInstance(chan, ci);
       
     } else {
+      /* if nobody selected a cipher, we'll just pick the last in the
+	 list of available ones */
       GList *l = mwChannel_getSupportedCipherInstances(chan);
       
       if(l) {
@@ -455,7 +456,7 @@ int mwChannel_accept(struct mwChannel *chan) {
   }
 
   return ret;
-  }
+}
 
 
 static void channel_free(struct mwChannel *chan) {

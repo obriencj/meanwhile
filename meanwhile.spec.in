@@ -9,11 +9,11 @@ License: LGPL
 Group: Applications/Internet
 URL: http://meanwhile.sourceforge.net/
 
-Requires: glib2 >= @GLIB_VERSION@
+Requires: glib2 >= @GLIB_VERSION@, gmp
 
 Source0: %{name}-%{version}.tar.gz
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-buildroot
-BuildRequires: glib2-devel >= @GLIB_VERSION@
+BuildRequires: glib2-devel >= @GLIB_VERSION@, gmp-devel
 
 
 %description
@@ -73,6 +73,9 @@ Development package for the Meanwhile library
 
 
 %changelog
+* Sat Sep 17 2005  <siege@preoccupied.net>
+- added gmp and gmp-devel requrements
+
 * Sun Jan 16 2005  <siege@preoccupied.net>
 - removed python package (now in meanwhile-python module)
 
