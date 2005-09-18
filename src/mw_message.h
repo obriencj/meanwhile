@@ -108,7 +108,7 @@ struct mwMsgHandshakeAck {
   guint16 minor;          /**< server's minor version number */
   guint32 srvrcalc_addr;  /**< server-calculated address */
   guint32 unknown;        /**< four bytes of something */
-  struct mwOpaque data;   /**< some stuff */
+  struct mwOpaque data;   /**< server's DH public key for auth */
 };
 
 
@@ -117,7 +117,9 @@ struct mwMsgHandshakeAck {
 enum mwAuthType {
   mwAuthType_PLAIN    = 0x0000,
   mwAuthType_TOKEN    = 0x0001,
-  mwAuthType_ENCRYPT  = 0x0002,
+  mwAuthType_ENCRYPT  = 0x0002, /**< @todo remove for 1.0 */
+  mwAuthType_RC2_40   = 0x0002,
+  mwAuthType_RC2_128  = 0x0004,
 };
 
 

@@ -71,6 +71,36 @@ AC_CHECK_LIB(gmp, __gmpz_init, ,
 GMP_LIBS=-lgmp
 AC_SUBST(GMP_LIBS)
 
+# either auto-detect or specify the libgmp.a file for static linking
+GMP_LIBA=
+withval="auto"
+AC_ARG_WITH(static_gmp,
+	[  --with-static-gmp[=auto]  libgmp.a file for static linking])
+
+if test "$withval" = "auto" ; then
+	if test -f "/usr/lib/libgmp.a" ; then
+	   GMP_LIBA="/usr/lib/libgmp.a"
+	elif test -f "/usr/local/lib/libgmp.a" ; then
+	   GMP_LIBA="/usr/local/lib/libgmp.a"
+	fi
+else
+	if test -f "$withval" ; then
+	   GMP_LIBA="$withval"
+	else
+	   AC_MSG_ERROR([file not found, $withval])
+	fi
+fi
+AC_SUBST(GMP_LIBA)
+
+# if we've got a .a file, then we offer the option to link statically
+if test -n "$GMP_LIBA" ; then
+   AC_ARG_ENABLE(static,
+	[  --enable-static-gmp      statically link in GMP],,
+	enable_static="no")
+fi
+AM_CONDITIONAL(GMP_STATIC, test $enable_static = yes)
+
+
 
 AC_CONFIG_FILES(
 	[Makefile src/Makefile]
@@ -81,3 +111,19 @@ AC_CONFIG_FILES(
 
 AC_OUTPUT()
 
+
+echo
+echo -n "GMP linking mode...       : "
+if test "$enable_static" != "yes" ; then
+   echo "dynamic"
+else
+   echo "static"
+   echo "GMP library...            : $GMP_LIBA"
+fi
+
+echo
+echo configure complete, now run \`make\`
+echo
+
+
+# The End.

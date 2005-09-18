@@ -50,7 +50,13 @@ libmeanwhile_la_SOURCES = \
 	srvc_resolve.c \
 	st_list.c
 
-libmeanwhile_la_LIBADD = $(GLIB_LIBS) $(GMP_LIBS)
+libmeanwhile_la_LIBADD = $(GLIB_LIBS)
+
+if GMP_STATIC
+libmeanwhile_la_LIBADD += $(GMP_LIBA)
+else
+libmeanwhile_la_LIBADD += $(GMP_LIBS)
+endif
 
 AM_CPPFLAGS = \
 	-DG_LOG_DOMAIN=\"@PACKAGE@\"

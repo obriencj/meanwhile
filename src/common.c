@@ -964,18 +964,6 @@ const char *mwLoginType_getName(enum mwLoginType type) {
   case mwLogin_MEANWHILE:
     return "Meanwhile";
 
-  case mwLogin_MW_PYTHON:
-    return "Meanwhile Python";
-
-  case mwLogin_MW_GAIM:
-    return "Meanwhile Gaim";
-
-  case mwLogin_MW_ADIUM:
-    return "Meanwhile Adium";
-
-  case mwLogin_MW_KOPETE:
-    return "Meanwhile Kopete";
-
   default:
     return NULL;
   }

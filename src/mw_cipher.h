@@ -32,7 +32,8 @@ struct mwSession;
 
 
 
-/** Common cipher types */
+/** @enum mwCipherType
+    Common cipher types */
 enum mwCipherType {
   mwCipher_RC2_40   = 0x0000,
   mwCipher_RC2_128  = 0x0001,

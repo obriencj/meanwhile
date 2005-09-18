@@ -87,8 +87,10 @@ struct mwOpaque {
 
     If you are using Meanwhile in your client code and would like to
     differentiate yourself, please email siege at preoccupied dot net
-    with all the relevant information you can think of. I intend to be
-    pretty liberal with 'em.
+    with all the relevant information you can think of and I'll add it
+    to the text mapping as well
+
+    @see mwLoginType_getName
 */
 enum mwLoginType {
   mwLogin_LIB           = 0x1000,  /**< official Lotus binary library */
@@ -109,13 +111,6 @@ enum mwLoginType {
   mwLogin_TRILLIAN         = 0x16aa,  /**< http://sf.net/st-plugin/ */
   mwLogin_TRILLIAN_IBM     = 0x16bb,
   mwLogin_MEANWHILE        = 0x1700,  /**< Meanwhile library */
-
-  /* these aren't ready for use yet, DO NOT USE WHILE THIS COMMENT
-     EXISTS HERE, it will only cause you trouble */
-  mwLogin_MW_PYTHON     = 0x1701,  /**< Meanwhile Python */
-  mwLogin_MW_GAIM       = 0x1702,  /**< gaim-meanwhile */
-  mwLogin_MW_ADIUM      = 0x1703,  /**< adium-meanwhile */
-  mwLogin_MW_KOPETE     = 0x1704,  /**< kopete-meanwhile */
 };
 
 
