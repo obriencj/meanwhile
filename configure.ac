@@ -64,39 +64,67 @@ AC_SUBST(GLIB_CFLAGS)
 AC_SUBST(GLIB_LIBS)
 
 
-# I wish gmp had a pkgconfig file
-AC_CHECK_HEADER([gmp.h], ,
-	[AC_MSG_ERROR([GNU MP headers not found, see http://swox.com/gmp])])
+GMP_LIBA=
+GMP_LIBS=
+GMP_CFLAGS=
 
 # either auto-detect or specify the libgmp.a file for static linking
 withval="auto"
 AC_ARG_WITH(gmp-liba,
-	[  --with-gmp-liba[=auto]  libgmp.a file for static linking])
+	[  --with-gmp-prefix[=auto]  prefix gmp was installed to])
 
-GMP_LIBA=
-if test "$withval" = auto ; then
-	if test -f "/usr/lib/libgmp.a" ; then
-	   GMP_LIBA="/usr/lib/libgmp.a"
-	elif test -f "/usr/local/lib/libgmp.a" ; then
-	   GMP_LIBA="/usr/local/lib/libgmp.a"
+# I wish gmp had a pkgconfig file
+AC_CHECK_HEADER([gmp.h], ,
+	[AC_MSG_ERROR([GNU MP headers not found, see http://swox.com/gmp])])
+
+if test "$withval" = "auto" ; then
+	found_prefix=no
+
+	if test $found_prefix = "no" ; then
+	   try_prefix=/usr
+	   AC_CHECK_HEADER([$try_prefix/include/gmp.h], found_prefix="yes")
 	fi
 
-elif test -n "$withval" && test -f "$withval" ; then
-        GMP_LIBA="$withval"
+	if test $found_prefix = "no" ; then
+	   try_prefix=/usr/local
+	   AC_CHECK_HEADER([$try_prefix/include/gmp.h], found_prefix="yes")
+	fi
+
+	if test $found_prefix = "no" ; then
+	   AC_MSG_ERROR([GNU MP headers not found])
+	fi
+
+elif test -n "$withval" ; then
+	try_prefix=$withval
+
+	AC_CHECK_HEADER([$try_prefix/include/gmp.h],,
+		[AC_MSG_ERROR([GNU MP headers not found])])
 
 else
-	AC_MSG_ERROR([file not found, $withval])
+	AC_MSG_ERROR([GNU MP headers not found, $withval])
 fi
+
+GMP_CFLAGS=-I$try_prefix/include
+GMP_LIBA=$try_prefix/lib/libgmp.a
 
 # if we're linking statically, then GMP_LIBS needs to be GMP_LIBA,
 # else we need to ensure we can find the library for dynamic linking
-GMP_LIBS=
 AC_ARG_ENABLE(static-gmp,
 	[  --enable-static-gmp     statically link in GMP],
-	GMP_LIBS=$GMP_LIBA, 
-	[AC_CHECK_LIB(gmp, __gmpz_init, , [AC_MSG_ERROR(
-	   [GNU MP libraries not found, see http://swox.com/gmp])])])
+	[static_gmp="yes"])
 
+if test "$static_gmp" = "yes" ; then
+   GMP_LIBS=$GMP_LIBA
+else
+   LD_LIBRARY_PATH="$try_prefix/lib":"$LD_LIBRARY_PATH"
+   export LD_LIBRARY_PATH
+
+   AC_CHECK_LIB(gmp, __gmpz_init,
+	[GMP_LIBS="-L$try_prefix/lib -lgmp"],
+	[AC_MSG_ERROR([GNU MP libraries not found, see http://swox.com/gmp])])
+fi
+
+AC_SUBST(GMP_CFLAGS)
 AC_SUBST(GMP_LIBS)
 
 
@@ -112,7 +140,7 @@ AC_OUTPUT()
 
 echo
 echo -n "GMP linking mode...       : "
-if test -n "$GMP_LIBS" ; then
+if test "$static_gmp" = "yes" ; then
    echo "static"
    echo "GMP library...            : $GMP_LIBA"
 else

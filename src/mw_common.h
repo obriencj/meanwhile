@@ -97,6 +97,7 @@ enum mwLoginType {
   mwLogin_JAVA_WEB      = 0x1001,  /**< official Lotus Java applet */
   mwLogin_BINARY        = 0x1002,  /**< official Lotus binary application */
   mwLogin_JAVA_APP      = 0x1003,  /**< official Lotus Java application */
+  mwLogin_LINKS         = 0x100a,  /**< official Sametime Links toolkit */
 
   /* now we're getting crazy */
   mwLogin_NOTES_6_5        = 0x1200,
