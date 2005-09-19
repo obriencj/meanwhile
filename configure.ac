@@ -70,7 +70,7 @@ GMP_CFLAGS=
 
 # either auto-detect or specify the libgmp.a file for static linking
 withval="auto"
-AC_ARG_WITH(gmp-liba,
+AC_ARG_WITH(gmp-prefix,
 	[  --with-gmp-prefix[=auto]  prefix gmp was installed to])
 
 if test "$withval" = "auto" ; then
