@@ -73,10 +73,6 @@ withval="auto"
 AC_ARG_WITH(gmp-liba,
 	[  --with-gmp-prefix[=auto]  prefix gmp was installed to])
 
-# I wish gmp had a pkgconfig file
-AC_CHECK_HEADER([gmp.h], ,
-	[AC_MSG_ERROR([GNU MP headers not found, see http://swox.com/gmp])])
-
 if test "$withval" = "auto" ; then
 	found_prefix=no
 
