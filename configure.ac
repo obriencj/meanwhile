@@ -64,15 +64,9 @@ AC_SUBST(GLIB_CFLAGS)
 AC_SUBST(GLIB_LIBS)
 
 
-# GNU multiple precision arithmetic library
-AC_CHECK_LIB(gmp, __gmpz_init, ,
-	[AC_MSG_ERROR([GNU MP not found, see http://swox.com/gmp])])
-
-GMP_LIBS=-lgmp
-AC_SUBST(GMP_LIBS)
-
 # either auto-detect or specify the libgmp.a file for static linking
 GMP_LIBA=
+GMP_LIBS=
 withval="auto"
 AC_ARG_WITH(static_gmp,
 	[  --with-static-gmp[=auto]  libgmp.a file for static linking])
@@ -83,23 +77,30 @@ if test "$withval" = "auto" ; then
 	elif test -f "/usr/local/lib/libgmp.a" ; then
 	   GMP_LIBA="/usr/local/lib/libgmp.a"
 	fi
-else
-	if test -f "$withval" ; then
+
+elif test -f "$withval" ; then
 	   GMP_LIBA="$withval"
-	else
+
+elif test -n "$withval" ; then
 	   AC_MSG_ERROR([file not found, $withval])
-	fi
 fi
-AC_SUBST(GMP_LIBA)
 
 # if we've got a .a file, then we offer the option to link statically
-if test -n "$GMP_LIBA" ; then
-   AC_ARG_ENABLE(static,
+AC_ARG_ENABLE(static,
 	[  --enable-static-gmp      statically link in GMP],,
 	enable_static="no")
-fi
-AM_CONDITIONAL(GMP_STATIC, test $enable_static = yes)
 
+if test $enable_static = yes ; then
+   GMP_LIBS=$GMP_LIBA
+
+else
+   # GNU multiple precision arithmetic library. Automatically adds -lgmp
+   # to LIBS
+   AC_CHECK_LIB(gmp, __gmpz_init, ,
+	[AC_MSG_ERROR([GNU MP not found, see http://swox.com/gmp])])
+fi
+
+AC_SUBST(GMP_LIBS)
 
 
 AC_CONFIG_FILES(
