@@ -64,41 +64,38 @@ AC_SUBST(GLIB_CFLAGS)
 AC_SUBST(GLIB_LIBS)
 
 
-# either auto-detect or specify the libgmp.a file for static linking
-GMP_LIBA=
-GMP_LIBS=
-withval="auto"
-AC_ARG_WITH(static_gmp,
-	[  --with-static-gmp[=auto]  libgmp.a file for static linking])
+# I wish gmp had a pkgconfig file
+AC_CHECK_HEADER([gmp.h], ,
+	[AC_MSG_ERROR([GNU MP headers not found, see http://swox.com/gmp])])
 
-if test "$withval" = "auto" ; then
+# either auto-detect or specify the libgmp.a file for static linking
+withval="auto"
+AC_ARG_WITH(gmp-liba,
+	[  --with-gmp-liba[=auto]  libgmp.a file for static linking])
+
+GMP_LIBA=
+if test "$withval" = auto ; then
 	if test -f "/usr/lib/libgmp.a" ; then
 	   GMP_LIBA="/usr/lib/libgmp.a"
 	elif test -f "/usr/local/lib/libgmp.a" ; then
 	   GMP_LIBA="/usr/local/lib/libgmp.a"
 	fi
 
-elif test -f "$withval" ; then
-	   GMP_LIBA="$withval"
-
-elif test -n "$withval" ; then
-	   AC_MSG_ERROR([file not found, $withval])
-fi
-
-# if we've got a .a file, then we offer the option to link statically
-AC_ARG_ENABLE(static,
-	[  --enable-static-gmp      statically link in GMP],,
-	enable_static="no")
-
-if test $enable_static = yes ; then
-   GMP_LIBS=$GMP_LIBA
+elif test -n "$withval" && test -f "$withval" ; then
+        GMP_LIBA="$withval"
 
 else
-   # GNU multiple precision arithmetic library. Automatically adds -lgmp
-   # to LIBS
-   AC_CHECK_LIB(gmp, __gmpz_init, ,
-	[AC_MSG_ERROR([GNU MP not found, see http://swox.com/gmp])])
+	AC_MSG_ERROR([file not found, $withval])
 fi
+
+# if we're linking statically, then GMP_LIBS needs to be GMP_LIBA,
+# else we need to ensure we can find the library for dynamic linking
+GMP_LIBS=
+AC_ARG_ENABLE(static-gmp,
+	[  --enable-static-gmp     statically link in GMP],
+	GMP_LIBS=$GMP_LIBA, 
+	[AC_CHECK_LIB(gmp, __gmpz_init, , [AC_MSG_ERROR(
+	   [GNU MP libraries not found, see http://swox.com/gmp])])])
 
 AC_SUBST(GMP_LIBS)
 
@@ -115,11 +112,11 @@ AC_OUTPUT()
 
 echo
 echo -n "GMP linking mode...       : "
-if test "$enable_static" != "yes" ; then
-   echo "dynamic"
-else
+if test -n "$GMP_LIBS" ; then
    echo "static"
    echo "GMP library...            : $GMP_LIBA"
+else
+   echo "dynamic"
 fi
 
 echo
