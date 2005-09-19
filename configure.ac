@@ -115,7 +115,7 @@ else
    LD_LIBRARY_PATH="$try_prefix/lib":"$LD_LIBRARY_PATH"
    export LD_LIBRARY_PATH
 
-   AC_CHECK_LIB(gmp, __gmpz_init,
+   AC_CHECK_LIB(gmp, mpz_init,
 	[GMP_LIBS="-L$try_prefix/lib -lgmp"],
 	[AC_MSG_ERROR([GNU MP libraries not found, see http://swox.com/gmp])])
 fi
