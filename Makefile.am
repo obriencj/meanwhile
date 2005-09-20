@@ -1,10 +1,10 @@
 
 
-SUBDIRS = src doc
+SUBDIRS = src doc samples
 
 
 EXTRA_DIST =	meanwhile.spec \
-		meanwhile.pc
+		meanwhile.pc 
 
 
 pkgconfig_DATA = meanwhile.pc

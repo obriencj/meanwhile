@@ -1,7 +1,7 @@
 
 
 AM_CFLAGS = -I../src/ $(GLIB_CFLAGS)
-common_libs = $(GLIB_LIBS) ../src/.libs/libmeanwhile.a
+common_libs = $(GLIB_LIBS) -L../src/ -lmeanwhile
 
 noinst_PROGRAMS = \
 	nocipher_proxy \
