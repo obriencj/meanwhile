@@ -149,6 +149,8 @@ static void LOGIN_put(struct mwPutBuffer *b, struct mwMsgLogin *msg) {
   /* ordering reversed from draft?? */
   mwOpaque_put(b, &msg->auth_data);
   guint16_put(b, msg->auth_type);
+
+  guint16_put(b, 0x0000); /* unknown */
 }
 
 

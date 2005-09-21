@@ -23,6 +23,7 @@
 
 
 #include <glib.h>
+#include <gmp.h>
 #include "mw_common.h"
 
 
@@ -154,6 +155,10 @@ void mwCipher_free(struct mwCipher* cipher);
 struct mwCipher *mwCipherInstance_getCipher(struct mwCipherInstance *ci);
 
 
+/**
+   Deprecated in favor of the methods mwCipherInstance_offer and
+   mwCipherInstance_accept
+*/
 struct mwEncryptItem *mwCipherInstance_newItem(struct mwCipherInstance *ci);
 
 
@@ -194,16 +199,8 @@ void mwCipherInstance_free(struct mwCipherInstance *ci);
 /**
   @section General Cipher Functions
 
-  This set of functions is a broken sort of RC2 implementation. But it
-  works with sametime, so we're all happy, right? Primary change to
-  functionality appears in the mwKeyExpand function. Hypothetically,
-  using a key expanded here (but breaking it into a 128-char array
-  rather than 64 ints), one could pass it at that length to openssl
-  and no further key expansion would occur.
-
-  I'm not certain if replacing this with a wrapper for calls to some
-  other crypto library is a good idea or not. Proven software versus
-  added dependencies...
+  These functions are reused where encryption is necessary outside of
+  a channel (eg. session authentication)
 */
 /* @{ */
 
@@ -212,7 +209,25 @@ void mwCipherInstance_free(struct mwCipherInstance *ci);
     @param keylen  count of bytes to write into key
     @param key     buffer to write keys into
 */
-void rand_key(char *key, gsize keylen);
+void mwKeyRandom(char *key, gsize keylen);
+
+
+void mwInitDHPrime(mpz_t z);
+
+
+void mwInitDHBase(mpz_t z);
+
+
+void mwDHRandKeypair(mpz_t private, mpz_t public);
+
+
+void mwDHCalculateShared(mpz_t shared, mpz_t remote, mpz_t private);
+
+
+void mwDHImportKey(mpz_t key, struct mwOpaque *o);
+
+
+void mwDHExportKey(mpz_t key, struct mwOpaque *o);
 
 
 /** Setup an Initialization Vector */

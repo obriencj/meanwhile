@@ -19,6 +19,7 @@
 */
 
 #include <glib.h>
+#include <gmp.h>
 #include <string.h>
 
 #include "mw_channel.h"
@@ -318,15 +319,15 @@ void mwSession_stop(struct mwSession *s, guint32 reason) {
 
 
 /** compose authentication information into an opaque based on the
-    password */
-static void compose_auth(struct mwOpaque *auth, const char *pass) {
+    password, encrypted via RC2/40 */
+static void compose_auth_rc2_40(struct mwOpaque *auth, const char *pass) {
   char iv[8], key[5];
   struct mwOpaque a, b, z;
   struct mwPutBuffer *p;
 
   /* get an IV and a random five-byte key */
   mwIV_init((char *) iv);
-  rand_key((char *) key, 5);
+  mwKeyRandom((char *) key, 5);
 
   /* the opaque with the key */
   a.len = 5;
@@ -351,6 +352,59 @@ static void compose_auth(struct mwOpaque *auth, const char *pass) {
 
   /* this is the only one to clear, as the other uses a static buffer */
   mwOpaque_clear(&b);
+}
+
+
+__attribute((used))
+static void compose_auth_rc2_128(struct mwOpaque *auth, const char *pass,
+				 struct mwOpaque *rkey) {
+
+  char iv[8];
+  struct mwOpaque a, b, c = { 0, 0 };
+  struct mwPutBuffer *p;
+
+  mpz_t private, public;
+  mpz_t remote;
+  mpz_t shared;
+
+  mpz_init(private);
+  mpz_init(public);
+  mpz_init(remote);
+  mpz_init(shared);
+
+  mwDHRandKeypair(private, public);
+  mwDHImportKey(remote, rkey);
+  mwDHCalculateShared(shared, remote, private);
+
+  /* put the password in opaque a */
+  a.len = strlen(pass);
+  a.data = (char *) pass;
+
+  /* put the shared key in opaque b */
+  mwDHExportKey(shared, &b);
+
+  /* encrypt the password (a) using the shared key (b), put the result
+     in opaque c */
+  mwEncrypt(b.data+(b.len-16), 16, iv, &a, &c);
+
+  /* don't need the shared key, re-use opaque (b) as the export of the
+     public key */
+  mwOpaque_clear(&b);
+  mwDHExportKey(public, &b);
+
+  p = mwPutBuffer_new();
+  guint16_put(p, 0x0001);  /* XXX: unknown */
+  mwOpaque_put(p, &b);
+  mwOpaque_put(p, &c);
+  mwPutBuffer_finalize(auth, p);
+
+  mwOpaque_clear(&b);
+  mwOpaque_clear(&c);
+
+  mpz_clear(private);
+  mpz_clear(public);
+  mpz_clear(remote);
+  mpz_clear(shared);
 }
 
 
@@ -388,8 +442,32 @@ static void HANDSHAKE_ACK_recv(struct mwSession *s,
   log->name = g_strdup(property_get(s, mwSession_AUTH_USER_ID));
 
   /** @todo default to password for now. later use token optionally */
-  log->auth_type = mwAuthType_ENCRYPT;
-  compose_auth(&log->auth_data, property_get(s, mwSession_AUTH_PASSWORD));
+  {
+    const char *pw;
+    pw = (const char *) property_get(s, mwSession_AUTH_PASSWORD);
+   
+#if 0
+    /* better login encryption. It doesn't work just yet. */
+    if(msg->data.len >= 64) {
+      char *au;
+      au = g_strconcat(log->name, pw, NULL);
+
+      log->auth_type = mwAuthType_RC2_128;
+      compose_auth_rc2_128(&log->auth_data, au, &msg->data);
+
+      g_free(au);
+
+    } else {
+      log->auth_type = mwAuthType_RC2_40;
+      compose_auth_rc2_40(&log->auth_data, pw);
+    }
+
+#else
+    /* really BAD authentication "encryption" */
+    log->auth_type = mwAuthType_RC2_40;
+    compose_auth_rc2_40(&log->auth_data, pw);
+#endif
+  }
   
   /* send the login message */
   ret = mwSession_send(s, MW_MESSAGE(log));

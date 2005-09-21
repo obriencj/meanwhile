@@ -85,7 +85,64 @@ static unsigned char dh_prime[] = {
 #define DH_BASE  3
 
 
-void rand_key(char *key, gsize keylen) {
+void mwInitDHPrime(mpz_t z) {
+  mpz_init(z);
+  mpz_import(z, 64, 1, 1, 0, 0, dh_prime);
+}
+
+
+void mwInitDHBase(mpz_t z) {
+  mpz_init_set_ui(z, DH_BASE);
+}
+
+
+void mwDHRandKeypair(mpz_t private, mpz_t public) {
+  gmp_randstate_t rstate;
+  mpz_t prime, base;
+ 
+  mwInitDHPrime(prime);
+  mwInitDHBase(base);
+
+  gmp_randinit_default(rstate);
+  mpz_urandomb(private, rstate, 512);
+  mpz_powm(public, base, private, prime);
+
+  mpz_clear(prime);
+  mpz_clear(base);
+  gmp_randclear(rstate);
+}
+
+
+void mwDHCalculateShared(mpz_t shared, mpz_t remote, mpz_t private) {
+  mpz_t prime, base;
+ 
+  mwInitDHPrime(prime);
+  mwInitDHBase(base);
+
+  mpz_powm(shared, remote, private, prime);
+
+  mpz_clear(prime);
+  mpz_clear(base);
+}
+
+
+void mwDHImportKey(mpz_t key, struct mwOpaque *o) {
+  g_return_if_fail(o != NULL);
+  mpz_import(key, o->len, 1, 1, 1, 0, o->data);
+}
+
+
+void mwDHExportKey(mpz_t key, struct mwOpaque *o) {
+  g_return_if_fail(o != NULL);
+  o->len = (mpz_sizeinbase(key,2) + 7) / 8;
+  o->data = g_malloc0(o->len);
+  mpz_export(o->data, NULL, 1, 1, 1, 0, key);
+}
+
+
+void mwKeyRandom(char *key, gsize keylen) {
+  g_return_if_fail(key != NULL);
+
   srand(clock());
   while(keylen--) key[keylen] = rand() & 0xff;
 }
@@ -521,8 +578,7 @@ static void offered_RC2_128(struct mwCipherInstance *ci,
   
   mpz_t remote_key;
   mpz_t shared;
-  char *sh_buf;
-  gsize sh_len;
+  struct mwOpaque sho = { 0, 0 };
 
   struct mwCipher *c;
   struct mwCipher_RC2_128 *cr;
@@ -535,20 +591,20 @@ static void offered_RC2_128(struct mwCipherInstance *ci,
   mpz_init(remote_key);
   mpz_init(shared);
 
-  mpz_import(remote_key, item->info.len, 1, 1, 1, 0, item->info.data);
+  mwDHImportKey(remote_key, &item->info);
   mpz_powm(shared, remote_key, cr->private_key, cr->prime);
-
-  sh_len = (mpz_sizeinbase(shared,2) + 7) / 8;
-  sh_buf = g_malloc0(sh_len);
-  mpz_export(sh_buf, NULL, 1, 1, 1, 0, shared);
+  mwDHExportKey(shared, &sho);
 
   /* key expanded from the last 16 bytes of the DH shared secret. This
      took me forever to figure out. 16 bytes is 128 bit. */
-  mwKeyExpand(cir->shared, sh_buf+48, 16);
+  /* the sh_len-16 is important, because the key len could
+     hypothetically start with 8bits or more unset, meaning the
+     exported key might be less than 64 bytes in length */
+  mwKeyExpand(cir->shared, sho.data+(sho.len-16), 16);
   
   mpz_clear(remote_key);
   mpz_clear(shared);
-  g_free(sh_buf);
+  mwOpaque_clear(&sho);
 }
 
 
@@ -661,10 +717,10 @@ struct mwCipher *mwCipher_new_RC2_128(struct mwSession *s) {
   mpz_init(pubkey);
   gmp_randinit_default(rstate);
   
-  mpz_init(cr->prime);
   mpz_init(cr->private_key);
   
-  mpz_import(cr->prime, 64, 1, 1, 0, 0, dh_prime);
+  /* mpz_import(cr->prime, 64, 1, 1, 0, 0, dh_prime); */
+  mwInitDHPrime(cr->prime);
   mpz_urandomb(cr->private_key, rstate, 512); /* 64 * 8 */
   mpz_powm(pubkey, base, cr->private_key, cr->prime);
   
