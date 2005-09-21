@@ -26,7 +26,7 @@
 #include "mw_common.h"
 
 
-/** @file channel.h
+/** @file mw_channel.h
     
 Life-cycle of an outgoing channel:
 

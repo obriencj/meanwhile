@@ -1,5 +1,8 @@
 # Christopher (siege) O'Brien  <siege@preoccupied.net>
 
+%define with_doc_subpackage  @WITH_DOC_SUBPACKAGE@%{nil}
+
+
 Summary: Lotus Sametime Community Client library
 Name: @PACKAGE@
 Epoch: 0
@@ -15,6 +18,10 @@ Source0: %{name}-%{version}.tar.gz
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-buildroot
 BuildRequires: glib2-devel >= @GLIB_VERSION@, gmp-devel
 
+%if %{with_doc_subpackage}
+BuildRequires: doxygen
+%endif
+
 
 %description
 Library for connecting as a client to a Lotus Sametime
@@ -27,7 +34,11 @@ presence, messaging, conferencing, and remote preferences.
 
 
 %build
+%if %{with_doc_subpackage}
+%configure --enable-doxygen
+%else
 %configure
+%endif
 %{__make} %{?_smp_mflags}
 
 
@@ -52,6 +63,7 @@ Summary: Development package for the Meanwhile library
 License: LGPL
 Requires: %{name} = %{version}-%{release}
 
+
 %description devel
 Development package for the Meanwhile library
 
@@ -64,6 +76,23 @@ Development package for the Meanwhile library
 %{_libdir}/pkgconfig/meanwhile.pc
 
 
+%if %{with_doc_subpackage}
+%package doc
+Group: Applications/Internet
+Summary: Documentation for the Meanwhile library
+License: GNU Free Documentation License
+
+
+%description doc
+Documentation for the Meanwhile library
+
+
+%files doc
+%defattr(-,root,root,-)
+%doc doc/html doc/latex
+%endif
+
+
 %post
 /sbin/ldconfig 2> /dev/null
 
@@ -73,6 +102,9 @@ Development package for the Meanwhile library
 
 
 %changelog
+* Wed Sep 21 2005  <siege@preoccupied.net>
+- added doc sub package
+
 * Sat Sep 17 2005  <siege@preoccupied.net>
 - added gmp and gmp-devel requrements
 

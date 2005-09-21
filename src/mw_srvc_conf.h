@@ -163,6 +163,7 @@ int mwConference_accept(struct mwConference *conf);
 
 
 /** invite another user to an ACTIVE conference
+    @param conf  conference
     @param who   user to invite
     @param text  invitation message
  */

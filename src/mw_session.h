@@ -22,7 +22,7 @@
 #define _MW_SESSION_H
 
 
-/** @file session.h
+/** @file mw_session.h
 
     A client session with a Sametime server is encapsulated in the
     mwSession structure. The session controls channels, provides

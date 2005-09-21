@@ -1,15 +1,30 @@
 
-
 noinst_DATA = Doxyfile
 
 
-docs:
+if ENABLE_DOXYGEN
+
+htmldoc_DATA = html/*
+htmldocdir = $(datadir)/doc/@PACKAGE@-@VERSION@/html
+
+latexdoc_DATA = latex/*
+latexdocdir = $(datadir)/doc/@PACKAGE@-@VERSION@/latex
+
+docdata = $(htmldoc_DATA) $(latexdoc_DATA)
+
+$(docdata): doxygen
+
+else
+
+install:
+
+endif
+
+
+doxygen:
 	@doxygen Doxyfile > /dev/null
 
 
 clean-local:
 	rm -rf html latex man
-
-
-install:
 

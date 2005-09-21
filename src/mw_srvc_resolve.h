@@ -117,6 +117,7 @@ struct mwServiceResolve *mwServiceResolve_new(struct mwSession *);
 
 /** Inisitate a resolve request.
 
+    @param srvc     the resolve service
     @param queries  list query strings
     @param flags    search flags
     @param handler  result handling function

@@ -25,7 +25,7 @@
 #include <glib.h>
 
 
-/** @file common.h
+/** @file mw_common.h
 
     Common data types and functions for handling those types.
 

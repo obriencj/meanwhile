@@ -1,19 +1,28 @@
 
 
-AM_CFLAGS = -I../src/ $(GLIB_CFLAGS)
-common_libs = $(GLIB_LIBS) -L../src/ -lmeanwhile
+SAMPLES_SRC = \
+	nocipher_proxy.c \
+	socket.c \
+	redirect_proxy.c
 
-noinst_PROGRAMS = \
-	nocipher_proxy \
-	redirect_proxy \
-	socket
+SAMPLES = $(SAMPLES_SRC:.c=)
 
-nocipher_proxy_SOURCES = nocipher_proxy.c
-nocipher_proxy_LDADD = $(common_libs)
 
-socket_SOURCES = socket.c
-socket_LDADD = $(common_libs)
+sample_DATA = \
+	README \
+	$(SAMPLES_SRC)
 
-redirect_proxy_SOURCES = redirect_proxy.c
-redirect_proxy_LDADD = $(common_libs)
+
+sampledir = $(datadir)/doc/@PACKAGE@-@VERSION@/samples
+
+
+EXTRA_DIST = $(sample_DATA)
+
+
+$(SAMPLES):	%: %.c
+	$(CC) $< -o $@ $(GLIB_CFLAGS) $(GLIB_LIBS) `PKG_CONFIG_PATH="$(prefix)/lib/pkgconfig" $(PKG_CONFIG) --cflags --libs meanwhile`
+
+
+clean-local:
+	rm -f $(SAMPLES)
 

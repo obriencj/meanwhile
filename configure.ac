@@ -33,12 +33,6 @@ AC_C_CONST
 AC_STRUCT_TM
 
 
-# Debugging option
-AC_ARG_ENABLE(debug,
-	[  --enable-debug	  compile with debugging support],
-	AC_DEFINE(DEBUG, 1, [Define if debugging is enabled.]), )
-
-
 # Darwin...
 if test `uname` = "Darwin" ; then
 	os_so_ext=".dylib"
@@ -49,6 +43,29 @@ else
 fi
 AC_SUBST(os_so_ext)
 AC_SUBST(os_ld_flags)
+
+
+# Debugging option
+AC_ARG_ENABLE(debug,
+	[  --enable-debug	  compile with debugging support],
+	AC_DEFINE(DEBUG, 1, [Define if debugging is enabled.]), )
+
+
+# Doxygen generation option
+AC_ARG_ENABLE(doxygen,
+	[  --enable-doxygen        enable the doc package and generate docs],
+	enable_doxygen=yes, enable_doxygen=no)
+
+AM_CONDITIONAL(ENABLE_DOXYGEN, test "$enable_doxygen" = "yes")
+
+
+# doc sub package
+# right now this depends only on doxygen
+WITH_DOC_SUBPACKAGE=
+if test "$enable_doxygen" = "yes" ; then
+   WITH_DOC_SUBPACKAGE=1
+fi
+AC_SUBST(WITH_DOC_SUBPACKAGE)
 
 
 # Glib-2.0
@@ -141,6 +158,13 @@ if test "$static_gmp" = "yes" ; then
    echo "GMP library...            : $GMP_LIBA"
 else
    echo "dynamic"
+fi
+
+echo -n "Doxygen generation...     : "
+if test "$enable_doxygen" = "yes" ; then
+   echo "enabled"
+else
+   echo "disabled"
 fi
 
 echo

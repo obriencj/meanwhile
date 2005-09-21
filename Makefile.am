@@ -1,6 +1,6 @@
 
 
-SUBDIRS = src doc samples
+SUBDIRS = doc samples src
 
 
 EXTRA_DIST =	meanwhile.spec \
@@ -9,8 +9,4 @@ EXTRA_DIST =	meanwhile.spec \
 
 pkgconfig_DATA = meanwhile.pc
 pkgconfigdir = $(libdir)/pkgconfig
-
-
-docs:
-	make -C doc docs
 
