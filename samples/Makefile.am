@@ -1,6 +1,7 @@
 
 
 SAMPLES_SRC = \
+	login_server.c \
 	nocipher_proxy.c \
 	socket.c \
 	redirect_proxy.c
