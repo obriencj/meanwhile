@@ -73,6 +73,8 @@ static void send_msg(struct mwMessage *msg) {
 
   if(sock) write(sock, o.data, o.len);
 
+  hexout("sent:", o.data, o.len);
+
   mwOpaque_clear(&o);
 }
 
@@ -144,6 +146,8 @@ static void side_process(const char *buf, gsize len) {
   b = mwGetBuffer_wrap(&o);
   type = guint16_peek(b);
 
+  hexout("received:", buf, len);
+
   switch(type) {
   case mwMessage_HANDSHAKE:
     printf("got handshake, sending handshake_ack\n");
@@ -161,6 +165,7 @@ static void side_process(const char *buf, gsize len) {
     break;
 
   case mwMessage_CHANNEL_DESTROY:
+    printf("channel destroy\n");
     done();
     break;
 
