@@ -372,6 +372,8 @@ static void compose_auth_rc2_128(struct mwOpaque *auth, const char *pass,
   mpz_init(remote);
   mpz_init(shared);
 
+  mwIV_init(iv);
+
   mwDHRandKeypair(private, public);
   mwDHImportKey(remote, rkey);
   mwDHCalculateShared(shared, remote, private);
@@ -446,7 +448,7 @@ static void HANDSHAKE_ACK_recv(struct mwSession *s,
     const char *pw;
     pw = (const char *) property_get(s, mwSession_AUTH_PASSWORD);
    
-#if 0
+#if 1
     /* better login encryption. It doesn't work just yet. */
     if(msg->data.len >= 64) {
       char *au;
