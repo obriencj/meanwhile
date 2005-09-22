@@ -723,8 +723,6 @@ mwServiceAware_new(struct mwSession *session,
   service->get_name = name;
   service->get_desc = desc;
 
-  g_info("srvc_aware returning %p", srvc);
-
   return srvc;
 }
 
