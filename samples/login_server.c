@@ -37,9 +37,6 @@ static GIOChannel *chan;
 static int chan_io;
 
 
-static char *host;
-
-
 static char *sbuf;
 static gsize sbuf_size;
 static gsize sbuf_recv;
@@ -149,10 +146,12 @@ static void side_process(const char *buf, gsize len) {
 
   switch(type) {
   case mwMessage_HANDSHAKE:
+    printf("got handshake, sending handshake_ack\n");
     handshake_ack();
     break;
 
   case mwMessage_LOGIN:
+    printf("got login, attempting to decipher\n");
     {
       struct mwMsgLogin *msg = (struct mwMsgLogin *) mwMessage_get(b);
       handle_login(msg);
@@ -343,6 +342,8 @@ static gboolean listen_cb(GIOChannel *chan,
 
   struct sockaddr_in rem;
   int len = sizeof(rem);
+
+  printf("accepting connection\n");
   
   sock = accept(sock, (struct sockaddr *) &rem, &len);
   g_assert(sock > 0);
@@ -388,21 +389,14 @@ int main(int argc, char *argv[]) {
   mpz_init(public);
 
   if(argc > 1) {
-    char *z;
-
-    host = argv[1];
-    z = host;
-
-    host = strchr(z, ':');
-    if(host) *host++ = '\0';
-    port = atoi(z);
+    port = atoi(argv[1]);
   }
 
-  if(!host || !*host || !port) {
+  if(!port) {
     fprintf(stderr,
-	    ( " Usage: %s local_port:redirect_host\n"
-	      " Creates a locally-running sametime proxy which redirects"
-	      " logins to the\n specified host\n" ),
+	    ( " Usage: %s local_port\n"
+	      " Creates a locally-running sametime server which prints"
+	      " login information to stdout\n" ),
 	    argv[0]);
     exit(1);
   }
