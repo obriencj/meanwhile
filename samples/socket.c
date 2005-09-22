@@ -289,6 +289,7 @@ int main(int argc, char *argv[]) {
   mwSession_setProperty(session, mwSession_AUTH_USER_ID, argv[2], NULL);
   mwSession_setProperty(session, mwSession_AUTH_PASSWORD, argv[3], NULL);
 
+
   /* create the client data. This is arbitrary data that a client will
      want to store along with the session for its own use */
   client = g_new0(struct sample_client, 1);

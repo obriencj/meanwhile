@@ -42,7 +42,7 @@ static gsize sbuf_size;
 static gsize sbuf_recv;
 
 
-mpz_t private, public;
+static mpz_t private, public;
 
 
 static void hexout(const char *txt, const unsigned char *buf, gsize len) {
@@ -85,9 +85,14 @@ static void handshake_ack() {
   msg = (struct mwMsgHandshakeAck *)
     mwMessage_new(mwMessage_HANDSHAKE_ACK);
 
-  mwDHRandKeypair(private, public);
+  msg->major = 0x1e;
+  msg->minor = 0x1d;
 
+  mwDHRandKeypair(private, public);
   mwDHExportKey(public, &msg->data);
+
+  msg->unknown = 0x01;
+  hexout("sending pubkey:", msg->data.data, msg->data.len);
 
   send_msg(MW_MESSAGE(msg));
   mwMessage_free(MW_MESSAGE(msg));
@@ -117,8 +122,9 @@ static void handle_login(struct mwMsgLogin *msg) {
 
   mwDHCalculateShared(shared, remote, private);
   mwDHExportKey(shared, &a);
+  hexout("shared key:", a.data, a.len);
 
-  mwDecrypt(a.data+(a.len-16), a.len, iv, &b, &c);
+  mwDecrypt(a.data+(a.len-16), 16, iv, &b, &c);
   hexout("decrypted to:", c.data, c.len);
 
   mwOpaque_clear(&a);

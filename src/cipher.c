@@ -114,15 +114,11 @@ void mwDHRandKeypair(mpz_t private, mpz_t public) {
 
 
 void mwDHCalculateShared(mpz_t shared, mpz_t remote, mpz_t private) {
-  mpz_t prime, base;
+  mpz_t prime;
  
   mwInitDHPrime(prime);
-  mwInitDHBase(base);
-
   mpz_powm(shared, remote, private, prime);
-
   mpz_clear(prime);
-  mpz_clear(base);
 }
 
 
@@ -133,10 +129,15 @@ void mwDHImportKey(mpz_t key, struct mwOpaque *o) {
 
 
 void mwDHExportKey(mpz_t key, struct mwOpaque *o) {
+  gsize needed;
+
   g_return_if_fail(o != NULL);
-  o->len = (mpz_sizeinbase(key,2) + 7) / 8;
+
+  needed = (mpz_sizeinbase(key,2) + 7) / 8;
+  o->len = 65;
   o->data = g_malloc0(o->len);
-  mpz_export(o->data, NULL, 1, 1, 1, 0, key);
+
+  mpz_export(o->data+(o->len-needed), NULL, 1, 1, 1, 0, key);
 }
 
 
@@ -526,7 +527,6 @@ struct mwCipher *mwCipher_new_RC2_40(struct mwSession *s) {
 
 struct mwCipher_RC2_128 {
   struct mwCipher cipher;
-  mpz_t prime;
   mpz_t private_key;
   struct mwOpaque public_key;
 };
@@ -592,7 +592,7 @@ static void offered_RC2_128(struct mwCipherInstance *ci,
   mpz_init(shared);
 
   mwDHImportKey(remote_key, &item->info);
-  mpz_powm(shared, remote_key, cr->private_key, cr->prime);
+  mwDHCalculateShared(shared, remote_key, cr->private_key);
   mwDHExportKey(shared, &sho);
 
   /* key expanded from the last 16 bytes of the DH shared secret. This
@@ -680,7 +680,6 @@ static void clear_RC2_128(struct mwCipher *c) {
   struct mwCipher_RC2_128 *cr;
   cr = (struct mwCipher_RC2_128 *) c;
 
-  mpz_clear(cr->prime);
   mpz_clear(cr->private_key);
   mwOpaque_clear(&cr->public_key);
 }
@@ -690,8 +689,7 @@ struct mwCipher *mwCipher_new_RC2_128(struct mwSession *s) {
   struct mwCipher_RC2_128 *cr;
   struct mwCipher *c;
 
-  mpz_t base, pubkey;
-  gmp_randstate_t rstate;
+  mpz_t pubkey;
 
   cr = g_new0(struct mwCipher_RC2_128, 1);
   c = &cr->cipher;
@@ -712,33 +710,12 @@ struct mwCipher *mwCipher_new_RC2_128(struct mwSession *s) {
   c->decrypt = decrypt_RC2_128;
 
   c->clear = clear_RC2_128;
-
-  mpz_init_set_ui(base, DH_BASE);
-  mpz_init(pubkey);
-  gmp_randinit_default(rstate);
   
   mpz_init(cr->private_key);
-  
-  /* mpz_import(cr->prime, 64, 1, 1, 0, 0, dh_prime); */
-  mwInitDHPrime(cr->prime);
-  mpz_urandomb(cr->private_key, rstate, 512); /* 64 * 8 */
-  mpz_powm(pubkey, base, cr->private_key, cr->prime);
-  
-  {
-    char *buf;
-    gsize len;
-
-    len = (mpz_sizeinbase(pubkey,2) + 7) / 8;
-    buf = g_malloc0(len);
-    mpz_export(buf, NULL, 1, 1, 1, 0, pubkey);
-
-    cr->public_key.len = len;
-    cr->public_key.data = buf;
-  }
-
-  mpz_clear(base);
+  mpz_init(pubkey);
+  mwDHRandKeypair(cr->private_key, pubkey);
+  mwDHExportKey(pubkey, &cr->public_key);
   mpz_clear(pubkey);
-  gmp_randclear(rstate);
 
   return c;
 }

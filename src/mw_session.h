@@ -75,6 +75,12 @@ struct mwService;
 /** struct mwOpaque *, authentication token */
 #define mwSession_AUTH_TOKEN        "session.auth.token"
 
+/** char *, hostname of client */
+#define mwSession_CLIENT_HOST       "client.host"
+
+/** guint32, local IP of client */
+#define mwSession_CLIENT_IP         "client.ip"
+
 /** guint16, major version of client protocol */
 #define mwSession_CLIENT_VER_MAJOR  "client.version.major"
 

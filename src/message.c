@@ -78,6 +78,9 @@ static void HANDSHAKE_put(struct mwPutBuffer *b, struct mwMsgHandshake *msg) {
   guint32_put(b, msg->srvrcalc_addr);
   guint16_put(b, msg->login_type);
   guint32_put(b, msg->loclcalc_addr);
+  guint16_put(b, msg->unkn_a);
+  guint32_put(b, msg->unkn_b);
+  mwString_put(b, msg->local_host);
 }
 
 
@@ -90,6 +93,9 @@ static void HANDSHAKE_get(struct mwGetBuffer *b, struct mwMsgHandshake *msg) {
   guint32_get(b, &msg->srvrcalc_addr);
   guint16_get(b, &msg->login_type);
   guint32_get(b, &msg->loclcalc_addr);
+  guint16_get(b, &msg->unkn_a);
+  guint32_get(b, &msg->unkn_b);
+  mwString_get(b, &msg->local_host);
 }
 
 
@@ -114,7 +120,7 @@ static void HANDSHAKE_ACK_get(struct mwGetBuffer *b,
       of this message. eg: minor version 0x0018 doesn't send the
       following */
   if(msg->major >= 0x1e && msg->minor > 0x18) {
-    guint32_get(b, &msg->unknown);
+    guint32_get(b, &msg->magic);
     mwOpaque_get(b, &msg->data);
   }
 }
@@ -128,7 +134,7 @@ static void HANDSHAKE_ACK_put(struct mwPutBuffer *b,
   guint32_put(b, msg->srvrcalc_addr);
 
   if(msg->major >= 0x1e && msg->minor > 0x18) {
-    guint32_put(b, msg->unknown);
+    guint32_put(b, msg->magic);
     mwOpaque_put(b, &msg->data);
   }
 }

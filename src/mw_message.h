@@ -94,9 +94,12 @@ struct mwMsgHandshake {
   struct mwMessage head;
   guint16 major;          /**< client's major version number */
   guint16 minor;          /**< client's minor version number */
-  guint32 srvrcalc_addr;  /**<  */
+  guint32 srvrcalc_addr;  /**< 0.0.0.0 */
   guint16 login_type;     /**< @see mwLoginType */
-  guint32 loclcalc_addr;  /**<  */
+  guint32 loclcalc_addr;  /**< local public IP */
+  guint16 unkn_a;         /**< normally 0x0100 */
+  guint32 unkn_b;         /**< normally 0x00000000 */
+  char *local_host;       /**< name of client host */
 };
 
 
@@ -107,7 +110,7 @@ struct mwMsgHandshakeAck {
   guint16 major;          /**< server's major version number */
   guint16 minor;          /**< server's minor version number */
   guint32 srvrcalc_addr;  /**< server-calculated address */
-  guint32 unknown;        /**< four bytes of something */
+  guint32 magic;          /**< four bytes of something */
   struct mwOpaque data;   /**< server's DH public key for auth */
 };
 

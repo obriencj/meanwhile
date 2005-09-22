@@ -271,6 +271,10 @@ void mwSession_start(struct mwSession *s) {
   msg->minor = GUINT(property_get(s, mwSession_CLIENT_VER_MINOR));
   msg->login_type = GUINT(property_get(s, mwSession_CLIENT_TYPE_ID));
 
+  msg->loclcalc_addr = GUINT(property_get(s, mwSession_CLIENT_IP));
+  msg->unkn_a = 0x0100;
+  msg->local_host = (char *) property_get(s, mwSession_CLIENT_HOST);
+
   ret = mwSession_send(s, MW_MESSAGE(msg));
   mwMessage_free(MW_MESSAGE(msg));
 
@@ -355,12 +359,11 @@ static void compose_auth_rc2_40(struct mwOpaque *auth, const char *pass) {
 }
 
 
-__attribute((used))
 static void compose_auth_rc2_128(struct mwOpaque *auth, const char *pass,
-				 struct mwOpaque *rkey) {
+				 guint32 magic, struct mwOpaque *rkey) {
 
   char iv[8];
-  struct mwOpaque a, b, c = { 0, 0 };
+  struct mwOpaque a, b, c;
   struct mwPutBuffer *p;
 
   mpz_t private, public;
@@ -379,8 +382,10 @@ static void compose_auth_rc2_128(struct mwOpaque *auth, const char *pass,
   mwDHCalculateShared(shared, remote, private);
 
   /* put the password in opaque a */
-  a.len = strlen(pass);
-  a.data = (char *) pass;
+  p = mwPutBuffer_new();
+  guint32_put(p, magic);
+  mwString_put(p, pass);
+  mwPutBuffer_finalize(&a, p);
 
   /* put the shared key in opaque b */
   mwDHExportKey(shared, &b);
@@ -389,8 +394,8 @@ static void compose_auth_rc2_128(struct mwOpaque *auth, const char *pass,
      in opaque c */
   mwEncrypt(b.data+(b.len-16), 16, iv, &a, &c);
 
-  /* don't need the shared key, re-use opaque (b) as the export of the
-     public key */
+  /* don't need the shared key anymore, re-use opaque (b) as the
+     export of the public key */
   mwOpaque_clear(&b);
   mwDHExportKey(public, &b);
 
@@ -400,6 +405,7 @@ static void compose_auth_rc2_128(struct mwOpaque *auth, const char *pass,
   mwOpaque_put(p, &c);
   mwPutBuffer_finalize(auth, p);
 
+  mwOpaque_clear(&a);
   mwOpaque_clear(&b);
   mwOpaque_clear(&c);
 
@@ -448,27 +454,16 @@ static void HANDSHAKE_ACK_recv(struct mwSession *s,
     const char *pw;
     pw = (const char *) property_get(s, mwSession_AUTH_PASSWORD);
    
-#if 1
-    /* better login encryption. It doesn't work just yet. */
     if(msg->data.len >= 64) {
-      char *au;
-      au = g_strconcat(log->name, pw, NULL);
-
+      /* good login encryption */
       log->auth_type = mwAuthType_RC2_128;
-      compose_auth_rc2_128(&log->auth_data, au, &msg->data);
-
-      g_free(au);
+      compose_auth_rc2_128(&log->auth_data, pw, msg->magic, &msg->data);
 
     } else {
+      /* BAD login encryption */
       log->auth_type = mwAuthType_RC2_40;
       compose_auth_rc2_40(&log->auth_data, pw);
     }
-
-#else
-    /* really BAD authentication "encryption" */
-    log->auth_type = mwAuthType_RC2_40;
-    compose_auth_rc2_40(&log->auth_data, pw);
-#endif
   }
   
   /* send the login message */
