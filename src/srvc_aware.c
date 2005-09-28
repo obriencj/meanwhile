@@ -297,7 +297,7 @@ static gboolean collect_attrib_dead(gpointer key, gpointer val,
 static int remove_unused_attrib(struct mwServiceAware *srvc) {
   GList *dead = NULL;
 
-  if(srvc->entries) {
+  if(srvc->attribs) {
     g_info("collecting dead attributes");
     g_hash_table_foreach_steal(srvc->attribs, collect_attrib_dead, &dead);
   }
@@ -307,7 +307,7 @@ static int remove_unused_attrib(struct mwServiceAware *srvc) {
     attrib_entry_free(dead->data);
   }
 
-  return send_attrib_list(srvc);
+  return MW_SERVICE_IS_LIVE(srvc)? send_attrib_list(srvc): 0;
 }
 
 
@@ -436,7 +436,13 @@ gboolean list_add(struct mwAwareList *list, struct mwAwareIdBlock *id) {
   }
 
   aware->membership = g_list_append(aware->membership, list);
+
+  if(! list->entries)
+    list->entries = g_hash_table_new((GHashFunc) mwAwareIdBlock_hash,
+				     (GEqualFunc) mwAwareIdBlock_equal);
+
   g_hash_table_insert(list->entries, ENTRY_KEY(aware), aware);
+
   return TRUE;
 }
 
@@ -641,6 +647,9 @@ static void clear(struct mwService *srvc) {
 
   g_hash_table_destroy(srvc_aware->entries);
   srvc_aware->entries = NULL;
+
+  g_hash_table_destroy(srvc_aware->attribs);
+  srvc_aware->attribs = NULL;
 }
 
 
@@ -686,7 +695,12 @@ static void stop(struct mwService *srvc) {
   struct mwServiceAware *srvc_aware;
 
   srvc_aware = (struct mwServiceAware *) srvc;
-  mwChannel_destroy(srvc_aware->channel, ERR_SUCCESS, NULL);
+
+  if(srvc_aware->channel) {
+    mwChannel_destroy(srvc_aware->channel, ERR_SUCCESS, NULL);
+    srvc_aware->channel = NULL;
+  }
+
   mwService_stopped(srvc);
 }
 
@@ -923,10 +937,9 @@ mwAwareList_new(struct mwServiceAware *srvc,
 
   al = g_new0(struct mwAwareList, 1);
   al->service = srvc;
-  al->entries = g_hash_table_new((GHashFunc) mwAwareIdBlock_hash,
-				 (GEqualFunc) mwAwareIdBlock_equal);
-  al->attribs = g_hash_table_new(g_direct_hash, g_direct_equal);
   al->handler = handler;
+
+  srvc->lists = g_list_prepend(srvc->lists, al);
 
   return al;
 }
@@ -937,8 +950,10 @@ void mwAwareList_free(struct mwAwareList *list) {
   struct mwAwareListHandler *handler;
 
   g_return_if_fail(list != NULL);
-  g_return_if_fail(list->entries != NULL);
   g_return_if_fail(list->service != NULL);
+
+  srvc = list->service;
+  srvc->lists = g_list_remove(srvc->lists, list);
 
   handler = list->handler;
   if(handler && handler->clear) {
@@ -948,11 +963,10 @@ void mwAwareList_free(struct mwAwareList *list) {
 
   mw_datum_clear(&list->client_data);
 
-  srvc = list->service;
-  srvc->lists = g_list_remove(srvc->lists, list);
-
   mwAwareList_unwatchAllAttributes(list);
   mwAwareList_removeAllAware(list);
+
+  g_free(list);
 }
 
 
@@ -979,16 +993,22 @@ static void watch_add(struct mwAwareList *list, guint32 key) {
     g_hash_table_insert(srvc->attribs, k, watch);
   }
 
+  if(! list->attribs)
+    list->attribs = g_hash_table_new(g_direct_hash, g_direct_equal);
+
   g_hash_table_insert(list->attribs, k, watch);
+
   watch->membership = g_list_prepend(watch->membership, list);
 }
 
 
 static void watch_remove(struct mwAwareList *list, guint32 key) {
-  struct attrib_entry *watch;
+  struct attrib_entry *watch = NULL;
   gpointer k = GUINT_TO_POINTER(key);
 
-  watch = g_hash_table_lookup(list->attribs, k);
+  if(list->attribs)
+    watch = g_hash_table_lookup(list->attribs, k);
+
   g_return_if_fail(watch != NULL);
 
   g_hash_table_remove(list->attribs, k);
@@ -1041,8 +1061,7 @@ int mwAwareList_unwatchAttributeArray(struct mwAwareList *list,
   for(k = *keys; k; keys++)
     watch_add(list, k);
 
-  remove_unused_attrib(list->service);
-  return send_attrib_list(list->service);
+  return remove_unused_attrib(list->service);
 }
 
 
@@ -1059,8 +1078,7 @@ int mwAwareList_unwatchAttributes(struct mwAwareList *list,
     watch_remove(list, k);
   va_end(args);
 
-  remove_unused_attrib(list->service);
-  return send_attrib_list(list->service);
+  return remove_unused_attrib(list->service);
 }
 
 
@@ -1078,12 +1096,12 @@ int mwAwareList_unwatchAllAttributes(struct mwAwareList *list) {
   g_return_val_if_fail(list != NULL, -1);
   srvc = list->service;
 
-  g_hash_table_foreach(list->attribs, (GHFunc) dismember_attrib, list);
-  g_hash_table_destroy(list->attribs);
-  list->attribs = g_hash_table_new(g_direct_hash, g_direct_equal);
+  if(list->attribs) {
+    g_hash_table_foreach(list->attribs, (GHFunc) dismember_attrib, list);
+    g_hash_table_destroy(list->attribs);
+  }
 
-  remove_unused_attrib(srvc);
-  return send_attrib_list(list->service);
+  return remove_unused_attrib(srvc);
 }
 
 
@@ -1201,9 +1219,10 @@ int mwAwareList_removeAllAware(struct mwAwareList *list) {
 
   /* for each entry, remove the aware list from the service entry's
      membership collection */
-  g_hash_table_foreach(list->entries, (GHFunc) dismember_aware, list);
-  g_hash_table_destroy(list->entries);
-  g_free(list);
+  if(list->entries) {
+    g_hash_table_foreach(list->entries, (GHFunc) dismember_aware, list);
+    g_hash_table_destroy(list->entries);
+  }
 
   return remove_unused(srvc);
 }

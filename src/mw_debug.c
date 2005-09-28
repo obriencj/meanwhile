@@ -133,28 +133,17 @@ void mw_debug_opaque(struct mwOpaque *o, const char *txt, ...) {
 }
 
 
-
 void mw_mailme_datav(const char *buf, gsize len,
 		     const char *info, va_list args) {
 
-  /*
-    MW_MAILME_MESSAGE
-    begin here
-    info % args
-    pretty_print
-    end here
-  */
-
+#if MW_MAILME
   GString *str;
   char *txt;
 
-#if MW_MAILME
   str = g_string_new(MW_MAILME_MESSAGE "\n"
 		     "  Please send mail to: " MW_MAILME_ADDRESS "\n"
 		     MW_MAILME_CUT_START "\n");
-#else
   str = g_string_new(NULL);
-#endif
 
   txt = g_strdup_vprintf(info, args);
   g_string_append_printf(str, "%s\n", txt);
@@ -162,12 +151,15 @@ void mw_mailme_datav(const char *buf, gsize len,
 
   if(buf && len) pretty_print(str, buf, len);
 
-#if MW_MAILME
   g_string_append(str, MW_MAILME_CUT_STOP);
-#endif
 
   g_debug(str->str);
   g_string_free(str, TRUE);
+
+#else
+  mw_debug_datav(buf, len, info, args);
+
+#endif
 }
 
 

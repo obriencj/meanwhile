@@ -105,6 +105,9 @@ void mw_mailme_opaquev(struct mwOpaque *o, const char *info, va_list args);
 /** Outputs a hex dump of a mwOpaque with debugging info and a
     pre-defined message.
 
+    if MW_MAILME is undefined or false, this function acts the same as
+    mw_mailme_opaque.
+
     @arg block  data to be printed in a hex block
     @arg info   a printf-style format string
 

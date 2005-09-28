@@ -1,6 +1,6 @@
 
 # version of meanwhile
-m4_define(meanwhile_version,		0.4.3cvs)
+m4_define(meanwhile_version,		0.4.3)
 
 # release of meanwhile
 m4_define(meanwhile_release,		0)
@@ -51,10 +51,23 @@ AC_ARG_ENABLE(debug,
 	AC_DEFINE(DEBUG, 1, [Define if debugging is enabled.]), )
 
 
+enableval="yes"
+AC_ARG_ENABLE(mailme,
+	[  --enable-mailme[[=yes]]   enable mw_debug_mailme output], )
+
+MW_MAILME=1
+if test "$enableval" = "no" ; then
+   MW_MAILME=0
+fi
+AC_SUBST(MW_MAILME)
+
+
 # Doxygen generation option
+enableval="yes"
 AC_ARG_ENABLE(doxygen,
-	[  --enable-doxygen        enable the doc package and generate docs],
-	enable_doxygen=yes, enable_doxygen=no)
+	[  --enable-doxygen[[=yes]]  enable the doc package], )
+
+enable_doxygen=$enableval
 
 AM_CONDITIONAL(ENABLE_DOXYGEN, test "$enable_doxygen" = "yes")
 
@@ -150,8 +163,15 @@ AC_CONFIG_FILES(
 
 AC_OUTPUT()
 
-
 echo
+
+echo -n "mailme debug mode..       : "
+if test "$MW_MAILME" = 1 ; then
+   echo "enabled"
+else
+   echo "disabled"
+fi
+
 echo -n "GMP linking mode...       : "
 if test "$static_gmp" = "yes" ; then
    echo "static"
