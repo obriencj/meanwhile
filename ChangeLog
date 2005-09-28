@@ -9,6 +9,8 @@ version 0.4.3 (cvs)
 	
 	Bug Fixes
 	- Bug #1239210 Unspecified fatal error when VPN disconnects
+	- Fixed memleaks and crashes in the aware service (which needs
+	to be re-written sometime soon)
 	
 version 0.4.2 (2005-05-27)
 	
