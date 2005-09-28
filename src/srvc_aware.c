@@ -953,7 +953,7 @@ void mwAwareList_free(struct mwAwareList *list) {
   g_return_if_fail(list->service != NULL);
 
   srvc = list->service;
-  srvc->lists = g_list_remove(srvc->lists, list);
+  srvc->lists = g_list_remove_all(srvc->lists, list);
 
   handler = list->handler;
   if(handler && handler->clear) {
@@ -965,6 +965,8 @@ void mwAwareList_free(struct mwAwareList *list) {
 
   mwAwareList_unwatchAllAttributes(list);
   mwAwareList_removeAllAware(list);
+
+  list->service = NULL;
 
   g_free(list);
 }
