@@ -143,8 +143,8 @@ static void attrib_free(struct mwAwareAttribute *attrib) {
 
 static struct aware_entry *aware_find(struct mwServiceAware *srvc,
 				      struct mwAwareIdBlock *srch) {
-  g_assert(srvc != NULL);
-  g_assert(srvc->entries != NULL);
+  g_return_val_if_fail(srvc != NULL, NULL);
+  g_return_val_if_fail(srvc->entries != NULL, NULL);
   g_return_val_if_fail(srch != NULL, NULL);
   
   return g_hash_table_lookup(srvc->entries, srch);
@@ -394,7 +394,9 @@ static void attrib_recv(struct mwServiceAware *srvc,
   key = attrib->key;
   k = GUINT_TO_POINTER(key);
 
-  old_attrib = g_hash_table_lookup(aware->attribs, k);
+  if(aware->attribs)
+    old_attrib = g_hash_table_lookup(aware->attribs, k);
+
   if(! old_attrib) {
     old_attrib = g_new0(struct mwAwareAttribute, 1);
     old_attrib->key = key;
@@ -408,7 +410,9 @@ static void attrib_recv(struct mwServiceAware *srvc,
     struct mwAwareList *list = l->data;
     struct mwAwareListHandler *h = list->handler;
 
-    if(h && h->on_attrib && g_hash_table_lookup(list->attribs, k))
+    if(h && h->on_attrib &&
+       list->attribs && g_hash_table_lookup(list->attribs, k))
+
       h->on_attrib(list, idb, old_attrib);
   }
 }
@@ -421,6 +425,10 @@ gboolean list_add(struct mwAwareList *list, struct mwAwareIdBlock *id) {
 
   g_return_val_if_fail(id->user != NULL, FALSE);
   g_return_val_if_fail(strlen(id->user) > 0, FALSE);
+
+  if(! list->entries)
+    list->entries = g_hash_table_new((GHashFunc) mwAwareIdBlock_hash,
+				     (GEqualFunc) mwAwareIdBlock_equal);
 
   aware = list_aware_find(list, id);
   if(aware) return FALSE;
@@ -436,10 +444,6 @@ gboolean list_add(struct mwAwareList *list, struct mwAwareIdBlock *id) {
   }
 
   aware->membership = g_list_append(aware->membership, list);
-
-  if(! list->entries)
-    list->entries = g_hash_table_new((GHashFunc) mwAwareIdBlock_hash,
-				     (GEqualFunc) mwAwareIdBlock_equal);
 
   g_hash_table_insert(list->entries, ENTRY_KEY(aware), aware);
 
@@ -983,6 +987,9 @@ static void watch_add(struct mwAwareList *list, guint32 key) {
   struct attrib_entry *watch;
   gpointer k = GUINT_TO_POINTER(key);
 
+  if(! list->attribs)
+    list->attribs = g_hash_table_new(g_direct_hash, g_direct_equal);
+
   if(g_hash_table_lookup(list->attribs, k))
     return;
 
@@ -994,9 +1001,6 @@ static void watch_add(struct mwAwareList *list, guint32 key) {
     watch->key = key;
     g_hash_table_insert(srvc->attribs, k, watch);
   }
-
-  if(! list->attribs)
-    list->attribs = g_hash_table_new(g_direct_hash, g_direct_equal);
 
   g_hash_table_insert(list->attribs, k, watch);
 
