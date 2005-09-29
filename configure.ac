@@ -1,6 +1,6 @@
 
 # version of meanwhile
-m4_define(meanwhile_version,		0.4.3)
+m4_define(meanwhile_version,		0.5.0cvs)
 
 # release of meanwhile
 m4_define(meanwhile_release,		0)
@@ -33,6 +33,7 @@ AC_C_CONST
 AC_STRUCT_TM
 
 
+
 # Darwin...
 if test `uname` = "Darwin" ; then
 	os_so_ext=".dylib"
@@ -45,10 +46,12 @@ AC_SUBST(os_so_ext)
 AC_SUBST(os_ld_flags)
 
 
+
 # Debugging option
 AC_ARG_ENABLE(debug,
 	[  --enable-debug	  compile with debugging support],
 	AC_DEFINE(DEBUG, 1, [Define if debugging is enabled.]), )
+
 
 
 enableval="yes"
@@ -60,6 +63,7 @@ if test "$enableval" = "no" ; then
    MW_MAILME=0
 fi
 AC_SUBST(MW_MAILME)
+
 
 
 # Doxygen generation option
@@ -81,6 +85,7 @@ fi
 AC_SUBST(WITH_DOC_SUBPACKAGE)
 
 
+
 # Glib-2.0
 PKG_CHECK_MODULES(GLIB,
 [glib-2.0 >= glib_required_version],
@@ -92,6 +97,7 @@ GLIB_VERSION=glib_required_version
 AC_SUBST(GLIB_VERSION)
 AC_SUBST(GLIB_CFLAGS)
 AC_SUBST(GLIB_LIBS)
+
 
 
 GMP_LIBA=
@@ -154,6 +160,7 @@ AC_SUBST(GMP_CFLAGS)
 AC_SUBST(GMP_LIBS)
 
 
+
 AC_CONFIG_FILES(
 	[Makefile src/Makefile]
 	[samples/Makefile]
@@ -162,6 +169,8 @@ AC_CONFIG_FILES(
 )
 
 AC_OUTPUT()
+
+
 
 echo
 

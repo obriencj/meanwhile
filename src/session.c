@@ -49,7 +49,7 @@ struct mwSession {
   struct mwSessionHandler *handler;
 
   enum mwSessionState state;  /**< session state */
-  guint32 state_info;         /**< additional state info */
+  gpointer state_info;        /**< additional state info */
 
   /* input buffering for an incoming message */
   char *buf;       /**< buffer for incoming message data */
@@ -219,16 +219,8 @@ static void io_close(struct mwSession *s) {
 }
 
 
-/** set the state of the session, and trigger the session handler's
-    on_stateChange function. Has no effect if the session is already
-    in the specified state (ignores additional state info)
-
-    @param s      the session
-    @param state  the state to set
-    @param info   additional state info
-*/
 static void state(struct mwSession *s, enum mwSessionState state,
-		  guint32 info) {
+		  gpointer info) {
 
   struct mwSessionHandler *sh;
 
@@ -240,14 +232,24 @@ static void state(struct mwSession *s, enum mwSessionState state,
   s->state = state;
   s->state_info = info;
 
-  if(info) {
-    g_message("session state: %s (0x%08x)", state_str(state), info);
-  } else {
+  switch(state) {
+  case mwSession_STOPPING:
+  case mwSession_STOPPED:
+    g_message("session state: %s (0x%08x)", state_str(state),
+	      GPOINTER_TO_UINT(info));
+    break;
+
+  case mwSession_LOGIN_REDIR:
+    g_message("session state: %s (%s)", state_str(state),
+	      (char *)info);
+    break;
+
+  default:
     g_message("session state: %s", state_str(state));
   }
 
   sh = s->handler;
-  if(sh->on_stateChange)
+  if(sh && sh->on_stateChange)
     sh->on_stateChange(s, state, info);
 }
 
@@ -297,7 +299,7 @@ void mwSession_stop(struct mwSession *s, guint32 reason) {
     return;
   }
 
-  state(s, mwSession_STOPPING, reason);
+  state(s, mwSession_STOPPING, GUINT_TO_POINTER(reason));
 
   for(list = l = mwSession_getServices(s); l; l = l->next)
     mwService_stop(MW_SERVICE(l->data));
@@ -318,7 +320,7 @@ void mwSession_stop(struct mwSession *s, guint32 reason) {
   /* close the connection */
   io_close(s);
 
-  state(s, mwSession_STOPPED, reason);
+  state(s, mwSession_STOPPED, GUINT_TO_POINTER(reason));
 }
 
 
@@ -617,12 +619,8 @@ static void ANNOUNCE_recv(struct mwSession *s, struct mwMsgAnnounce *msg) {
 
 static void LOGIN_REDIRECT_recv(struct mwSession *s,
 				struct mwMsgLoginRedirect *msg) {
-  struct mwSessionHandler *sh = s->handler;
 
-  state(s, mwSession_LOGIN_REDIR, 0);
-
-  if(sh && sh->on_loginRedirect)
-    sh->on_loginRedirect(s, msg->host);
+  state(s, mwSession_LOGIN_REDIR, msg->host);
 }
 
 
@@ -1031,7 +1029,7 @@ enum mwSessionState mwSession_getState(struct mwSession *s) {
 }
 
 
-guint32 mwSession_getStateInfo(struct mwSession *s) {
+gpointer mwSession_getStateInfo(struct mwSession *s) {
   g_return_val_if_fail(s != NULL, 0);
   return s->state_info;
 }

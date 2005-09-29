@@ -160,16 +160,13 @@ struct mwSessionHandler {
 
   /** Called when the session has changed status.
 
-      Uses of the info param:
-      - <code>STOPPING</code> error code causing the session to shut down
-
-      @todo change info to a gpointer
+      @see mwSession_getStateInfo for uses of info field
 
       @param s      the session
       @param state  the session's state
-      @param info   additional state info. */
+      @param info   additional state information */
   void (*on_stateChange)(struct mwSession *s,
-			 enum mwSessionState state, guint32 info);
+			 enum mwSessionState state, gpointer info);
 
   /** called when privacy information has been sent or received
 
@@ -189,11 +186,6 @@ struct mwSessionHandler {
   void (*on_announce)(struct mwSession *, struct mwLoginInfo *from,
 		      gboolean may_reply, const char *text);
 
-  /** called when a login redirect message is received
-
-      @todo remove in favour of on_stateChange, passing host as a
-      gpointer in info */
-  void (*on_loginRedirect)(struct mwSession *, const char *host);
 };
 
 
@@ -280,8 +272,19 @@ struct mwUserStatus *mwSession_getUserStatus(struct mwSession *);
 enum mwSessionState mwSession_getState(struct mwSession *);
 
 
-/** additional status-specific information */
-guint32 mwSession_getStateInfo(struct mwSession *);
+/** additional status-specific information. Depending on the state of
+    the session, this value has different meaning.
+
+    @item <code>mwSession_STOPPING</code> guint32 error code causing
+    the session to shut down
+
+    @item <code>mwSession_STOPPED</code> guint32 error code causing
+    the session to shut down
+
+    @item <code>mwSession_LOGIN_REDIR</code> (char *) host to redirect
+    to
+*/
+gpointer mwSession_getStateInfo(struct mwSession *);
 
 
 struct mwChannelSet *mwSession_getChannels(struct mwSession *);

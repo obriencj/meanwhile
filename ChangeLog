@@ -1,6 +1,6 @@
 
-version 0.4.3 (cvs)
-
+version 0.5.0 (cvs)
+	
 	Features
 	- Automatically breaks up large messages for transport (using
 	NotesBuddy multi-segment messages)
