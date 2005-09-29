@@ -272,7 +272,7 @@ void mwSession_start(struct mwSession *s) {
   msg->login_type = GUINT(property_get(s, mwSession_CLIENT_TYPE_ID));
 
   msg->loclcalc_addr = GUINT(property_get(s, mwSession_CLIENT_IP));
-  msg->unkn_a = 0x0100;
+  msg->unknown_a = 0x0100;
   msg->local_host = (char *) property_get(s, mwSession_CLIENT_HOST);
 
   ret = mwSession_send(s, MW_MESSAGE(msg));
@@ -607,6 +607,14 @@ static void ADMIN_recv(struct mwSession *s, struct mwMsgAdmin *msg) {
 }
 
 
+static void ANNOUNCE_recv(struct mwSession *s, struct mwMsgAnnounce *msg) {
+  struct mwSessionHandler *sh = s->handler;
+
+  if(sh && sh->on_announce)
+    sh->on_announce(s, &msg->sender, msg->may_reply, msg->text);
+}
+
+
 static void LOGIN_REDIRECT_recv(struct mwSession *s,
 				struct mwMsgLoginRedirect *msg) {
   struct mwSessionHandler *sh = s->handler;
@@ -664,6 +672,7 @@ static void session_process(struct mwSession *s,
     CASE(SET_USER_STATUS, mwMsgSetUserStatus);
     CASE(SENSE_SERVICE, mwMsgSenseService);
     CASE(ADMIN, mwMsgAdmin);
+    CASE(ANNOUNCE, mwMsgAnnounce);
     
   default:
     g_warning("unknown message type 0x%04x, no handler", msg->type);
@@ -922,6 +931,30 @@ int mwSession_forceLogin(struct mwSession *s) {
   ret = mwSession_send(s, MW_MESSAGE(msg));
   mwMessage_free(MW_MESSAGE(msg));
   
+  return ret;
+}
+
+
+int mwSession_sendAnnounce(struct mwSession *s, gboolean may_reply,
+			   const char *text, const GList *recipients) {
+
+  struct mwMsgAnnounce *msg;
+  int ret;
+
+  g_return_val_if_fail(s != NULL, -1);
+  g_return_val_if_fail(mwSession_isStarted(s), -1);
+  
+  msg = (struct mwMsgAnnounce *) mwMessage_new(mwMessage_ANNOUNCE);
+
+  msg->recipients = recipients;
+  msg->may_reply = may_reply;
+  msg->text = g_strdup(text);
+
+  ret = mwSession_send(s, MW_MESSAGE(msg));
+
+  msg->recipients = NULL;  /* don't kill out recipients param */
+  mwMessage_free(MW_MESSAGE(msg));
+
   return ret;
 }
 

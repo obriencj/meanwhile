@@ -78,8 +78,8 @@ static void HANDSHAKE_put(struct mwPutBuffer *b, struct mwMsgHandshake *msg) {
   guint32_put(b, msg->srvrcalc_addr);
   guint16_put(b, msg->login_type);
   guint32_put(b, msg->loclcalc_addr);
-  guint16_put(b, msg->unkn_a);
-  guint32_put(b, msg->unkn_b);
+  guint16_put(b, msg->unknown_a);
+  guint32_put(b, msg->unknown_b);
   mwString_put(b, msg->local_host);
 }
 
@@ -93,8 +93,8 @@ static void HANDSHAKE_get(struct mwGetBuffer *b, struct mwMsgHandshake *msg) {
   guint32_get(b, &msg->srvrcalc_addr);
   guint16_get(b, &msg->login_type);
   guint32_get(b, &msg->loclcalc_addr);
-  guint16_get(b, &msg->unkn_a);
-  guint32_get(b, &msg->unkn_b);
+  guint16_get(b, &msg->unknown_a);
+  guint32_get(b, &msg->unknown_b);
   mwString_get(b, &msg->local_host);
 }
 
@@ -602,6 +602,79 @@ static void ADMIN_clear(struct mwMsgAdmin *msg) {
 }
 
 
+/* Announcement messages */
+
+
+static void ANNOUNCE_get(struct mwGetBuffer *b, struct mwMsgAnnounce *msg) {
+  struct mwOpaque o = { 0, 0 };
+  struct mwGetBuffer *gb;
+  guint32 count;
+
+  gboolean_get(b, &msg->sender_present);
+  if(msg->sender_present)
+    mwLoginInfo_get(b, &msg->sender);
+  guint16_get(b, &msg->unknown_a);
+  
+  mwOpaque_get(b, &o);
+  gb = mwGetBuffer_wrap(&o);
+
+  gboolean_get(gb, &msg->may_reply);
+  mwString_get(gb, &msg->text);
+
+  mwGetBuffer_free(gb);
+  mwOpaque_clear(&o);
+
+  guint32_get(b, &count);
+  while(count--) {
+    char *r = NULL;
+    mwString_get(b, &r);
+    msg->recipients = g_list_prepend(msg->recipients, r);
+  }
+}
+
+
+static void ANNOUNCE_put(struct mwPutBuffer *b, struct mwMsgAnnounce *msg) {
+  struct mwOpaque o = { 0, 0 };
+  struct mwPutBuffer *pb;
+  GList *l;
+  
+  gboolean_put(b, msg->sender_present);
+  if(msg->sender_present)
+    mwLoginInfo_put(b, &msg->sender);
+  guint16_put(b, msg->unknown_a);
+
+  pb = mwPutBuffer_new();
+  
+  gboolean_put(pb, msg->may_reply);
+  mwString_put(pb, msg->text);
+
+  mwPutBuffer_finalize(&o, pb);
+  mwOpaque_put(b, &o);
+  mwOpaque_clear(&o);
+
+  guint32_put(b, g_list_length(msg->recipients));
+  for(l = msg->recipients; l; l = l->next) {
+    mwString_put(b, l->data);
+  }
+}
+
+
+static void ANNOUNCE_clear(struct mwMsgAnnounce *msg) {
+  mwLoginInfo_clear(&msg->sender);
+
+  g_free(msg->text);
+  msg->text = NULL;
+  
+  while(msg->recipients) {
+    g_free(msg->recipients->data);
+    msg->recipients = g_list_delete_link(msg->recipients, msg->recipients);
+  }
+}
+
+
+/* general functions */
+
+
 #define CASE(v, t) \
 case mwMessage_ ## v: \
   msg = (struct mwMessage *) g_new0(struct t, 1); \
@@ -627,6 +700,7 @@ struct mwMessage *mwMessage_new(enum mwMessageType type) {
     CASE(SET_PRIVACY_LIST, mwMsgSetPrivacyList);
     CASE(SENSE_SERVICE, mwMsgSenseService);
     CASE(ADMIN, mwMsgAdmin);
+    CASE(ANNOUNCE, mwMsgAnnounce);
     
   default:
     g_warning("unknown message type 0x%02x\n", type);
@@ -683,6 +757,7 @@ struct mwMessage *mwMessage_get(struct mwGetBuffer *b) {
     CASE(SET_PRIVACY_LIST, mwMsgSetPrivacyList);
     CASE(SENSE_SERVICE, mwMsgSenseService);
     CASE(ADMIN, mwMsgAdmin);
+    CASE(ANNOUNCE, mwMsgAnnounce);
 
   default:
     g_warning("unknown message type 0x%02x, no parse handler", head.type);
@@ -728,6 +803,7 @@ void mwMessage_put(struct mwPutBuffer *b, struct mwMessage *msg) {
     CASE(SET_USER_STATUS, mwMsgSetUserStatus);
     CASE(SET_PRIVACY_LIST, mwMsgSetPrivacyList);
     CASE(SENSE_SERVICE, mwMsgSenseService);
+    CASE(ANNOUNCE, mwMsgAnnounce);
     
   default:
     ; /* hrm. */
@@ -764,6 +840,7 @@ void mwMessage_free(struct mwMessage *msg) {
     CASE(SET_PRIVACY_LIST, mwMsgSetPrivacyList);
     CASE(SENSE_SERVICE, mwMsgSenseService);
     CASE(ADMIN, mwMsgAdmin);
+    CASE(ANNOUNCE, mwMsgAnnounce);
     
   default:
     ; /* hrm. */

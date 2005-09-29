@@ -49,6 +49,7 @@ enum mwMessageType {
   mwMessage_SET_PRIVACY_LIST  = 0x000b,  /**< mwMsgSetPrivacyList */
   mwMessage_SENSE_SERVICE     = 0x0011,  /**< mwMsgSenseService */
   mwMessage_ADMIN             = 0x0019,  /**< mwMsgAdmin */
+  mwMessage_ANNOUNCE          = 0x0022,  /**< mwMsgAnnounce */
 };
 
 
@@ -97,8 +98,8 @@ struct mwMsgHandshake {
   guint32 srvrcalc_addr;  /**< 0.0.0.0 */
   guint16 login_type;     /**< @see mwLoginType */
   guint32 loclcalc_addr;  /**< local public IP */
-  guint16 unkn_a;         /**< normally 0x0100 */
-  guint32 unkn_b;         /**< normally 0x00000000 */
+  guint16 unknown_a;      /**< normally 0x0100 */
+  guint32 unknown_b;      /**< normally 0x00000000 */
   char *local_host;       /**< name of client host */
 };
 
@@ -269,6 +270,24 @@ struct mwMsgSenseService {
 struct mwMsgAdmin {
   struct mwMessage head;
   char *text;
+};
+
+
+/* Announce */
+
+/** An announcement between users */
+struct mwMsgAnnounce {
+  struct mwMessage head;
+  gboolean sender_present;    /**< indicates presence of sender data */
+  struct mwLoginInfo sender;  /**< who sent the announcement */
+  guint16 unknown_a;          /**< unknown A. Usually 0x00 */
+  gboolean may_reply;         /**< replies allowed */
+  char *text;                 /**< text of message */
+
+  /** list of (char *) indicating recipients. Recipient users are in
+      the format "@U username" and recipient NAB groups are in the
+      format "@G groupname" */
+  GList *recipients;
 };
 
 

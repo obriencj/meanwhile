@@ -185,6 +185,10 @@ struct mwSessionHandler {
   /** called when an admin messages has been received */
   void (*on_admin)(struct mwSession *, const char *text);
 
+  /** called when an announcement arrives */
+  void (*on_announce)(struct mwSession *, struct mwLoginInfo *from,
+		      gboolean may_reply, const char *text);
+
   /** called when a login redirect message is received
 
       @todo remove in favour of on_stateChange, passing host as a
@@ -235,6 +239,20 @@ int mwSession_sendKeepalive(struct mwSession *s);
 /** respond to a login redirect message by forcing the login sequence
     to continue through the immediate server. */
 int mwSession_forceLogin(struct mwSession *s);
+
+
+/** send an announcement to a list of users/groups. Targets of
+    announcement must be in the same community as the session.
+
+    @param s          session to send announcement from
+    @param may_reply  permit clients to reply. Not all clients honor this.
+    @param text       text of announcement
+    @param recipients list of recipients. Each recipient is specified
+                      by a single string, prefix with "@U " for users
+                      and "@G " for Notes Address Book groups.
+*/
+int mwSession_sendAnnounce(struct mwSession *s, gboolean may_reply,
+			   const char *text, const GList *recipients);
 
 
 /** set the internal privacy information, and inform the server as
