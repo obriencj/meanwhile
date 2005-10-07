@@ -275,13 +275,13 @@ enum mwSessionState mwSession_getState(struct mwSession *);
 /** additional status-specific information. Depending on the state of
     the session, this value has different meaning.
 
-    @item <code>mwSession_STOPPING</code> guint32 error code causing
+    @li @c mwSession_STOPPING guint32 error code causing
     the session to shut down
 
-    @item <code>mwSession_STOPPED</code> guint32 error code causing
+    @li @c mwSession_STOPPED guint32 error code causing
     the session to shut down
 
-    @item <code>mwSession_LOGIN_REDIR</code> (char *) host to redirect
+    @li @c mwSession_LOGIN_REDIR (char *) host to redirect
     to
 */
 gpointer mwSession_getStateInfo(struct mwSession *);

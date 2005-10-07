@@ -1,8 +1,4 @@
 
-- Session
-  - add support for privacy controls
-  - implement LoginContinue
-
 - Storage service
   - why does the server crash on some load requests??
 

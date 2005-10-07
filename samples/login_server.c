@@ -91,7 +91,7 @@ static void handshake_ack() {
   mwDHRandKeypair(private, public);
   mwDHExportKey(public, &msg->data);
 
-  msg->unknown = 0x01;
+  msg->magic = 0x01234567;
   hexout("sending pubkey:", msg->data.data, msg->data.len);
 
   send_msg(MW_MESSAGE(msg));

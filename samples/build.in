@@ -1,0 +1,32 @@
+
+#! /bin/sh
+
+
+CC=gcc
+PKGCONFIG=pkg-config
+
+
+function build() {
+    SAMPLE=$1
+    SOURCE="${SAMPLE}.c"
+
+    if test -z "$SOURCE" ; then
+	echo "please specify a target to build"
+	return 1
+
+    elif test ! -f "$SOURCE" ; then
+	echo "file not found: $SOURCE"
+	return 1
+    fi
+
+    PKG_CONFIG_PATH="$PKG_CONFIG_PATH":@prefix@/lib/pkgconfig
+    export PKG_CONFIG_PATH
+
+    CFLAGS=`$PKGCONFIG --libs --cflags glib-2.0 meanwhile`
+
+    "$CC" $CFLAGS -o "$SAMPLE" "$SOURCE"
+    return $?
+}
+
+
+build $1

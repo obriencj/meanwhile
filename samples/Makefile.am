@@ -3,11 +3,15 @@
 SAMPLES_SRC = \
 	login_server.c \
 	nocipher_proxy.c \
+	sendmessage.c \
 	socket.c \
 	redirect_proxy.c
 
 SAMPLES = $(SAMPLES_SRC:.c=)
 
+
+sample_SCRIPTS = \
+	build
 
 sample_DATA = \
 	README \
@@ -17,7 +21,7 @@ sample_DATA = \
 sampledir = $(datadir)/doc/@PACKAGE@-@VERSION@/samples
 
 
-EXTRA_DIST = $(sample_DATA)
+EXTRA_DIST = $(sample_DATA) $(sample_SCRIPTS)
 
 
 $(SAMPLES):	%: %.c

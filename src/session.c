@@ -944,13 +944,13 @@ int mwSession_sendAnnounce(struct mwSession *s, gboolean may_reply,
   
   msg = (struct mwMsgAnnounce *) mwMessage_new(mwMessage_ANNOUNCE);
 
-  msg->recipients = recipients;
+  msg->recipients = (GList *) recipients;
   msg->may_reply = may_reply;
   msg->text = g_strdup(text);
 
   ret = mwSession_send(s, MW_MESSAGE(msg));
 
-  msg->recipients = NULL;  /* don't kill out recipients param */
+  msg->recipients = NULL;  /* don't kill our recipients param */
   mwMessage_free(MW_MESSAGE(msg));
 
   return ret;

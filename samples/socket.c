@@ -149,7 +149,8 @@ static int mw_session_io_write(struct mwSession *session,
 
 /* the on_stateChange function from the session handler */
 static void mw_session_stateChange(struct mwSession *session,
-				   enum mwSessionState state, guint32 info) {
+				   enum mwSessionState state, 
+				   gpointer info) {
 
   if(state == mwSession_STARTED) {
     /* at this point the session is all ready to go. */
@@ -171,7 +172,6 @@ static struct mwSessionHandler mw_session_handler = {
   .on_setPrivacyInfo = NULL,        /**< received privacy information */
   .on_setUserStatus = NULL,         /**< received status information */
   .on_admin = NULL,                 /**< received an admin message */
-  .on_loginRedirect = NULL,         /**< connection redirected */
 };
 
 

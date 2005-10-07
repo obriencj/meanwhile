@@ -168,6 +168,9 @@ AC_CONFIG_FILES(
 	[meanwhile.spec meanwhile.pc]
 )
 
+AC_CONFIG_FILES([samples/build], [chmod +x samples/build])
+
+
 AC_OUTPUT()
 
 

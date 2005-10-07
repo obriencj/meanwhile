@@ -90,6 +90,7 @@ Documentation for the Meanwhile library
 %files doc
 %defattr(-,root,root,-)
 %doc doc/html doc/latex
+%{_datadir}/doc/%{name}-%{version}/samples/**
 %endif
 
 
