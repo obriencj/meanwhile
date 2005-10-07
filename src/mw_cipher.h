@@ -23,14 +23,12 @@
 
 
 #include <glib.h>
-#include <gmp.h>
 #include "mw_common.h"
 
 
 /* place-holders */
 struct mwChannel;
 struct mwSession;
-
 
 
 /** @enum mwCipherType
@@ -212,24 +210,6 @@ void mwCipherInstance_free(struct mwCipherInstance *ci);
 void mwKeyRandom(char *key, gsize keylen);
 
 
-void mwInitDHPrime(mpz_t z);
-
-
-void mwInitDHBase(mpz_t z);
-
-
-void mwDHRandKeypair(mpz_t private, mpz_t public);
-
-
-void mwDHCalculateShared(mpz_t shared, mpz_t remote, mpz_t private);
-
-
-void mwDHImportKey(mpz_t key, struct mwOpaque *o);
-
-
-void mwDHExportKey(mpz_t key, struct mwOpaque *o);
-
-
 /** Setup an Initialization Vector */
 void mwIV_init(char *iv);
 
@@ -261,6 +241,47 @@ void mwDecrypt(const char *key, gsize keylen, char *iv,
 	       struct mwOpaque *in, struct mwOpaque *out);
 
 
+/* @} */
+
+
+/**
+  @section Diffie-Hellman Functions
+
+  These functions are reused where DH Key negotiation is necessary
+  outside of a channel (eg. session authentication). You'll need to
+  include <gmp.h> in order to use these functions.
+*/
+/* @{ */
+#ifdef __GMP_H__
+
+
+/** initialize and set a big integer to the Sametime Prime value */
+void mwInitDHPrime(mpz_t z);
+
+
+/** initialize and set a big integer to the Sametime Base value */
+void mwInitDHBase(mpz_t z);
+
+
+/** sets private to a randomly generated value, and calculates public
+    using the Sametime Prime and Base */
+void mwDHRandKeypair(mpz_t private, mpz_t public);
+
+
+/** sets the shared key value based on the remote and private keys,
+    using the Sametime Prime and Base */
+void mwDHCalculateShared(mpz_t shared, mpz_t remote, mpz_t private);
+
+
+/** Import a DH key from an opaque */
+void mwDHImportKey(mpz_t key, struct mwOpaque *o);
+
+
+/** Export a DH key into an opaque */
+void mwDHExportKey(mpz_t key, struct mwOpaque *o);
+
+
+#endif
 /* @} */
 
 
