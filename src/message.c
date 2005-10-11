@@ -78,9 +78,12 @@ static void HANDSHAKE_put(struct mwPutBuffer *b, struct mwMsgHandshake *msg) {
   guint32_put(b, msg->srvrcalc_addr);
   guint16_put(b, msg->login_type);
   guint32_put(b, msg->loclcalc_addr);
-  guint16_put(b, msg->unknown_a);
-  guint32_put(b, msg->unknown_b);
-  mwString_put(b, msg->local_host);
+  
+  if(msg->major >= 0x001e && msg->minor >= 0x001d) {
+    guint16_put(b, msg->unknown_a);
+    guint32_put(b, msg->unknown_b);
+    mwString_put(b, msg->local_host);
+  }
 }
 
 
@@ -93,9 +96,12 @@ static void HANDSHAKE_get(struct mwGetBuffer *b, struct mwMsgHandshake *msg) {
   guint32_get(b, &msg->srvrcalc_addr);
   guint16_get(b, &msg->login_type);
   guint32_get(b, &msg->loclcalc_addr);
-  guint16_get(b, &msg->unknown_a);
-  guint32_get(b, &msg->unknown_b);
-  mwString_get(b, &msg->local_host);
+
+  if(msg->major >= 0x001e && msg->minor >= 0x001d) {
+    guint16_get(b, &msg->unknown_a);
+    guint32_get(b, &msg->unknown_b);
+    mwString_get(b, &msg->local_host);
+  }
 }
 
 
@@ -252,8 +258,6 @@ static void LOGIN_REDIRECT_clear(struct mwMsgLoginRedirect *msg) {
 
 
 static void enc_offer_put(struct mwPutBuffer *b, struct mwEncryptOffer *enc) {
-  char tail = 0x07;
-
   guint16_put(b, enc->mode);
 
   if(enc->items) {
@@ -268,7 +272,6 @@ static void enc_offer_put(struct mwPutBuffer *b, struct mwEncryptOffer *enc) {
     count = g_list_length(enc->items);
     p = mwPutBuffer_new();
 
-  
     guint32_put(p, count);
     for(list = enc->items; list; list = list->next) {
       mwEncryptItem_put(p, list->data);
@@ -284,8 +287,7 @@ static void enc_offer_put(struct mwPutBuffer *b, struct mwEncryptOffer *enc) {
 
   guint32_put(b, 0x00);
   guint32_put(b, 0x00);
-  gboolean_put(b, FALSE);
-  mwPutBuffer_write(b, &tail, 1);
+  guint16_put(b, 0x0007);
 }
 
 
@@ -378,8 +380,6 @@ static void CHANNEL_CREATE_clear(struct mwMsgChannelCreate *msg) {
 static void enc_accept_put(struct mwPutBuffer *b,
 			   struct mwEncryptAccept *enc) {
 
-  char tail = 0x07;
-
   guint16_put(b, enc->mode);
 
   if(enc->item) {
@@ -399,9 +399,7 @@ static void enc_accept_put(struct mwPutBuffer *b,
 
   guint32_put(b, 0x00);
   guint32_put(b, 0x00);
-  gboolean_put(b, FALSE);
-
-  mwPutBuffer_write(b, &tail, 1);
+  guint16_put(b, 0x0007);
 }
 
 

@@ -274,8 +274,11 @@ void mwSession_start(struct mwSession *s) {
   msg->login_type = GUINT(property_get(s, mwSession_CLIENT_TYPE_ID));
 
   msg->loclcalc_addr = GUINT(property_get(s, mwSession_CLIENT_IP));
-  msg->unknown_a = 0x0100;
-  msg->local_host = (char *) property_get(s, mwSession_CLIENT_HOST);
+
+  if(msg->major >= 0x001e && msg->minor >= 0x001d) {
+    msg->unknown_a = 0x0100;
+    msg->local_host = (char *) property_get(s, mwSession_CLIENT_HOST);
+  }
 
   ret = mwSession_send(s, MW_MESSAGE(msg));
   mwMessage_free(MW_MESSAGE(msg));
