@@ -1,9 +1,12 @@
 build
 .deps
 .libs
+logging_proxy
+login_server
 Makefile
 Makefile.in
 nocipher_proxy
 *.o
 redirect_proxy
+sendmessage
 socket
