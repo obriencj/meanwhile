@@ -7,7 +7,8 @@
   sametime server, which will log all messages to stdout. It will also
   munge channel creation messages in order to be able to decrypt any
   encrypted data sent over a channel, and will log decrypted chunks to
-  stdout as well. This makes reverse-engineering much, much easier.
+  stdout as well. This makes reverse-engineering of services much,
+  much easier.
 
   The idea is simple, but the implementation made my head hurt.
 

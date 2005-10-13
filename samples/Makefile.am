@@ -6,7 +6,7 @@ SAMPLES_SRC = \
 	nocipher_proxy.c \
 	sendmessage.c \
 	socket.c \
-	redirect_proxy.c
+	redirect_server.c
 
 SAMPLES = $(SAMPLES_SRC:.c=)
 
