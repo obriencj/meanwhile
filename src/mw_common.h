@@ -426,6 +426,8 @@ void mwEncryptItem_get(struct mwGetBuffer *b, struct mwEncryptItem *item);
 
 void mwEncryptItem_clear(struct mwEncryptItem *item);
 
+void mwEncryptItem_free(struct mwEncryptItem *item);
+
 
 /*@}*/
 

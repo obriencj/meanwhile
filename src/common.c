@@ -803,6 +803,12 @@ void mwEncryptItem_clear(struct mwEncryptItem *ei) {
 }
 
 
+void mwEncryptItem_free(struct mwEncryptItem *ei) {
+  mwEncryptItem_clear(ei);
+  g_free(ei);
+}
+
+
 /* 8.4.2.1 Awareness ID Block */
 
 

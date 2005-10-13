@@ -158,7 +158,7 @@ static void LOGIN_put(struct mwPutBuffer *b, struct mwMsgLogin *msg) {
   guint16_put(b, msg->login_type);
   mwString_put(b, msg->name);
 
-  /* ordering reversed from draft?? */
+  /* ordering reversed from houri draft?? */
   mwOpaque_put(b, &msg->auth_data);
   guint16_put(b, msg->auth_type);
 
@@ -284,10 +284,6 @@ static void enc_offer_put(struct mwPutBuffer *b, struct mwEncryptOffer *enc) {
     mwOpaque_put(b, &o);
     mwOpaque_clear(&o);
   }
-
-  guint32_put(b, 0x00);
-  guint32_put(b, 0x00);
-  guint16_put(b, 0x0007);
 }
 
 
@@ -308,6 +304,10 @@ static void CHANNEL_CREATE_put(struct mwPutBuffer *b,
     mwLoginInfo_put(b, &msg->creator);
 
   enc_offer_put(b, &msg->encrypt);
+
+  guint32_put(b, 0x00);
+  guint32_put(b, 0x00);
+  guint16_put(b, 0x07);
 }
 
 
@@ -396,10 +396,6 @@ static void enc_accept_put(struct mwPutBuffer *b,
     mwOpaque_put(b, &o);
     mwOpaque_clear(&o);
   }
-
-  guint32_put(b, 0x00);
-  guint32_put(b, 0x00);
-  guint16_put(b, 0x0007);
 }
 
 
@@ -416,6 +412,10 @@ static void CHANNEL_ACCEPT_put(struct mwPutBuffer *b,
     mwLoginInfo_put(b, &msg->acceptor);
   
   enc_accept_put(b, &msg->encrypt);
+
+  guint32_put(b, 0x00);
+  guint32_put(b, 0x00);
+  guint16_put(b, 0x07);
 }
 
 
