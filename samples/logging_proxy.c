@@ -1,20 +1,15 @@
 
 /*
-  Clear Channel Sametime Proxy Utility
+  Logging Sametime Proxy Utility
   The Meanwhile Project
 
   This is a tool which can act as a proxy between a client and a
-  sametime server, which will force all channels to be created without
-  any encryption method. This makes reverse-engineering much, much
-  easier.
+  sametime server, which will log all messages to stdout. It will also
+  munge channel creation messages in order to be able to decrypt any
+  encrypted data sent over a channel, and will log decrypted chunks to
+  stdout as well. This makes reverse-engineering much, much easier.
 
-  It also outputs the messages sent to and from the client to stdout
-  as hex pairs. If compiled with USE_HEXDUMP, output will be printed
-  via `hexdump -C`
-  
-  All it really does is nab all Channel Create messages, strip the
-  offered ciphers portion from the message and replace it with an
-  empty ciphers list.
+  The idea is simple, but the implementation made my head hurt.
 
   Christopher O'Brien <siege@preoccupied.net>
 */
@@ -38,69 +33,9 @@
 #include <mw_message.h>
 
 
-
-struct rc2_40enc {
-  char outgoing_iv[8];
-  char incoming_iv[8];
-  int incoming_key[64];
-  int outgoing_key[64];
-};
-
-
-struct rc2_128enc {
-  char outgoing_iv[8];
-  char incoming_iv[8];
-  int shared_key[64];
-};
-
-
-/* the left side of a channel is the side that originated the channel
-   create message. The right side of the channel is the target, and is
-   where the accept message will come from. Because either the client
-   or the server may initiate a channel, neither side is specifically
-   either */
-struct channel {
-  guint32 id;
-
-  /* login id of creator or NULL if created by client side */
-  char *creator;
-
-  /* the offer from the left side */
-  struct mwEncryptOffer offer;
-
-  enum {
-    enc_none = 0,
-    enc_easy,
-    enc_hard,
-  } enc_mode;
-
-  /* encryption data for the left side */
-  union {
-    struct rc2_40enc easy;
-    struct rc2_128enc hard;
-  } left_enc;
-
-  /* encryption data for the right side */
-  union {
-    struct rc2_40enc easy;
-    struct rc2_128enc hard;
-  } right_enc;
-
-  struct proxy_side *left;
-  struct proxy_side *right;
-};
-
-
-#define PUT_CHANNEL(chan) \
-  g_hash_table_insert(channels, GUINT_TO_POINTER((chan)->id), (chan))
-
-#define GET_CHANNEL(id) \
-  g_hash_table_lookup(channels, GUINT_TO_POINTER(id))
-
-#define REMOVE_CHANNEL(id) \
-  g_hash_table_remove(channels, GUINT_TO_POINTER(id))
-
-
+/** one side of the proxy (either the client side or the server
+    side). The forward method for one should push data into the socket
+    of the other. */
 struct proxy_side {
   int sock;
   GIOChannel *chan;
@@ -114,8 +49,34 @@ struct proxy_side {
 };
 
 
-/* collection of channels */
-static GHashTable *channels;
+static struct proxy_side client;  /**< side facing the client */
+static struct proxy_side server;  /**< side facing the server */
+
+
+/** given one side, get the other */
+#define OTHER_SIDE(side) \
+  ((side == &client)? &server: &client)
+
+
+/** encryption state information used in the RC2/40 cipher */
+struct rc2_40enc {
+  char outgoing_iv[8];
+  char incoming_iv[8];
+  int incoming_key[64];
+  int outgoing_key[64];
+};
+
+
+/* re-usable rc2 40 stuff */
+static int session_key[64];
+
+
+/** encryption state information used in the RC2/128 cipher */
+struct rc2_128enc {
+  char outgoing_iv[8];
+  char incoming_iv[8];
+  int shared_key[64];
+};
 
 
 /* re-usable rc2 128 stuff */
@@ -123,19 +84,59 @@ static mpz_t private_key;
 static struct mwOpaque public_key;
 
 
-/* re-usable rc2 40 stuff */
-static int session_key[64];
+/** represents a channel. The channel has a left side and a right
+    side. The left side is the creator of the channel. The right side
+    is the target of the channel. Each side has its own encryption
+    state information, so an incoming message from either side can
+    be decrypted, then re-encrypted for the other side. */
+struct channel {
+  guint32 id;
+
+  /* login id of creator or NULL if created by client side */
+  char *creator;
+
+  /* the offer from the left side */
+  struct mwEncryptOffer offer;
+
+  /** the mode of encryption */
+  enum {
+    enc_none = 0,  /**< nothing encrypted */
+    enc_easy,      /**< easy (rc2/40) encryption */
+    enc_hard,      /**< hard (rc2/128) encryption */
+  } enc_mode;
+
+  /** encryption data for the left side */
+  union {
+    struct rc2_40enc easy;
+    struct rc2_128enc hard;
+  } left_enc;
+
+  /** encryption data for the right side */
+  union {
+    struct rc2_40enc easy;
+    struct rc2_128enc hard;
+  } right_enc;
+
+  struct proxy_side *left;   /**< proxy side acting as the left side */
+  struct proxy_side *right;  /**< proxy side acting as the right side */
+};
 
 
-static struct proxy_side client;
-static struct proxy_side server;
+/* collection of channels */
+static GHashTable *channels;
 
 
-#define OTHER_SIDE(side) \
-  ((side == &client)? &server: &client)
+#define PUT_CHANNEL(chan) \
+  g_hash_table_insert(channels, GUINT_TO_POINTER((chan)->id), (chan))
+
+#define GET_CHANNEL(id) \
+  g_hash_table_lookup(channels, GUINT_TO_POINTER(id))
+
+#define REMOVE_CHANNEL(id) \
+  g_hash_table_remove(channels, GUINT_TO_POINTER(id))
 
 
-
+/** print a message to stdout and use hexdump to print a data chunk */
 static void hexdump_vprintf(const unsigned char *buf, gsize len,
 			    const char *txt, va_list args) {
   FILE *fp;
@@ -154,6 +155,7 @@ static void hexdump_vprintf(const unsigned char *buf, gsize len,
 }
 
 
+/** print a message to stdout and use hexdump to print a data chunk */
 static void hexdump_printf(const unsigned char *buf, gsize len,
 			   const char *txt, ...) {
   va_list args;
@@ -163,7 +165,7 @@ static void hexdump_printf(const unsigned char *buf, gsize len,
 }
 
 
-/* serialize a message for sending */
+/** serialize a message for sending */
 static void put_msg(struct mwMessage *msg, struct mwOpaque *o) {
   struct mwPutBuffer *b;
 
@@ -175,14 +177,6 @@ static void put_msg(struct mwMessage *msg, struct mwOpaque *o) {
   mwOpaque_put(b, o);
   mwOpaque_clear(o);
   mwPutBuffer_finalize(o, b);
-}
-
-
-static void side_buf_free(struct proxy_side *s) {
-  g_free(s->buf);
-  s->buf = NULL;
-  s->buf_size = 0;
-  s->buf_recv = 0;
 }
 
 
@@ -588,10 +582,19 @@ static void side_process(struct proxy_side *s, const char *buf, gsize len) {
 }
 
 
+/** clean up a proxy side's inner buffer */
+static void side_buf_free(struct proxy_side *s) {
+  g_free(s->buf);
+  s->buf = NULL;
+  s->buf_size = 0;
+  s->buf_recv = 0;
+}
+
+
 #define ADVANCE(b, n, count) { b += count; n -= count; }
 
 
-/* handle input to complete an existing buffer */
+/** handle input to complete an existing buffer */
 static gsize side_recv_cont(struct proxy_side *s, const char *b, gsize n) {
 
   gsize x = s->buf_size - s->buf_recv;
@@ -641,7 +644,7 @@ static gsize side_recv_cont(struct proxy_side *s, const char *b, gsize n) {
 }
 
 
-/* handle input when there's nothing previously buffered */
+/** handle input when there's nothing previously buffered */
 static gsize side_recv_empty(struct proxy_side *s, const char *b, gsize n) {
   struct mwOpaque o = { .len = n, .data = (char *) b };
   struct mwGetBuffer *gb;
@@ -679,6 +682,7 @@ static gsize side_recv_empty(struct proxy_side *s, const char *b, gsize n) {
 }
 
 
+/** handle input in chunks */
 static gsize side_recv(struct proxy_side *s, const char *b, gsize n) {
 
   if(n && (s->buf_size == 0) && (*b & 0x80)) {
@@ -697,6 +701,7 @@ static gsize side_recv(struct proxy_side *s, const char *b, gsize n) {
 }
 
 
+/** handle input */
 static void feed_buf(struct proxy_side *side, const char *buf, gsize n) {
   char *b = (char *) buf;
   gsize remain = 0;
@@ -786,9 +791,8 @@ static gboolean listen_cb(GIOChannel *chan,
 }
 
 
+/** start listening on the local port specified */
 static void init_client(int port) {
-  /* start listening on the local port specifier */
-
   struct sockaddr_in sin;
   int sock;
 
@@ -821,6 +825,7 @@ static void server_cb(const char *buf, gsize len) {
 }
 
 
+/** generate a private/public DH keypair for internal (re)use */
 static void init_rc2_128() {
   mpz_t public;
 
@@ -834,7 +839,7 @@ static void init_rc2_128() {
 }
 
 
-/* address lookup used by init_sock */
+/** address lookup used by init_sock */
 static void init_sockaddr(struct sockaddr_in *addr,
 			  const char *host, int port) {
 
@@ -851,7 +856,7 @@ static void init_sockaddr(struct sockaddr_in *addr,
 }
 
 
-/* connect to server on host:port */
+/** connect to server on host:port */
 static void init_server(const char *host, int port) {
   struct sockaddr_in srvrname;
   int sock;
