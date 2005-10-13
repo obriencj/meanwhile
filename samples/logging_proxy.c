@@ -136,15 +136,8 @@ static struct proxy_side server;
 
 
 
-/* dump data to stdout via the hexdump utility */
-static void hexdump(const char *txt, const unsigned char *buf, gsize len) {
-
-}
-
-
 static void hexdump_vprintf(const unsigned char *buf, gsize len,
 			    const char *txt, va_list args) {
-
   FILE *fp;
 
   if(txt) {
@@ -240,30 +233,35 @@ static void munge_create(struct proxy_side *side,
   /* replace the encryption items with our own as applicable */
   if(msg->encrypt.items) {
     l = msg->encrypt.items;
-    msg->encrypt.items = NULL;
+    msg->encrypt.items = NULL; /* steal them */
 
     for(; l; l = l->next) {
       struct mwEncryptItem *i1, *i2;
 
+      /* the original we've stolen */
       i1 = l->data;
+
+      /* the munged replacement */
       i2 = g_new0(struct mwEncryptItem, 1);
       i2->id = i1->id;
 
       switch(i1->id) {
       case mwCipher_RC2_128:
+	printf("munging an offered RC2/128\n");
 	mwOpaque_clone(&i2->info, &public_key);
-	break;	
-      case mwCipher_RC2_40:
-      default:
 	break;
+      case mwCipher_RC2_40:
+	printf("munging an offered RC2/40\n");
+      default:
+	;
       }
 
-      g_list_append(msg->encrypt.items, i2);
+      msg->encrypt.items = g_list_append(msg->encrypt.items, i2);
     }
   }
 
   put_msg(MW_MESSAGE(msg), &o);
-  OTHER_SIDE(side)->forward(o.data, o.len);
+  side->forward(o.data, o.len);
   mwOpaque_clear(&o);
 }
 
@@ -290,6 +288,14 @@ static void munge_accept(struct proxy_side *side,
   chan = GET_CHANNEL(msg->head.channel);
   item = msg->encrypt.item;
 
+  if(! item) {
+    /* cut to the chase */
+    put_msg(MW_MESSAGE(msg), &o);
+    side->forward(o.data, o.len);
+    mwOpaque_clear(&o);
+    return;
+  }
+
   /* init right-side encryption with our enc and accepted enc */
   switch(item->id) {
   case mwCipher_RC2_128: {
@@ -298,6 +304,8 @@ static void munge_accept(struct proxy_side *side,
 
     mpz_init(remote);
     mpz_init(shared);
+
+    printf("right side accepted RC2/128\n");
 
     mwDHImportKey(remote, &item->info);
     mwDHCalculateShared(shared, remote, private_key);
@@ -316,6 +324,8 @@ static void munge_accept(struct proxy_side *side,
   case mwCipher_RC2_40: {
     char *who;
     
+    printf("right side accepted RC2/40\n");
+
     chan->enc_mode = enc_easy;
     mwIV_init(chan->right_enc.easy.outgoing_iv);
     mwIV_init(chan->right_enc.easy.incoming_iv);
@@ -337,34 +347,38 @@ static void munge_accept(struct proxy_side *side,
     mpz_t remote, shared;
     struct mwOpaque k;
     struct mwEncryptItem *offered;
-
+    
     mpz_init(remote);
     mpz_init(shared);
 
+    printf("accepting left side with RC2/128\n");
+    
     offered = find_item(chan->offer.items, mwCipher_RC2_128);
     mwDHImportKey(remote, &offered->info);
     mwDHCalculateShared(shared, remote, private_key);
     mwDHExportKey(shared, &k);
-
+    
     mwIV_init(chan->left_enc.hard.outgoing_iv);
     mwIV_init(chan->left_enc.hard.incoming_iv);
     mwKeyExpand(chan->left_enc.hard.shared_key, k.data+(k.len-16), 16);
-
+    
     mpz_clear(remote);
     mpz_clear(shared);
-
-    mwOpaque_clear(&item->info);
-    mwOpaque_clone(&item->info, &k);
     mwOpaque_clear(&k);
+    
+    /* munge accept with out public key */
+    mwOpaque_clear(&item->info);
+    mwOpaque_clone(&item->info, &public_key);
     break;
   }
   case mwCipher_RC2_40:
+    printf("accepting left side with RC2/40\n");
   default:
-    break;
+    ;
   }
 
   put_msg(MW_MESSAGE(msg), &o);
-  OTHER_SIDE(side)->forward(o.data, o.len);
+  side->forward(o.data, o.len);
   mwOpaque_clear(&o);
 }
 
@@ -415,7 +429,7 @@ static void enc(struct channel *chan, struct proxy_side *side,
 			from, to);
     } else {
       /* right side encrypt */
-      mwDecryptExpanded(chan->right_enc.easy.outgoing_key,
+      mwEncryptExpanded(chan->right_enc.easy.outgoing_key,
 			chan->right_enc.easy.outgoing_iv,
 			from, to);
     }
@@ -423,12 +437,12 @@ static void enc(struct channel *chan, struct proxy_side *side,
   case enc_hard: {
     if(chan->left == side) {
       /* left side encrypt */
-      mwDecryptExpanded(chan->left_enc.hard.shared_key,
+      mwEncryptExpanded(chan->left_enc.hard.shared_key,
 			chan->left_enc.hard.outgoing_iv,
 			from, to);
     } else {
       /* right side encrypt */
-      mwDecryptExpanded(chan->right_enc.hard.shared_key,
+      mwEncryptExpanded(chan->right_enc.hard.shared_key,
 			chan->right_enc.hard.outgoing_iv,
 			from, to);
     }
@@ -442,10 +456,7 @@ static void munge_channel(struct proxy_side *side,
 
   struct mwOpaque o = {0,0};
 
-  if(! msg->head.options & mwMessageOption_ENCRYPT) {
-    ;
-
-  } else {
+  if(msg->head.options & mwMessageOption_ENCRYPT) {
     struct mwOpaque d = {0,0};
     struct channel *chan;
 
@@ -456,7 +467,7 @@ static void munge_channel(struct proxy_side *side,
 
     /* display */
     hexdump_printf(d.data, d.len,
-	    "decrypted message type 0x%04x",  msg->type);
+	    "decrypted channel message data:",  msg->type);
 
     /* encrypt to other side */
     mwOpaque_clear(&msg->data);
@@ -466,7 +477,7 @@ static void munge_channel(struct proxy_side *side,
 
   /* send to other side */
   put_msg(MW_MESSAGE(msg), &o);
-  OTHER_SIDE(side)->forward(o.data, o.len);
+  side->forward(o.data, o.len);
   mwOpaque_clear(&o);
 }
 
@@ -481,18 +492,23 @@ static void handle_destroy(struct proxy_side *side,
   chan = GET_CHANNEL(msg->head.channel);
   REMOVE_CHANNEL(msg->head.channel);
 
+  if(! chan) return;
+
   for(l = chan->offer.items; l; l = l->next) {
     mwEncryptItem_free(l->data);
   }
   g_list_free(chan->offer.items);
+  chan->offer.items = NULL;
 
   g_free(chan->creator);
+  chan->creator = NULL;
+
   g_free(chan);
 }
 
 
-static void resend(struct proxy_side *to,
-		   struct mwOpaque *data) {
+static void forward(struct proxy_side *to,
+		    struct mwOpaque *data) {
 
   struct mwPutBuffer *pb = mwPutBuffer_new();
   struct mwOpaque po = { 0, 0 };
@@ -526,7 +542,7 @@ static void side_process(struct proxy_side *s, const char *buf, gsize len) {
     struct mwMsgLogin *msg = (struct mwMsgLogin *) mwMessage_get(b);
     mwKeyExpand(session_key, msg->name, 5);
     mwMessage_free(MW_MESSAGE(msg));
-    resend(OTHER_SIDE(s), &o);
+    forward(s, &o);
     break;
   }
 
@@ -553,7 +569,7 @@ static void side_process(struct proxy_side *s, const char *buf, gsize len) {
     struct mwMessage *msg = mwMessage_get(b);
     handle_destroy(s, (struct mwMsgChannelDestroy *) msg);
     mwMessage_free(msg);
-    resend(OTHER_SIDE(s), &o);
+    forward(s, &o);
     break;
   }
 
@@ -565,7 +581,7 @@ static void side_process(struct proxy_side *s, const char *buf, gsize len) {
   }
     
   default:
-    resend(OTHER_SIDE(s), &o);
+    forward(s, &o);
   }
 
   mwGetBuffer_free(b);
@@ -707,7 +723,7 @@ static int read_recv(struct proxy_side *side) {
 
 
 static void done() {
-  printf("closing connection");
+  printf("closing connection, exiting\n");
 
   close(client.sock);
   close(server.sock);
@@ -742,9 +758,7 @@ static gboolean read_cb(GIOChannel *chan,
 
 
 static void client_cb(const char *buf, gsize len) {
-  if(server.sock) {
-    write(server.sock, buf, len);
-  }
+  if(server.sock) write(server.sock, buf, len);
 }
 
 
@@ -803,9 +817,7 @@ static void init_client(int port) {
 
 
 static void server_cb(const char *buf, gsize len) {
-  if(client.sock) {
-    write(client.sock, buf, len);
-  }
+  if(client.sock) write(client.sock, buf, len);
 }
 
 

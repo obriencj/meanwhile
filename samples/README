@@ -76,3 +76,15 @@ messages in hex pairs to stdout using the hexdump utility. This may be
 more useful than using ethereal, as it will actually group its output
 by message rather than by receipt from the TCP stream.
 
+
+ logging_proxy.c
+
+Compile with `./build logging_proxy`. Acts as a sametime server proxy,
+passing messages between a real client and server. However, it will
+intercept and mangle channel data in order to obtain the unencrypted
+data. This should be invisible to both the client and the server. Will
+print all messages in hex pairs to stdout using the hexdump utility,
+and will print decrypted contents of encrypted channel messages
+separately. This is certainly more useful than using ethereal, as it
+groups its output by message as well as provides an unencrypted view
+of otherwise obscured service protocols.
