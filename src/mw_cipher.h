@@ -210,7 +210,7 @@ void mwCipherInstance_free(struct mwCipherInstance *ci);
 void mwKeyRandom(char *key, gsize keylen);
 
 
-/** Setup an Initialization Vector */
+/** Setup an Initialization Vector. IV must be at least 8 bytes */
 void mwIV_init(char *iv);
 
 
