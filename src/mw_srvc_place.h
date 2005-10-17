@@ -44,21 +44,21 @@ struct mwPlaceHandler {
   void (*place_closed)(struct mwPlace *place, guint32 code);
 
   void (*place_peerJoined)(struct mwPlace *place,
-			   struct mwIdBlock *peer);
+			   const struct mwIdBlock *peer);
 
   void (*place_peerParted)(struct mwPlace *place,
-			   struct mwIdBlock *peer);
+			   const struct mwIdBlock *peer);
 
   void (*place_peerSetAttribute)(struct mwPlace *place,
-				 struct mwIdBlock *peer,
+				 const struct mwIdBlock *peer,
 				 guint32 attr, struct mwOpaque *o);
 
   void (*place_peerUnsetAttribute)(struct mwPlace *place,
-				   struct mwIdBlock *peer,
+				   const struct mwIdBlock *peer,
 				   guint32 attr);
 
   void (*place_message)(struct mwPlace *place,
-			struct mwIdBlock *peer,
+			const struct mwIdBlock *peer,
 			const char *msg);
 
   void (*clear)(struct mwServicePlace *srvc);
