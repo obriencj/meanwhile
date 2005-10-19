@@ -14,14 +14,14 @@ mwinclude_HEADERS = \
 	mw_srvc_dir.h \
 	mw_srvc_ft.h \
 	mw_srvc_im.h \
+	mw_srvc_place.h \
 	mw_srvc_resolve.h \
 	mw_srvc_store.h \
 	mw_st_list.h
 
 noinst_HEADERS = \
 	mw_debug.h \
-	mw_util.h \
-	mw_srvc_place.h
+	mw_util.h
 
 mwincludedir = $(includedir)/meanwhile
 
@@ -37,8 +37,6 @@ libmeanwhile_la_SOURCES = \
 	common.c \
 	error.c \
 	message.c \
-	mw_debug.c \
-	mw_util.c \
 	service.c \
 	session.c \
 	srvc_aware.c \
@@ -46,9 +44,12 @@ libmeanwhile_la_SOURCES = \
 	srvc_dir.c \
 	srvc_ft.c \
 	srvc_im.c \
-	srvc_store.c \
+	srvc_place.c \
 	srvc_resolve.c \
-	st_list.c
+	srvc_store.c \
+	st_list.c \
+	mw_debug.c \
+	mw_util.c
 
 libmeanwhile_la_LIBADD = $(GLIB_LIBS) $(GMP_LIBS)
 

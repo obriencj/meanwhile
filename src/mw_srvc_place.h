@@ -40,7 +40,6 @@ struct mwPlace;
 
 struct mwPlaceHandler {
   void (*place_opened)(struct mwPlace *place);
-  void (*place_joined)(struct mwPlace *place);
   void (*place_closed)(struct mwPlace *place, guint32 code);
 
   void (*place_peerJoined)(struct mwPlace *place,
@@ -61,12 +60,13 @@ struct mwPlaceHandler {
 			const struct mwIdBlock *peer,
 			const char *msg);
 
-  void (*clear)(struct mwServicePlace *srvc);
+  void (*clear)(struct mwPlace *place);
 };
 
 
-struct mwServicePlace *mwServicePlace_new(struct mwSession *session,
-					  struct mwPlaceHandler *handler);
+struct mwServicePlace *
+mwServicePlace_new(struct mwSession *session,
+		   struct mwPlaceHandler *handler);
 
 
 struct mwPlaceHandler *
@@ -98,14 +98,17 @@ int mwPlace_close(struct mwPlace *place, guint32 code);
 void mwPlace_free(struct mwPlace *place);
 
 
-const struct mwLoginInfo *mwPlace_getPeerInfo(const struct mwIdBlock *who);
+const struct mwLoginInfo *
+mwPlace_getPeerInfo(const struct mwIdBlock *who);
 
 
-const GList *mwPlace_getPeers(struct mwPlace *place);
+GList *mwPlace_getPeers(struct mwPlace *place);
 
 
-const struct mwLoginInfo *mwPlace_getSelf(struct mwPlace *place);
+int mwPlace_sendText(struct mwPlace *place, const char *msg);
 
 
-const GList *mwPlace_getSections(struct mwPlace *place);
+int mwPlace_sendTyping(struct mwPlace *place, gboolean typing);
 
+
+#endif
