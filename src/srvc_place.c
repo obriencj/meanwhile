@@ -94,17 +94,17 @@ enum out_section_subtype {
   : state = JOINING
 
   : msg_in_JOIN_RESPONSE (contains our place member ID and section ID)
-  : msg_in_INFO (for place)
+  : msg_in_INFO (for place, not peer)
   : msg_in_UNKNOWNa
 
   : msg_out_SECTION_LIST (asking for all sections) (optional)
   : msg_in_SECTION_LIST (listing all sections, as requested above)
 
   : msg_out_PEER_INFO (with our place member ID) (optional)
-  : msg_in_INFO (as requested above)
+  : msg_in_INFO (peer info as requested above)
 
   : msg_out_SECTION_LIST (with our section ID) (sorta optional)
-  : msg_in_SECTION_LIST (as requested above)
+  : msg_in_SECTION_LIST (section listing as requested above)
 
   : msg_out_UNKNOWNb
   : msg_in_SECTION_PEER_JOINED (empty, with our place member ID)
@@ -575,6 +575,12 @@ static int send_JOIN_PLACE(struct mwPlace *place) {
   ret = mwChannel_send(place->channel, msg_out_JOIN_PLACE, &o);
 
   mwOpaque_clear(&o);
+
+  if(ret) {
+    place_state(place, mwPlace_ERROR);
+  } else {
+    place_state(place, mwPlace_JOINING);
+  }
 
   return ret;
 }
