@@ -65,8 +65,7 @@ struct mwPlaceHandler {
 
 
 struct mwServicePlace *
-mwServicePlace_new(struct mwSession *session,
-		   struct mwPlaceHandler *handler);
+mwServicePlace_new(struct mwSession *session);
 
 
 struct mwPlaceHandler *
@@ -77,6 +76,7 @@ const GList *mwServicePlace_getPlaces(struct mwServicePlace *srvc);
 
 
 struct mwPlace *mwPlace_new(struct mwServicePlace *srvc,
+			    struct mwPlaceHandler *handler,
 			    const char *name, const char *title);
 
 
@@ -92,7 +92,7 @@ const char *mwPlace_getTitle(struct mwPlace *place);
 int mwPlace_open(struct mwPlace *place);
 
 
-int mwPlace_close(struct mwPlace *place, guint32 code);
+int mwPlace_destroy(struct mwPlace *place, guint32 code);
 
 
 void mwPlace_free(struct mwPlace *place);

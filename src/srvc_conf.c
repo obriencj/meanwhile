@@ -120,6 +120,9 @@ static char *conf_generate_name(const char *user) {
 }
 
 
+
+
+
 static struct mwConference *conf_new(struct mwServiceConference *srvc) {
 
   struct mwConference *conf;
