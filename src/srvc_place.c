@@ -96,6 +96,7 @@ enum out_section_subtype {
   : msg_in_JOIN_RESPONSE (contains our place member ID and section ID)
   : msg_in_INFO (for place, not peer)
   : msg_in_UNKNOWNa
+  : state = JOINED
 
   : msg_out_SECTION_LIST (asking for all sections) (optional)
   : msg_in_SECTION_LIST (listing all sections, as requested above)
@@ -109,7 +110,7 @@ enum out_section_subtype {
   : msg_out_UNKNOWNb
   : msg_in_SECTION_PEER_JOINED (empty, with our place member ID)
   : msg_in_UNKNOWNa
-  : state = OPENED
+  : state = OPEN
 
   : stuff... (invites, joins, parts, messages, attr)
 
@@ -288,7 +289,8 @@ static int recv_JOIN_RESPONSE(struct mwPlace *place,
   me = mwSession_getLoginInfo(session);
 
   /* compose a place member entry for ourselves using the login info
-     block on the session */
+     block on the session. We could ask the place for info on our
+     member ID, but why bother? */
 
   pm = g_new0(struct place_member, 1);
   pm->place_id = our_id;
@@ -308,6 +310,8 @@ static int recv_INFO(struct mwPlace *place,
 		     struct mwGetBuffer *b) {
 
   int ret = 0;
+
+  /* for place or peer */
 
   return ret;
 }
@@ -448,6 +452,9 @@ static int recv_SECTION_PEER(struct mwPlace *place,
 static int recv_SECTION_LIST(struct mwPlace *place,
 			     struct mwGetBuffer *b) {
   int ret = 0;
+
+  /* todo: populate section membership list */
+
   return ret;
 }
 
@@ -506,6 +513,27 @@ static int recv_SECTION(struct mwPlace *place, struct mwGetBuffer *b) {
 }
 
 
+static int send_SECTION_LIST(struct mwPlace *place, guint32 section) {
+  int ret = 0;
+  return ret;
+}
+
+
+static int recv_UNKNOWNa(struct mwPlace *place, struct mwGetBuffer *b) {
+  int res = 0;
+
+  if(place->state == mwPlace_JOINING) {
+    place_state(place, mwPlace_JOINED);
+    res = send_SECTION_LIST(place, place->section);
+  
+  } else if(place->state == mwPlace_JOINED) {
+    place_state(place, mwPlace_OPEN);
+  }
+
+  return res;
+}
+
+
 static void recv(struct mwService *service, struct mwChannel *chan,
 		 guint16 type, struct mwOpaque *data) {
 
@@ -535,6 +563,7 @@ static void recv(struct mwService *service, struct mwChannel *chan,
     break;
 
   case msg_in_UNKNOWNa:
+    res = recv_UNKNOWNa(place, b);
     break;
 
   default:
