@@ -7,6 +7,7 @@ version 0.5.0 (cvs)
 	- Support for DH RC2/128 channel encryption
 	- Support for DH RC2/128 login encryption
 	- RFE #1307892 Support for Announcements
+	- Support for chats via the Places service
 	
 	Bug Fixes
 	- Bug #1239210 Unspecified fatal error when VPN disconnects
