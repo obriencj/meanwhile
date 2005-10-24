@@ -27,7 +27,7 @@
 
 
 /** Type identifier for the conference service */
-#define SERVICE_RESOLVE  0x00000015
+#define mwService_RESOLVE  0x00000015
 
 
 /** Return value of mwServiceResolve_search indicating an error */

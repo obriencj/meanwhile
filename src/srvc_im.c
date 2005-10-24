@@ -324,7 +324,7 @@ static void recv_channelCreate(struct mwService *srvc,
   y = mwChannel_getProtoType(chan);
   z = mwChannel_getProtoVer(chan);
 
-  if( (x != SERVICE_IM) || (y != PROTOCOL_TYPE) || (z != PROTOCOL_VER) ) {
+  if( (x != mwService_IM) || (y != PROTOCOL_TYPE) || (z != PROTOCOL_VER) ) {
     g_warning("unacceptable service, proto, ver:"
 	      " 0x%08x, 0x%08x, 0x%08x", x, y, z);
     mwChannel_destroy(chan, ERR_SERVICE_NO_SUPPORT, NULL);
@@ -719,7 +719,7 @@ struct mwServiceIm *mwServiceIm_new(struct mwSession *session,
   srvc_im = g_new0(struct mwServiceIm, 1);
   srvc = MW_SERVICE(srvc_im);
 
-  mwService_init(srvc, session, SERVICE_IM);
+  mwService_init(srvc, session, mwService_IM);
   srvc->recv_create = recv_channelCreate;
   srvc->recv_accept = recv_channelAccept;
   srvc->recv_destroy = recv_channelDestroy;

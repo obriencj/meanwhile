@@ -396,7 +396,7 @@ struct mwServiceStorage *mwServiceStorage_new(struct mwSession *session) {
   srvc_store = g_new0(struct mwServiceStorage, 1);
   srvc = MW_SERVICE(srvc_store);
 
-  mwService_init(srvc, session, SERVICE_STORAGE);
+  mwService_init(srvc, session, mwService_STORAGE);
   srvc->get_name = get_name;
   srvc->get_desc = get_desc;
   srvc->recv_accept = recv_channelAccept;

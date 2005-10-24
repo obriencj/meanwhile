@@ -322,7 +322,7 @@ struct mwServiceResolve *mwServiceResolve_new(struct mwSession *session) {
 
   srvc = MW_SERVICE(srvc_resolve);
 
-  mwService_init(srvc, session, SERVICE_RESOLVE);
+  mwService_init(srvc, session, mwService_RESOLVE);
   srvc->get_name = get_name;
   srvc->get_desc = get_desc;
   srvc->recv_create = (mwService_funcRecvCreate) recv_create;

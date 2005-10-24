@@ -123,6 +123,7 @@ enum out_section_subtype {
 
 struct mwServicePlace {
   struct mwService service;
+  struct mwPlaceHandler *handler;
   GList *places;
 };
 
@@ -142,8 +143,6 @@ enum mwPlaceState {
 struct mwPlace {
   struct mwServicePlace *service;
 
-  struct mwPlaceHandler *handler;
-
   enum mwPlaceState state;
   struct mwChannel *channel;
 
@@ -161,12 +160,13 @@ struct mwPlace {
 
 struct place_member {
   guint32 place_id;
-  guint16 unknown;
-  char *id;
-  char *community;
+  guint16 member_type;
+  struct mwIdBlock idb;
   char *login_id;
   char *name;
-  guint16 type;
+  guint16 login_type;
+  guint32 unknown_a;
+  guint32 unknown_b;
 };
 
 
@@ -179,27 +179,19 @@ struct place_member {
                        GUINT_TO_POINTER(member->place_id), member))
 
 
-#define REMOVE_MEMBER(place, id) \
+#define REMOVE_MEMBER_ID(place, id) \
   (g_hash_table_remove(place->members, GUINT_TO_POINTER(id)))
 
 
+#define REMOVE_MEMBER(place, member) \
+  REMOVE_MEMBER_ID(place, member->place_id)
+
+
 static void member_free(struct place_member *p) {
-  g_free(p->id);
-  g_free(p->community);
+  mwIdBlock_clear(&p->idb);
   g_free(p->login_id);
   g_free(p->name);
   g_free(p);
-}
-
-
-static const struct mwIdBlock *
-member_as_id_block(struct place_member *p) {
-  static struct mwIdBlock idb;
-
-  idb.user = p->id;
-  idb.community = p->community;
-
-  return &idb;
 }
 
 
@@ -209,10 +201,10 @@ member_as_login_info(struct place_member *p) {
   static struct mwLoginInfo li;
   
   li.login_id = p->login_id;
-  li.type = p->type;
-  li.user_id = p->id;
+  li.type = p->login_type;
+  li.user_id = p->idb.user;
   li.user_name = p->name;
-  li.community = p->community;
+  li.community = p->idb.community;
   li.full = FALSE;
 
   return &li;
@@ -253,9 +245,6 @@ static void place_free(struct mwPlace *place) {
   srvc = place->service;
   g_return_if_fail(srvc != NULL);
 
-  if(place->handler && place->handler->clear)
-    place->handler->clear(place);
-
   mw_datum_clear(&place->client_data);
 
   g_hash_table_destroy(place->members);
@@ -268,39 +257,15 @@ static void place_free(struct mwPlace *place) {
 
 static int recv_JOIN_RESPONSE(struct mwPlace *place,
 			      struct mwGetBuffer *b) {
-
-  struct mwServicePlace *srvc;
-  struct mwSession *session;
-  struct mwLoginInfo *me;
   
-  struct place_member *pm;
-  guint32 our_id, section;
-
   int ret = 0;
+  guint32 our_id, section;
 
   guint32_get(b, &our_id);
   guint32_get(b, &section);
 
   place->our_id = our_id;
   place->section = section;
-
-  srvc = place->service;
-  session = mwService_getSession(MW_SERVICE(srvc));
-  me = mwSession_getLoginInfo(session);
-
-  /* compose a place member entry for ourselves using the login info
-     block on the session. We could ask the place for info on our
-     member ID, but why bother? */
-
-  pm = g_new0(struct place_member, 1);
-  pm->place_id = our_id;
-  pm->id = g_strdup(me->user_id);
-  pm->community = g_strdup(me->community);
-  pm->login_id = g_strdup(me->login_id);
-  pm->name = g_strdup(me->user_name);
-  pm->type = me->type;
-
-  PUT_MEMBER(place, pm);
 
   return ret;
 }
@@ -310,8 +275,19 @@ static int recv_INFO(struct mwPlace *place,
 		     struct mwGetBuffer *b) {
 
   int ret = 0;
+  guint32 skip = 0;
+  guint32 section = 0;
 
-  /* for place or peer */
+  guint32_get(b, &skip);
+  guint32_get(b, &section);
+  mwGetBuffer_advance(b, skip);
+
+  if(! section) {
+    /* this is a place info rather than member info */
+    if(place->title) g_free(place->title);
+    mwGetBuffer_advance(b, 2);
+    mwString_get(b, &place->title);
+  }
 
   return ret;
 }
@@ -319,13 +295,15 @@ static int recv_INFO(struct mwPlace *place,
 
 static int recv_MESSAGE(struct mwPlace *place,
 			struct mwGetBuffer *b) {
-  
+
+  struct mwServicePlace *srvc;
   guint32 pm_id;
   guint32 unkn_a, unkn_b, ign;
   struct place_member *pm;
-  const struct mwIdBlock *idb;
   char *msg = NULL;
   int ret = 0;
+
+  srvc = place->service;
 
   /* regarding unkn_a and unkn_b:
 
@@ -345,10 +323,8 @@ static int recv_MESSAGE(struct mwPlace *place,
   guint32_get(b, &unkn_b);
   mwString_get(b, &msg);
 
-  idb = member_as_id_block(pm);
-
-  if(place->handler && place->handler->place_message)
-    place->handler->place_message(place, idb, msg);
+  if(srvc->handler && srvc->handler->message)
+    srvc->handler->message(place, &pm->idb, msg);
 
   g_free(msg);
 
@@ -358,37 +334,34 @@ static int recv_MESSAGE(struct mwPlace *place,
 
 static int recv_SECTION_PEER_JOIN(struct mwPlace *place,
 				  struct mwGetBuffer *b) {
-  guint32 count;
-  guint32 unknowna, unknownb;
+  struct mwServicePlace *srvc;
+  struct place_member *pm;
+  guint32 section;
   int ret = 0;
 
-  guint32_get(b, &count);
+  srvc = place->service;
 
-  if(! count) {
-    if(place->state == mwPlace_PENDING) {
-      place_state(place, mwPlace_OPEN);
-      return ret;
-    }
+  guint32_get(b, &section);
+  if(! section) {
+    g_info("SECTION_PEER_JOIN with section 0x00");
+    return 0;
   }
 
-  while(count--) {
-    struct place_member *pm = g_new0(struct place_member, 1);
-    guint32_get(b, &pm->place_id);
-    mwGetBuffer_advance(b, 4);
-    guint16_get(b, &pm->unknown);
-    mwString_get(b, &pm->id);
-    mwString_get(b, &pm->community);
-    mwString_get(b, &pm->login_id);
-    mwString_get(b, &pm->name);
-    guint16_get(b, &pm->type);
+  mwGetBuffer_advance(b, 4);
 
-    PUT_MEMBER(place, pm);
-    if(place->handler && place->handler->place_peerJoined)
-      place->handler->place_peerJoined(place, member_as_id_block(pm));
-  }
+  pm = g_new0(struct place_member, 1);
+  guint32_get(b, &pm->place_id);
+  guint16_get(b, &pm->member_type);
+  mwIdBlock_get(b, &pm->idb);
+  mwString_get(b, &pm->login_id);
+  mwString_get(b, &pm->name);
+  guint16_get(b, &pm->login_type);
+  guint32_get(b, &pm->unknown_a);
+  guint32_get(b, &pm->unknown_b);
 
-  guint32_get(b, &unknowna);
-  guint32_get(b, &unknownb);
+  PUT_MEMBER(place, pm);
+  if(srvc->handler && srvc->handler->peerJoined)
+    srvc->handler->peerJoined(place, &pm->idb);
 
   return ret;
 }
@@ -396,21 +369,77 @@ static int recv_SECTION_PEER_JOIN(struct mwPlace *place,
 
 static int recv_SECTION_PEER_PART(struct mwPlace *place,
 				  struct mwGetBuffer *b) {
+  struct mwServicePlace *srvc;
   int ret = 0;
+  guint32 section, id;
+  struct place_member *pm;
+
+  srvc = place->service;
+
+  guint32_get(b, &section);
+  g_return_val_if_fail(section == place->section, 0);
+
+  guint32_get(b, &id);
+  pm = GET_MEMBER(place, id);
+
+  /* SECTION_PART may have been called already */
+  if(! pm) return 0;
+
+  if(srvc->handler && srvc->handler->peerParted)
+    srvc->handler->peerParted(place, &pm->idb);
+
+  REMOVE_MEMBER(place, pm);
+
   return ret;
 }
 
 
 static int recv_SECTION_PEER_CLEAR_ATTR(struct mwPlace *place,
 					struct mwGetBuffer *b) {
+  struct mwServicePlace *srvc;
   int ret = 0;
+  guint32 id, attr;
+  struct place_member *pm;
+  
+  srvc = place->service;
+
+  guint32_get(b, &id);
+  guint32_get(b, &attr);
+
+  pm = GET_MEMBER(place, id);
+  g_return_val_if_fail(pm != NULL, -1);
+
+  if(srvc->handler && srvc->handler->peerUnsetAttribute)
+    srvc->handler->peerUnsetAttribute(place, &pm->idb, attr);
+
   return ret;
 }
 
 
 static int recv_SECTION_PEER_SET_ATTR(struct mwPlace *place,
 				      struct mwGetBuffer *b) {
+  struct mwServicePlace *srvc;
   int ret = 0;
+  guint32 id, attr;
+  struct mwOpaque o = {0,0};
+  struct place_member *pm;
+  
+  srvc = place->service;
+
+  guint32_get(b, &id);
+  mwGetBuffer_advance(b, 4);
+  mwOpaque_get(b, &o);
+  mwGetBuffer_advance(b, 4);
+  guint32_get(b, &attr);
+
+  pm = GET_MEMBER(place, id);
+  g_return_val_if_fail(pm != NULL, -1);
+
+  if(srvc->handler && srvc->handler->peerSetAttribute)
+    srvc->handler->peerSetAttribute(place, &pm->idb, attr, &o);
+
+  mwOpaque_clear(&o);
+
   return ret;
 }
 
@@ -452,8 +481,33 @@ static int recv_SECTION_PEER(struct mwPlace *place,
 static int recv_SECTION_LIST(struct mwPlace *place,
 			     struct mwGetBuffer *b) {
   int ret = 0;
+  guint32 sec, count;
 
-  /* todo: populate section membership list */
+  mwGetBuffer_advance(b, 4);
+  guint32_get(b, &sec);
+
+  g_return_val_if_fail(sec == place->section, -1);
+
+  mwGetBuffer_advance(b, 8);
+  guint32_get(b, &count);
+  mwGetBuffer_advance(b, 8);
+
+  while(count--) {
+    struct place_member *m;
+
+    m = g_new0(struct place_member, 1);
+    mwGetBuffer_advance(b, 4);
+    guint32_get(b, &m->place_id);
+    guint16_get(b, &m->member_type);
+    mwIdBlock_get(b, &m->idb);
+    mwString_get(b, &m->login_id);
+    mwString_get(b, &m->name);
+    guint16_get(b, &m->login_type);
+    guint32_get(b, &m->unknown_a);
+    guint32_get(b, &m->unknown_b);
+
+    PUT_MEMBER(place, m);
+  }
 
   return ret;
 }
@@ -465,20 +519,22 @@ static int recv_SECTION_PART(struct mwPlace *place,
      remove user from place
      trigger event */
 
+  struct mwServicePlace *srvc;
   guint32 pm_id;
   struct place_member *pm;
-  const struct mwIdBlock *idb;
+
+  srvc = place->service;
 
   guint32_get(b, &pm_id);
-
   pm = GET_MEMBER(place, pm_id);
-  g_return_val_if_fail(pm != NULL, -1);
 
-  idb = member_as_id_block(pm);
-  if(place->handler && place->handler->place_peerParted)
-    place->handler->place_peerParted(place, idb);
+  /* SECTION_PEER_PART may have been called already */
+  if(! pm) return 0;
 
-  REMOVE_MEMBER(place, pm_id);
+  if(srvc->handler && srvc->handler->peerParted)
+    srvc->handler->peerParted(place, &pm->idb);
+
+  REMOVE_MEMBER(place, pm);
 
   return 0;
 }
@@ -515,6 +571,19 @@ static int recv_SECTION(struct mwPlace *place, struct mwGetBuffer *b) {
 
 static int send_SECTION_LIST(struct mwPlace *place, guint32 section) {
   int ret = 0;
+  struct mwOpaque o = {0, 0};
+  struct mwPutBuffer *b;
+
+  b = mwPutBuffer_new();
+  guint16_put(b, msg_out_SECTION_LIST);
+  guint32_put(b, section);
+  gboolean_put(b, FALSE);
+  guint32_put(b, ++place->requests);
+  mwPutBuffer_finalize(&o, b);
+
+  ret = mwChannel_send(place->channel, msg_out_SECTION, &o);
+  mwOpaque_clear(&o);
+
   return ret;
 }
 
@@ -527,7 +596,13 @@ static int recv_UNKNOWNa(struct mwPlace *place, struct mwGetBuffer *b) {
     res = send_SECTION_LIST(place, place->section);
   
   } else if(place->state == mwPlace_JOINED) {
+    struct mwServicePlace *srvc;
+
     place_state(place, mwPlace_OPEN);
+
+    srvc = place->service;
+    if(srvc->handler && srvc->handler->opened)
+      srvc->handler->opened(place);
   }
 
   return res;
@@ -596,8 +671,8 @@ static int send_JOIN_PLACE(struct mwPlace *place) {
   b = mwPutBuffer_new();
   gboolean_put(b, FALSE);
   guint16_put(b, 0x01);
-  guint16_put(b, 0x01);
-  guint16_put(b, 0x00);
+  guint16_put(b, 0x02); /* 0x01 */
+  guint16_put(b, 0x01); /* 0x00 */
 
   mwPutBuffer_finalize(&o, b);
 
@@ -648,14 +723,18 @@ static void recv_channelDestroy(struct mwService *service,
 
   place->channel = NULL;
 
-  if(place->handler && place->handler->place_closed)
-    place->handler->place_closed(place, msg->reason);  
+  if(srvc->handler && srvc->handler->closed)
+    srvc->handler->closed(place, msg->reason);  
 
   mwPlace_destroy(place, msg->reason);
 }
 
 
 static void clear(struct mwServicePlace *srvc) {
+
+  if(srvc->handler && srvc->handler->clear)
+    srvc->handler->clear(srvc);
+
   while(srvc->places)
     place_free(srvc->places->data);
 }
@@ -671,16 +750,21 @@ static const char *get_desc(struct mwService *srvc) {
 }
 
 
-struct mwServicePlace *mwServicePlace_new(struct mwSession *session) {
+struct mwServicePlace *
+mwServicePlace_new(struct mwSession *session,
+		   struct mwPlaceHandler *handler) {
+
   struct mwServicePlace *srvc_place;
   struct mwService *srvc;
 
   g_return_val_if_fail(session != NULL, NULL);
+  g_return_val_if_fail(handler != NULL, NULL);
 
   srvc_place = g_new0(struct mwServicePlace, 1);
+  srvc_place->handler = handler;
 
   srvc = MW_SERVICE(srvc_place);
-  mwService_init(srvc, session, SERVICE_PLACE);
+  mwService_init(srvc, session, mwService_PLACE);
   srvc->start = NULL;
   srvc->stop = (mwService_funcStop) stop;
   srvc->recv_create = NULL;
@@ -695,33 +779,43 @@ struct mwServicePlace *mwServicePlace_new(struct mwSession *session) {
 }
 
 
-const char *mwPlace_getName(struct mwPlace *place) {
-  g_return_val_if_fail(place != NULL, NULL);
-  return place->name;
+struct mwPlaceHandler *
+mwServicePlace_getHandler(struct mwServicePlace *srvc) {
+  g_return_val_if_fail(srvc != NULL, NULL);
+  return srvc->handler;
 }
 
 
-const char *mwPlace_getTitle(struct mwPlace *place) {
-  g_return_val_if_fail(place != NULL, NULL);
-  return place->title;
+const GList *mwServicePlace_getPlaces(struct mwServicePlace *srvc) {
+  g_return_val_if_fail(srvc != NULL, NULL);
+  return srvc->places;
 }
 
 
 struct mwPlace *mwPlace_new(struct mwServicePlace *srvc,
-			    struct mwPlaceHandler *handler,
 			    const char *name, const char *title) {
   struct mwPlace *place;
+
+  g_return_val_if_fail(srvc != NULL, NULL);
   
   place = g_new0(struct mwPlace, 1);
   place->service = srvc;
-  place->handler = handler;
   place->name = g_strdup(name);
   place->title = g_strdup(title);
   place->state = mwPlace_NEW;
 
   place->members = g_hash_table_new_full(g_direct_hash, g_direct_equal,
 					 NULL, (GDestroyNotify) member_free);
+
+  srvc->places = g_list_prepend(srvc->places, place);
+  
   return place;
+}
+
+
+struct mwServicePlace *mwPlace_getService(struct mwPlace *place) {
+  g_return_val_if_fail(place != NULL, NULL);
+  return place->service;
 }
 
 
@@ -741,6 +835,23 @@ static char *place_generate_name(const char *user) {
 }
 
 
+const char *mwPlace_getName(struct mwPlace *place) {
+  g_return_val_if_fail(place != NULL, NULL);
+
+  if(! place->name) {
+    struct mwSession *session;
+    struct mwLoginInfo *li;
+
+    session = mwService_getSession(MW_SERVICE(place->service));
+    li = mwSession_getLoginInfo(session);
+
+    place->name = place_generate_name(li? li->user_id: NULL);
+  }
+
+  return place->name;
+}
+
+
 static char *place_generate_title(const char *user) {
   char *ret;
   
@@ -752,29 +863,40 @@ static char *place_generate_title(const char *user) {
 }
 
 
+const char *mwPlace_getTitle(struct mwPlace *place) {
+  g_return_val_if_fail(place != NULL, NULL);
+
+  if(! place->title) {
+    struct mwSession *session;
+    struct mwLoginInfo *li;
+
+    session = mwService_getSession(MW_SERVICE(place->service));
+    li = mwSession_getLoginInfo(session);
+
+    place->title = place_generate_title(li? li->user_name: NULL);
+  }
+
+  return place->title;
+}
+
+
 int mwPlace_open(struct mwPlace *p) {
   struct mwSession *session;
+  struct mwChannelSet *cs;
   struct mwChannel *chan;
   struct mwPutBuffer *b;
-
-  struct mwLoginInfo *li;
-
   int ret;
+
+  g_return_val_if_fail(p != NULL, -1);
+  g_return_val_if_fail(p->service != NULL, -1);
 
   session = mwService_getSession(MW_SERVICE(p->service));
   g_return_val_if_fail(session != NULL, -1);
 
-  li = mwSession_getLoginInfo(session);
+  cs = mwSession_getChannels(session);
+  g_return_val_if_fail(cs != NULL, -1);
 
-  if(! p->name) {
-    p->name = place_generate_name(li->user_id);
-  }
-
-  if(! p->title) {
-    p->title = place_generate_title(li->user_name);
-  }
-
-  chan = mwChannel_newOutgoing(mwSession_getChannels(session));
+  chan = mwChannel_newOutgoing(cs);
   mwChannel_setService(chan, MW_SERVICE(p->service));
   mwChannel_setProtoType(chan, PROTOCOL_TYPE);
   mwChannel_setProtoVer(chan, PROTOCOL_VER);
@@ -782,8 +904,8 @@ int mwPlace_open(struct mwPlace *p) {
   mwChannel_populateSupportedCipherInstances(chan);
 
   b = mwPutBuffer_new();
-  mwString_put(b, p->name);
-  mwString_put(b, p->title);
+  mwString_put(b, mwPlace_getName(p));
+  mwString_put(b, mwPlace_getTitle(p));
   guint32_put(b, 0x00); /* ? */
 
   mwPutBuffer_finalize(mwChannel_getAddtlCreate(chan), b);
@@ -817,3 +939,93 @@ int mwPlace_destroy(struct mwPlace *p, guint32 code) {
 }
 
 
+GList *mwPlace_getMembers(struct mwPlace *place) {
+  GList *l, *ll;
+
+  g_return_val_if_fail(place != NULL, NULL);
+  g_return_val_if_fail(place->members != NULL, NULL);
+
+  ll = map_collect_values(place->members);
+  for(l = ll; l; l = l->next) {
+    struct place_member *pm = l->data;
+    l->data = &pm->idb;
+  }
+
+  return ll;
+}
+
+
+int mwPlace_sendText(struct mwPlace *place, const char *msg) {
+  struct mwOpaque o = {0,0};
+  struct mwPutBuffer *b;
+  int ret;
+
+  b = mwPutBuffer_new();
+  guint32_put(b, 0x01);  /* probably a message type */
+  mwString_put(b, msg);
+  mwPutBuffer_finalize(&o, b);
+
+  b = mwPutBuffer_new();
+  guint32_put(b, place->section);
+  mwOpaque_put(b, &o);
+  mwOpaque_clear(&o);
+  mwPutBuffer_finalize(&o, b);
+
+  ret = mwChannel_send(place->channel, msg_out_MESSAGE, &o);
+  mwOpaque_clear(&o);
+  return ret;
+}
+
+
+int mwPlace_setAttribute(struct mwPlace *place, guint32 attrib,
+			 struct mwOpaque *data) {
+
+  struct mwOpaque o = {0,0};
+  struct mwPutBuffer *b;
+  int ret;
+
+  b = mwPutBuffer_new();
+  guint32_put(b, place->our_id);
+  guint32_put(b, 0x00);
+  guint32_put(b, attrib);
+  mwOpaque_put(b, data);
+  
+  ret = mwChannel_send(place->channel, msg_out_SET_ATTR, &o);
+  mwOpaque_clear(&o);
+  return ret;
+}
+
+
+int mwPlace_unsetAttribute(struct mwPlace *place, guint32 attrib) {
+  struct mwOpaque o = {0,0};
+  struct mwPutBuffer *b;
+  int ret;
+
+  b = mwPutBuffer_new();
+  guint32_put(b, place->our_id);
+  guint32_put(b, attrib);
+  
+  ret = mwChannel_send(place->channel, msg_out_SET_ATTR, &o);
+  mwOpaque_clear(&o);
+  return ret;
+}
+
+
+void mwPlace_setClientData(struct mwPlace *place,
+			     gpointer data, GDestroyNotify clear) {
+
+  g_return_if_fail(place != NULL);
+  mw_datum_set(&place->client_data, data, clear);
+}
+
+
+gpointer mwPlace_getClientData(struct mwPlace *place) {
+  g_return_val_if_fail(place != NULL, NULL);
+  return mw_datum_get(&place->client_data);
+}
+
+
+void mwPlace_removeClientData(struct mwPlace *place) {
+  g_return_if_fail(place != NULL);
+  mw_datum_clear(&place->client_data);
+}

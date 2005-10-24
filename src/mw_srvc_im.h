@@ -38,7 +38,7 @@
 
 
 /** Type identifier for the IM service */
-#define SERVICE_IM  0x00001000
+#define mwService_IM  0x00001000
 
 
 /** @struct mwServiceIm

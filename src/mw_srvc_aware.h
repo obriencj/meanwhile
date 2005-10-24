@@ -38,7 +38,7 @@
 
 
 /** Type identifier for the aware service */
-#define SERVICE_AWARE  0x00000011
+#define mwService_AWARE  0x00000011
 
 
 /** @struct mwServiceAware

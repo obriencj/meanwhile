@@ -27,7 +27,7 @@
 
 
 /** Type identifier for the place service */
-#define SERVICE_PLACE  0x80000022
+#define mwService_PLACE  0x80000022
 
 
 /** @struct mwServicePlace */
@@ -39,33 +39,39 @@ struct mwPlace;
 
 
 struct mwPlaceHandler {
-  void (*place_opened)(struct mwPlace *place);
-  void (*place_closed)(struct mwPlace *place, guint32 code);
+  void (*opened)(struct mwPlace *place);
+  void (*closed)(struct mwPlace *place, guint32 code);
 
-  void (*place_peerJoined)(struct mwPlace *place,
-			   const struct mwIdBlock *peer);
+  void (*peerJoined)(struct mwPlace *place,
+		     const struct mwIdBlock *peer);
 
-  void (*place_peerParted)(struct mwPlace *place,
-			   const struct mwIdBlock *peer);
+  void (*peerParted)(struct mwPlace *place,
+		     const struct mwIdBlock *peer);
 
-  void (*place_peerSetAttribute)(struct mwPlace *place,
-				 const struct mwIdBlock *peer,
-				 guint32 attr, struct mwOpaque *o);
+  void (*peerSetAttribute)(struct mwPlace *place,
+			   const struct mwIdBlock *peer,
+			   guint32 attr, struct mwOpaque *o);
 
-  void (*place_peerUnsetAttribute)(struct mwPlace *place,
-				   const struct mwIdBlock *peer,
-				   guint32 attr);
+  void (*peerUnsetAttribute)(struct mwPlace *place,
+			     const struct mwIdBlock *peer,
+			     guint32 attr);
 
-  void (*place_message)(struct mwPlace *place,
-			const struct mwIdBlock *peer,
-			const char *msg);
+  void (*message)(struct mwPlace *place,
+		  const struct mwIdBlock *who,
+		  const char *msg);
 
-  void (*clear)(struct mwPlace *place);
+  void (*clear)(struct mwServicePlace *srvc);
+};
+
+
+enum mwPlacePeerAttribute {
+  mwPlacePeer_TYPING = 0x00000008,
 };
 
 
 struct mwServicePlace *
-mwServicePlace_new(struct mwSession *session);
+mwServicePlace_new(struct mwSession *session,
+		   struct mwPlaceHandler *handler);
 
 
 struct mwPlaceHandler *
@@ -76,7 +82,6 @@ const GList *mwServicePlace_getPlaces(struct mwServicePlace *srvc);
 
 
 struct mwPlace *mwPlace_new(struct mwServicePlace *srvc,
-			    struct mwPlaceHandler *handler,
 			    const char *name, const char *title);
 
 
@@ -95,20 +100,30 @@ int mwPlace_open(struct mwPlace *place);
 int mwPlace_destroy(struct mwPlace *place, guint32 code);
 
 
-void mwPlace_free(struct mwPlace *place);
-
-
-const struct mwLoginInfo *
-mwPlace_getPeerInfo(const struct mwIdBlock *who);
-
-
-GList *mwPlace_getPeers(struct mwPlace *place);
+/** returns a GList* of struct mwIdBlock*. The GList will need to be
+    freed after use, the mwIdBlock structures should not be modified
+    or freed */
+GList *mwPlace_getMembers(struct mwPlace *place);
 
 
 int mwPlace_sendText(struct mwPlace *place, const char *msg);
 
 
-int mwPlace_sendTyping(struct mwPlace *place, gboolean typing);
+int mwPlace_setAttribute(struct mwPlace *place, guint32 attrib,
+			 struct mwOpaque *data);
+
+
+int mwPlace_unsetAttribute(struct mwPlace *place, guint32 attrib);
+
+
+void mwPlace_setClientData(struct mwPlace *place,
+			   gpointer data, GDestroyNotify clean);
+
+
+gpointer mwPlace_getClientData(struct mwPlace *place);
+
+
+void mwPlace_removeClientData(struct mwPlace *place);
 
 
 #endif

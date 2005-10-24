@@ -730,7 +730,7 @@ mwServiceAware_new(struct mwSession *session,
 					(GDestroyNotify) attrib_entry_free);
 
   service = MW_SERVICE(srvc);
-  mwService_init(service, session, SERVICE_AWARE);
+  mwService_init(service, session, mwService_AWARE);
 
   service->recv_accept = (mwService_funcRecvAccept) recv_accept;
   service->recv_destroy = (mwService_funcRecvDestroy) recv_destroy;

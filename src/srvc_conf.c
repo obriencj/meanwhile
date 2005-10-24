@@ -602,7 +602,7 @@ mwServiceConference_new(struct mwSession *session,
   srvc_conf = g_new0(struct mwServiceConference, 1);
   srvc = &srvc_conf->service;
 
-  mwService_init(srvc, session, SERVICE_CONFERENCE);
+  mwService_init(srvc, session, mwService_CONFERENCE);
   srvc->start = start;
   srvc->stop = (mwService_funcStop) stop;
   srvc->recv_create = recv_channelCreate;

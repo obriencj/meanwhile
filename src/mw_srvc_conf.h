@@ -27,7 +27,7 @@
 
 
 /** Type identifier for the conference service */
-#define SERVICE_CONFERENCE  0x80000010
+#define mwService_CONFERENCE  0x80000010
 
 
 enum mwConferenceState {
