@@ -478,6 +478,18 @@ static int recv_SECTION_PEER(struct mwPlace *place,
 }
 
 
+static void place_opened(struct mwPlace *place) {
+    struct mwServicePlace *srvc;
+
+    place_state(place, mwPlace_OPEN);
+
+    srvc = place->service;
+    if(srvc->handler && srvc->handler->opened)
+      srvc->handler->opened(place);
+}
+
+
+
 static int recv_SECTION_LIST(struct mwPlace *place,
 			     struct mwGetBuffer *b) {
   int ret = 0;
@@ -508,6 +520,9 @@ static int recv_SECTION_LIST(struct mwPlace *place,
 
     PUT_MEMBER(place, m);
   }
+
+  if(place->state != mwPlace_OPEN)
+    place_opened(place);
 
   return ret;
 }
@@ -596,13 +611,8 @@ static int recv_UNKNOWNa(struct mwPlace *place, struct mwGetBuffer *b) {
     res = send_SECTION_LIST(place, place->section);
   
   } else if(place->state == mwPlace_JOINED) {
-    struct mwServicePlace *srvc;
-
-    place_state(place, mwPlace_OPEN);
-
-    srvc = place->service;
-    if(srvc->handler && srvc->handler->opened)
-      srvc->handler->opened(place);
+    if(GET_MEMBER(place, place->our_id))
+      place_opened(place);
   }
 
   return res;
@@ -949,6 +959,8 @@ GList *mwPlace_getMembers(struct mwPlace *place) {
   for(l = ll; l; l = l->next) {
     struct place_member *pm = l->data;
     l->data = &pm->idb;
+    g_info("collected member %u: %s, %s", pm->place_id,
+	   NSTR(pm->idb.user), NSTR(pm->idb.community));
   }
 
   return ll;
@@ -1012,7 +1024,7 @@ int mwPlace_unsetAttribute(struct mwPlace *place, guint32 attrib) {
 
 
 void mwPlace_setClientData(struct mwPlace *place,
-			     gpointer data, GDestroyNotify clear) {
+			   gpointer data, GDestroyNotify clear) {
 
   g_return_if_fail(place != NULL);
   mw_datum_set(&place->client_data, data, clear);
