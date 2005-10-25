@@ -241,6 +241,8 @@ static void place_free(struct mwPlace *place) {
   struct mwServicePlace *srvc;
 
   if(! place) return;
+
+  srvc->places = g_list_remove_all(srvc->places, place);
   
   srvc = place->service;
   g_return_if_fail(srvc != NULL);
