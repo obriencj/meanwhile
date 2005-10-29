@@ -19,7 +19,7 @@ sample_DATA = \
 	$(SAMPLES_SRC)
 
 
-sampledir = $(datadir)/doc/@PACKAGE@-@VERSION@/samples
+sampledir = $(datadir)/doc/@PACKAGE@-doc-@VERSION@/samples
 
 
 EXTRA_DIST = $(sample_DATA) $(sample_SCRIPTS)

@@ -5,10 +5,10 @@ noinst_DATA = Doxyfile
 if ENABLE_DOXYGEN
 
 htmldoc_DATA = html/*
-htmldocdir = $(datadir)/doc/@PACKAGE@-@VERSION@/html
+htmldocdir = $(datadir)/doc/@PACKAGE@-doc-@VERSION@/html
 
 latexdoc_DATA = latex/*
-latexdocdir = $(datadir)/doc/@PACKAGE@-@VERSION@/latex
+latexdocdir = $(datadir)/doc/@PACKAGE@-doc-@VERSION@/latex
 
 docdata = $(htmldoc_DATA) $(latexdoc_DATA)
 

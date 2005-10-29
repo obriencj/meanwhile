@@ -1310,7 +1310,7 @@ const char *mwServiceAware_getText(struct mwServiceAware *srvc,
   g_return_val_if_fail(user != NULL, NULL);
 
   aware = aware_find(srvc, user);
-  g_return_val_if_fail(aware != NULL, NULL);
+  if(! aware) return NULL;
 
   return aware->aware.status.desc;
 }

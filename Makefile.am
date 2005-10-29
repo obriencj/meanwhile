@@ -4,7 +4,8 @@ SUBDIRS = doc samples src
 
 
 EXTRA_DIST =	meanwhile.spec \
-		meanwhile.pc 
+		meanwhile.pc \
+		LICENSE
 
 
 pkgconfig_DATA = meanwhile.pc

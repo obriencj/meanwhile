@@ -53,7 +53,7 @@ presence, messaging, conferencing, and remote preferences.
 
 %files
 %defattr(-,root,root,0755)
-%doc AUTHORS ChangeLog COPYING INSTALL NEWS README TODO
+%doc AUTHORS ChangeLog COPYING INSTALL LICENSE NEWS README TODO
 %{_libdir}/libmeanwhile.so*
 
 
@@ -89,8 +89,7 @@ Documentation for the Meanwhile library
 
 %files doc
 %defattr(-,root,root,-)
-%doc doc/html doc/latex
-%{_datadir}/doc/%{name}-%{version}/samples/**
+%{_datadir}/doc/%{name}-doc-%{version}/
 %endif
 
 
