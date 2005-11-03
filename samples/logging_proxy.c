@@ -54,6 +54,20 @@ static struct proxy_side client;  /**< side facing the client */
 static struct proxy_side server;  /**< side facing the server */
 
 
+static char *host = NULL;
+static int client_port = 0;
+static int server_port = 0;
+
+
+static int counter = 0;
+static int listen_sock = 0;
+static GIOChannel *listen_chan = NULL;
+static gint listen_io = 0;
+
+
+
+
+
 /** given one side, get the other */
 #define OTHER_SIDE(side) \
   ((side == &client)? &server: &client)
@@ -728,12 +742,31 @@ static int read_recv(struct proxy_side *side) {
 }
 
 
-static void done() {
-  printf("closing connection, exiting\n");
+static void init_listen();
 
-  close(client.sock);
-  close(server.sock);
-  exit(0);
+
+static void side_done(struct proxy_side *side) {
+  if(side->sock) {
+    g_source_remove(side->chan_io);
+    close(side->sock);
+    side->sock = 0;
+    side->chan = NULL;
+    side->chan_io = 0;
+  }
+}
+
+
+static void done() {
+  printf("closing connection\n");
+
+  side_done(&client);
+  side_done(&server);
+
+  if(counter--) {
+    init_listen();
+  } else {
+    exit(0);
+  }
 }
 
 
@@ -749,14 +782,6 @@ static gboolean read_cb(GIOChannel *chan,
     if(ret > 0) return TRUE;
   }
 
-  if(side->sock) {
-    g_source_remove(side->chan_io);
-    close(side->sock);
-    side->sock = 0;
-    side->chan = NULL;
-    side->chan_io = 0;
-  }
-
   done();
   
   return FALSE;
@@ -768,56 +793,14 @@ static void client_cb(const char *buf, gsize len) {
 }
 
 
-static gboolean listen_cb(GIOChannel *chan,
-			  GIOCondition cond,
-			  gpointer data) {
-
-  struct sockaddr_in rem;
-  int len = sizeof(rem);
-  struct proxy_side *side = data;
-  int sock;
-  
-  printf("got connection\n");
-
-  sock = accept(side->sock, (struct sockaddr *) &rem, &len);
-  g_assert(sock > 0);
-
-  g_source_remove(side->chan_io);
-  side->sock = sock;
-  side->chan = g_io_channel_unix_new(sock);
-  side->chan_io = g_io_add_watch(side->chan, G_IO_IN | G_IO_ERR | G_IO_HUP,
-				 read_cb, side);
-
-  return FALSE;
-}
-
-
-/** start listening on the local port specified */
-static void init_client(int port) {
-  struct sockaddr_in sin;
-  int sock;
-
-  sock = socket(PF_INET, SOCK_STREAM, 0);
-  g_assert(sock >= 0);
-
-  memset(&sin, 0, sizeof(struct sockaddr_in));
-  sin.sin_family = PF_INET;
-  sin.sin_port = htons(port);
-  sin.sin_addr.s_addr = htonl(INADDR_ANY);
-
-  if(bind(sock, (struct sockaddr *)&sin, sizeof(sin)) < 0)
-    g_assert_not_reached();
-
-  if(listen(sock, 1) < 0)
-    g_assert_not_reached();
+/** setup the client */
+static void init_client(int sock) {
 
   client.forward = client_cb;
   client.sock = sock;
   client.chan = g_io_channel_unix_new(sock);
   client.chan_io = g_io_add_watch(client.chan, G_IO_IN | G_IO_ERR | G_IO_HUP,
-				  listen_cb, &client);
-
-  printf("listening on port %i\n", port);
+				  read_cb, &client);
 }
 
 
@@ -858,11 +841,11 @@ static void init_sockaddr(struct sockaddr_in *addr,
 
 
 /** connect to server on host:port */
-static void init_server(const char *host, int port) {
+static void init_server() {
   struct sockaddr_in srvrname;
   int sock;
 
-  printf("connecting to %s:%i\n", host, port);
+  printf("connecting to %s:%i\n", host, server_port);
 
   sock = socket(PF_INET, SOCK_STREAM, 0);
   if(sock < 0) {
@@ -870,7 +853,7 @@ static void init_server(const char *host, int port) {
     exit(1);
   }
   
-  init_sockaddr(&srvrname, host, port);
+  init_sockaddr(&srvrname, host, server_port);
   connect(sock, (struct sockaddr *)&srvrname, sizeof(srvrname));
 
   server.forward = server_cb;
@@ -879,13 +862,65 @@ static void init_server(const char *host, int port) {
   server.chan_io = g_io_add_watch(server.chan, G_IO_IN | G_IO_ERR | G_IO_HUP,
 				  read_cb, &server);
 
-  printf("connected to %s:%i\n", host, port);
+  printf("connected to %s:%i\n", host, server_port);
+}
+
+
+
+static gboolean listen_cb(GIOChannel *chan,
+			  GIOCondition cond,
+			  gpointer data) {
+
+  struct sockaddr_in rem;
+  int len = sizeof(rem);
+  int sock;
+  
+  printf("got connection\n");
+
+  sock = accept(listen_sock, (struct sockaddr *) &rem, &len);
+  /* g_assert(sock > 0); */
+
+  init_server();
+  init_client(sock);
+
+  listen_io = 0;
+
+  return FALSE;
+}
+
+
+static void init_listen() {
+  if(! listen_sock) {
+    struct sockaddr_in sin;
+    int sock;
+
+    sock = socket(PF_INET, SOCK_STREAM, 0);
+    g_assert(sock >= 0);
+
+    memset(&sin, 0, sizeof(struct sockaddr_in));
+    sin.sin_family = PF_INET;
+    sin.sin_port = htons(client_port);
+    sin.sin_addr.s_addr = htonl(INADDR_ANY);
+
+    if(bind(sock, (struct sockaddr *)&sin, sizeof(sin)) < 0)
+      g_assert_not_reached();
+
+    if(listen(sock, 1) < 0)
+      g_assert_not_reached();
+
+    listen_sock = sock;
+    listen_chan = g_io_channel_unix_new(sock);
+  }
+
+  if(! listen_io) {
+    listen_io = g_io_add_watch(listen_chan, G_IO_IN | G_IO_ERR | G_IO_HUP,
+			       listen_cb, NULL);
+    printf("listening on port %i\n", client_port);
+  }
 }
 
 
 int main(int argc, char *argv[]) {
-  char *host = NULL;
-  int client_port = 0, server_port = 0;
 
   memset(&client, 0, sizeof(struct proxy_side));
   memset(&server, 0, sizeof(struct proxy_side));
@@ -905,11 +940,15 @@ int main(int argc, char *argv[]) {
     server_port = atoi(z);
   }
 
+  if(argc > 2) {
+    counter = atoi(argv[2]);
+  }
+
   if(!host || !*host || !client_port || !server_port) {
     fprintf(stderr,
-	    ( " Usage: %s local_port:remote_host:remote_port\n"
+	    ( " Usage: %s local_port:remote_host:remote_port [n]\n"
 	      " Creates a locally-running sametime proxy which enforces"
-	      " unencrypted channels\n" ),
+	      " unencrypted channels. Will drop the first n connections\n" ),
 	    argv[0]);
     exit(1);
   }
@@ -919,8 +958,7 @@ int main(int argc, char *argv[]) {
   channels = g_hash_table_new(g_direct_hash, g_direct_equal);
 
   init_rc2_128();
-  init_client(client_port);
-  init_server(host, server_port);
+  init_listen();
 
   g_main_loop_run(g_main_loop_new(NULL, FALSE)); 
   return 0;
