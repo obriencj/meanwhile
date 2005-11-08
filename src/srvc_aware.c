@@ -383,7 +383,7 @@ static void attrib_recv(struct mwServiceAware *srvc,
 			struct mwAwareAttribute *attrib) {
 
   struct aware_entry *aware;
-  struct mwAwareAttribute *old_attrib;
+  struct mwAwareAttribute *old_attrib = NULL;
   GList *l;
   guint32 key;
   gpointer k;

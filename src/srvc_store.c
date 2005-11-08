@@ -169,7 +169,7 @@ static void request_trigger(struct mwServiceStorage *srvc,
 
   g_message("storage request %s: key = 0x%x, result = 0x%x, length = %u",
 	    action_str(req->action),
-	    item->key, req->result_code, item->data.len);
+	    item->key, req->result_code, (guint) item->data.len);
   
   if(req->cb)
     req->cb(srvc, req->result_code, item, req->data);
