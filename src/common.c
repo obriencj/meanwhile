@@ -183,7 +183,8 @@ struct mwGetBuffer *mwGetBuffer_wrap(const struct mwOpaque *o) {
 gsize mwGetBuffer_read(struct mwGetBuffer *b, gpointer data, gsize len) {
   g_return_val_if_fail(b != NULL, 0);
   g_return_val_if_fail(data != NULL, 0);
-(b->error) return 0;
+
+  if(b->error) return 0;
   if(! len) return 0;
 
   if(b->rem < len)

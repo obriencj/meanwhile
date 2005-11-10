@@ -75,21 +75,26 @@ static gint listen_io = 0;
 
 /** encryption state information used in the RC2/40 cipher */
 struct rc2_40enc {
-  char outgoing_iv[8];
-  char incoming_iv[8];
-  int incoming_key[64];
+  unsigned char outgoing_iv[8];
   int outgoing_key[64];
+  unsigned char incoming_iv[8];
+  int incoming_key[64];
 };
 
 
 /* re-usable rc2 40 stuff */
-static int session_key[64];
+static int session_key[64] = {
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+};
 
 
 /** encryption state information used in the RC2/128 cipher */
 struct rc2_128enc {
-  char outgoing_iv[8];
-  char incoming_iv[8];
+  unsigned char outgoing_iv[8];
+  unsigned char incoming_iv[8];
   int shared_key[64];
 };
 
@@ -192,6 +197,12 @@ static void put_msg(struct mwMessage *msg, struct mwOpaque *o) {
   mwOpaque_put(b, o);
   mwOpaque_clear(o);
   mwPutBuffer_finalize(o, b);
+}
+
+
+static void key_copy(int to[64], int from[64]) {
+  int i = 64;
+  while(i--) to[i] = from[i];
 }
 
 
@@ -321,6 +332,7 @@ static void munge_accept(struct proxy_side *side,
     mwDHExportKey(shared, &k);
 
     chan->enc_mode = enc_hard;
+
     mwIV_init(chan->right_enc.hard.outgoing_iv);
     mwIV_init(chan->right_enc.hard.incoming_iv);
     mwKeyExpand(chan->right_enc.hard.shared_key, k.data+(k.len-16), 16);
@@ -336,12 +348,24 @@ static void munge_accept(struct proxy_side *side,
     printf("right side accepted RC2/40\n");
 
     chan->enc_mode = enc_easy;
+
     mwIV_init(chan->right_enc.easy.outgoing_iv);
     mwIV_init(chan->right_enc.easy.incoming_iv);
 
-    who = (msg->acceptor_flag? msg->acceptor.login_id: chan->creator);
-    if(who) mwKeyExpand(chan->right_enc.easy.incoming_key, who, 5);
-    memcpy(chan->right_enc.easy.outgoing_key, session_key, 64*sizeof(int));
+    if(msg->acceptor_flag) {
+      who = msg->acceptor.login_id;
+      printf("right side is the server\n");
+      printf("server is %s\n", who);
+      mwKeyExpand(chan->right_enc.easy.incoming_key, who, 5);
+      key_copy(chan->right_enc.easy.outgoing_key, session_key);
+
+    } else {
+      who = chan->creator;
+      printf("right side is the client\n");
+      printf("server is %s\n", who);
+      key_copy(chan->right_enc.easy.incoming_key, session_key);
+      mwKeyExpand(chan->right_enc.easy.outgoing_key, who, 5);
+    }
 
     break;
   }
@@ -382,6 +406,17 @@ static void munge_accept(struct proxy_side *side,
   }
   case mwCipher_RC2_40:
     printf("accepting left side with RC2/40\n");
+
+    mwIV_init(chan->left_enc.easy.outgoing_iv);
+    mwIV_init(chan->left_enc.easy.incoming_iv);
+
+    key_copy(chan->left_enc.easy.outgoing_key,
+	     chan->right_enc.easy.incoming_key);
+
+    key_copy(chan->left_enc.easy.incoming_key,
+	     chan->right_enc.easy.outgoing_key);
+    break;
+    
   default:
     ;
   }
@@ -408,6 +443,7 @@ static void dec(struct channel *chan, struct proxy_side *side,
 			chan->right_enc.easy.incoming_iv,
 			from, to);
     }
+    break;
   }
   case enc_hard: {
     if(chan->left == side) {
@@ -421,6 +457,7 @@ static void dec(struct channel *chan, struct proxy_side *side,
 			chan->right_enc.hard.incoming_iv,
 			from, to);
     }
+    break;
   }
   }
 }
@@ -442,6 +479,7 @@ static void enc(struct channel *chan, struct proxy_side *side,
 			chan->right_enc.easy.outgoing_iv,
 			from, to);
     }
+    break;
   }
   case enc_hard: {
     if(chan->left == side) {
@@ -455,6 +493,7 @@ static void enc(struct channel *chan, struct proxy_side *side,
 			chan->right_enc.hard.outgoing_iv,
 			from, to);
     }
+    break;
   }
   }
 }
@@ -475,8 +514,8 @@ static void munge_channel(struct proxy_side *side,
     dec(chan, side, &d, &msg->data);
 
     /* display */
-    hexdump_printf(d.data, d.len,
-	    "decrypted channel message data:",  msg->type);
+    hexdump_printf(d.data, d.len, "decrypted channel message data:",
+		   msg->type);
 
     /* encrypt to other side */
     mwOpaque_clear(&msg->data);
@@ -547,9 +586,10 @@ static void side_process(struct proxy_side *s, const char *buf, gsize len) {
   type = guint16_peek(b);
 
   switch(type) {
-  case mwMessage_LOGIN: {
-    struct mwMsgLogin *msg = (struct mwMsgLogin *) mwMessage_get(b);
-    mwKeyExpand(session_key, msg->name, 5);
+  case mwMessage_LOGIN_ACK: {
+    struct mwMsgLoginAck *msg = (struct mwMsgLoginAck *) mwMessage_get(b);
+    printf("client is %s\n", msg->login.login_id);
+    mwKeyExpand(session_key, msg->login.login_id, 5);
     mwMessage_free(MW_MESSAGE(msg));
     forward(s, &o);
     break;

@@ -72,8 +72,8 @@ struct mwGetBuffer;
 
 /** A length of binary data, not null-terminated. */
 struct mwOpaque {
-  gsize len;   /**< length of data. */
-  char *data;  /**< data, normally with no NULL termination */
+  gsize len;            /**< length of data. */
+  unsigned char *data;  /**< data, normally with no NULL termination */
 };
 
 

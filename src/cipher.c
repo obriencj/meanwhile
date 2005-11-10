@@ -19,7 +19,6 @@
 */
 
 #include <stdlib.h>
-#include <string.h>
 #include <time.h>
 
 #include <gmp.h>
@@ -141,7 +140,7 @@ void mwDHExportKey(mpz_t key, struct mwOpaque *o) {
 }
 
 
-void mwKeyRandom(char *key, gsize keylen) {
+void mwKeyRandom(unsigned char *key, gsize keylen) {
   g_return_if_fail(key != NULL);
 
   srand(clock());
@@ -149,11 +148,13 @@ void mwKeyRandom(char *key, gsize keylen) {
 }
 
 
-void mwIV_init(char *iv) {
+void mwIV_init(unsigned char *iv) {
+  int i;
   static unsigned char normal_iv[] = {
     0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef
   };
-  memcpy(iv, normal_iv, 8);
+  for(i = 8; i--; iv[i] = normal_iv[i]);
+  /* memcpy(iv, normal_iv, 8); */
 }
 
 
@@ -161,7 +162,7 @@ void mwIV_init(char *iv) {
    expansion would, but it works, so eh. It might be smart to farm
    this out to mozilla or openssl */
 void mwKeyExpand(int *ekey, const char *key, gsize keylen) {
-  char tmp[128];
+  unsigned char tmp[128];
   int i, j;
 
   g_return_if_fail(keylen > 0);
@@ -170,7 +171,8 @@ void mwKeyExpand(int *ekey, const char *key, gsize keylen) {
   if(keylen > 128) keylen = 128;
 
   /* fill the first chunk with what key bytes we have */
-  memcpy(tmp, key, keylen);
+  for(i = keylen; i--; tmp[i] = key[i]);
+  /* memcpy(tmp, key, keylen); */
 
   /* build the remaining key from the given data */
   for(i = 0; keylen < 128; i++) {
@@ -232,14 +234,14 @@ static void mwEncryptBlock(const int *ekey, char *out) {
 }
 
 
-void mwEncryptExpanded(const int *ekey, char *iv,
+void mwEncryptExpanded(const int *ekey, unsigned char *iv,
 		       struct mwOpaque *in_data,
 		       struct mwOpaque *out_data) {
 
-  char *i = in_data->data;
+  unsigned char *i = in_data->data;
   gsize i_len = in_data->len;
 
-  char *o;
+  unsigned char *o;
   gsize o_len;
 
   int x, y;
@@ -255,20 +257,23 @@ void mwEncryptExpanded(const int *ekey, char *iv,
   y = o_len - i_len;
 
   /* copy in to out, and write padding bytes */
-  memcpy(o, i, i_len);
-  memset(o + i_len, y, y);
+  for(x = i_len; x--; o[x] = i[x]);
+  for(x = i_len; x < o_len; o[x++] = y);
+  /* memcpy(o, i, i_len);
+     memset(o + i_len, y, y); */
 
   /* encrypt in blocks */
   for(x = o_len; x > 0; x -= 8) {
     for(y = 8; y--; o[y] ^= iv[y]);
     mwEncryptBlock(ekey, o);
-    memcpy(iv, o, 8);
+    for(y = 8; y--; iv[y] = o[y]);
+    /* memcpy(iv, o, 8); */
     o += 8;
   }
 }
 
 
-void mwEncrypt(const char *key, gsize keylen, char *iv,
+void mwEncrypt(const char *key, gsize keylen, unsigned char *iv,
 	       struct mwOpaque *in, struct mwOpaque *out) {
 
   int ekey[64];
@@ -277,7 +282,7 @@ void mwEncrypt(const char *key, gsize keylen, char *iv,
 }
 
 
-static void mwDecryptBlock(const int *ekey, char *out) {
+static void mwDecryptBlock(const int *ekey, unsigned char *out) {
 
   int a, b, c, d;
   int i, j;
@@ -321,14 +326,14 @@ static void mwDecryptBlock(const int *ekey, char *out) {
 }
 
 
-void mwDecryptExpanded(const int *ekey, char *iv,
+void mwDecryptExpanded(const int *ekey, unsigned char *iv,
 		       struct mwOpaque *in_data,
 		       struct mwOpaque *out_data) {
 
-  char *i = in_data->data;
+  unsigned char *i = in_data->data;
   gsize i_len = in_data->len;
 
-  char *o;
+  unsigned char *o;
   gsize o_len;
 
   int x, y;
@@ -338,7 +343,8 @@ void mwDecryptExpanded(const int *ekey, char *iv,
 
   o = g_malloc(i_len);
   o_len = i_len;
-  memcpy(o, i, i_len);
+  for(x = i_len; x--; o[x] = i[x]);
+  /* memcpy(o, i, i_len); */
 
   out_data->data = o;
   out_data->len = o_len;
@@ -349,7 +355,8 @@ void mwDecryptExpanded(const int *ekey, char *iv,
 
     /* modify the initialization vector */
     for(y = 8; y--; o[y] ^= iv[y]);
-    memcpy(iv, i, 8);
+    for(y = 8; y--; iv[y] = i[y]);
+    /* memcpy(iv, i, 8); */
     i += 8;
     o += 8;
   }
@@ -360,7 +367,7 @@ void mwDecryptExpanded(const int *ekey, char *iv,
 }
 
 
-void mwDecrypt(const char *key, gsize keylen, char *iv,
+void mwDecrypt(const char *key, gsize keylen, unsigned char *iv,
 	       struct mwOpaque *in, struct mwOpaque *out) {
 
   int ekey[64];
@@ -380,8 +387,8 @@ struct mwCipher_RC2_40 {
 struct mwCipherInstance_RC2_40 {
   struct mwCipherInstance instance;
   int incoming_key[64];
-  char outgoing_iv[8];
-  char incoming_iv[8];
+  unsigned char outgoing_iv[8];
+  unsigned char incoming_iv[8];
 };
 
 
@@ -535,8 +542,8 @@ struct mwCipher_RC2_128 {
 struct mwCipherInstance_RC2_128 {
   struct mwCipherInstance instance;
   int shared[64];      /* shared secret determined via DH exchange */
-  char outgoing_iv[8];
-  char incoming_iv[8];
+  unsigned char outgoing_iv[8];
+  unsigned char incoming_iv[8];
 };
 
 

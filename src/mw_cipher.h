@@ -207,11 +207,11 @@ void mwCipherInstance_free(struct mwCipherInstance *ci);
     @param keylen  count of bytes to write into key
     @param key     buffer to write keys into
 */
-void mwKeyRandom(char *key, gsize keylen);
+void mwKeyRandom(unsigned char *key, gsize keylen);
 
 
 /** Setup an Initialization Vector. IV must be at least 8 bytes */
-void mwIV_init(char *iv);
+void mwIV_init(unsigned char *iv);
 
 
 /** Expand a variable-length key into a 128-byte key (represented as
@@ -220,24 +220,24 @@ void mwKeyExpand(int *ekey, const char *key, gsize keylen);
 
 
 /** Encrypt data using an already-expanded key */
-void mwEncryptExpanded(const int *ekey, char *iv,
+void mwEncryptExpanded(const int *ekey, unsigned char *iv,
 		       struct mwOpaque *in,
 		       struct mwOpaque *out);
 
 
 /** Encrypt data using an expanded form of the given key */
-void mwEncrypt(const char *key, gsize keylen, char *iv,
+void mwEncrypt(const char *key, gsize keylen, unsigned char *iv,
 	       struct mwOpaque *in, struct mwOpaque *out);
 
 
 /** Decrypt data using an already expanded key */
-void mwDecryptExpanded(const int *ekey, char *iv,
+void mwDecryptExpanded(const int *ekey, unsigned char *iv,
 		       struct mwOpaque *in,
 		       struct mwOpaque *out);
 
 
 /** Decrypt data using an expanded form of the given key */
-void mwDecrypt(const char *key, gsize keylen, char *iv,
+void mwDecrypt(const char *key, gsize keylen, unsigned char *iv,
 	       struct mwOpaque *in, struct mwOpaque *out);
 
 
