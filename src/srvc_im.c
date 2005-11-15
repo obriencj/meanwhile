@@ -66,6 +66,7 @@ enum mwImDataType {
   mwImData_SUBJECT  = 0x00000003,  /**< notesbuddy IM topic */
   mwImData_HTML     = 0x00000004,  /**< notesbuddy HTML message */
   mwImData_MIME     = 0x00000005,  /**< notesbuddy MIME message, w/image */
+  mwImData_TIMESTAMP = 0x00000006, /**< notesbuddy timestamp */
 
   mwImData_INVITE   = 0x0000000a,  /**< Places invitation */
 
@@ -606,6 +607,10 @@ static void recv_data(struct mwServiceIm *srvc, struct mwChannel *chan,
     }
     break;
 
+  case mwImData_TIMESTAMP:
+    /* todo */
+    break;
+
   case mwImData_INVITE:
     convo_invite(conv, &o);
     break;
@@ -756,6 +761,7 @@ gboolean mwServiceIm_supports(struct mwServiceIm *srvc,
   case mwImSend_SUBJECT:
   case mwImSend_HTML:
   case mwImSend_MIME:
+  case mwImSend_TIMESTAMP:
     return srvc->features == mwImClient_NOTESBUDDY;
 
   default:
