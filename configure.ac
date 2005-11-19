@@ -1,6 +1,6 @@
 
 # version of meanwhile
-m4_define(meanwhile_version,		0.5.1cvs)
+m4_define(meanwhile_version,		0.6.0cvs)
 
 # release of meanwhile
 m4_define(meanwhile_release,		0)
@@ -95,69 +95,69 @@ AC_SUBST(GLIB_LIBS)
 
 
 
-GMP_LIBA=
-GMP_LIBS=
-GMP_CFLAGS=
+#GMP_LIBA=
+#GMP_LIBS=
+#GMP_CFLAGS=
 
 # either auto-detect or specify the libgmp.a file for static linking
-withval="auto"
-AC_ARG_WITH(gmp-prefix,
-	[  --with-gmp-prefix[=auto]  prefix gmp was installed to])
-
-if test "$withval" = "auto" ; then
-	found_prefix=no
-
-	if test $found_prefix = "no" ; then
-	   try_prefix=/usr
-	   AC_CHECK_HEADER([$try_prefix/include/gmp.h], found_prefix="yes")
-	fi
-
-	if test $found_prefix = "no" ; then
-	   try_prefix=/usr/local
-	   AC_CHECK_HEADER([$try_prefix/include/gmp.h], found_prefix="yes")
-	fi
-
-	if test $found_prefix = "no" ; then
-	   AC_MSG_ERROR([GNU MP headers not found])
-	fi
-
-elif test -n "$withval" ; then
-	try_prefix=$withval
-
-	AC_CHECK_HEADER([$try_prefix/include/gmp.h],,
-		[AC_MSG_ERROR([GNU MP headers not found])])
-
-else
-	AC_MSG_ERROR([GNU MP headers not found, $withval])
-fi
-
-GMP_CFLAGS=-I$try_prefix/include
-GMP_LIBA=$try_prefix/lib/libgmp.a
+#withval="auto"
+#AC_ARG_WITH(gmp-prefix,
+#	[  --with-gmp-prefix[=auto]  prefix gmp was installed to])
+#
+#if test "$withval" = "auto" ; then
+#	found_prefix=no
+#
+#	if test $found_prefix = "no" ; then
+#	   try_prefix=/usr
+#	   AC_CHECK_HEADER([$try_prefix/include/gmp.h], found_prefix="yes")
+#	fi
+#
+#	if test $found_prefix = "no" ; then
+#	   try_prefix=/usr/local
+#	   AC_CHECK_HEADER([$try_prefix/include/gmp.h], found_prefix="yes")
+#	fi
+#
+#	if test $found_prefix = "no" ; then
+#	   AC_MSG_ERROR([GNU MP headers not found])
+#	fi
+#
+#elif test -n "$withval" ; then
+#	try_prefix=$withval
+#
+#	AC_CHECK_HEADER([$try_prefix/include/gmp.h],,
+#		[AC_MSG_ERROR([GNU MP headers not found])])
+#
+#else
+#	AC_MSG_ERROR([GNU MP headers not found, $withval])
+#fi
+#
+#GMP_CFLAGS=-I$try_prefix/include
+#GMP_LIBA=$try_prefix/lib/libgmp.a
 
 # if we're linking statically, then GMP_LIBS needs to be GMP_LIBA,
 # else we need to ensure we can find the library for dynamic linking
-AC_ARG_ENABLE(static-gmp,
-	[  --enable-static-gmp     statically link in GMP],
-	[static_gmp="yes"])
-
-if test "$static_gmp" = "yes" ; then
-   GMP_LIBS=$GMP_LIBA
-else
-   LD_LIBRARY_PATH="$try_prefix/lib":"$LD_LIBRARY_PATH"
-   export LD_LIBRARY_PATH
-
-   AC_CHECK_LIB(gmp, __gmpz_init,
-	[GMP_LIBS="-L$try_prefix/lib -lgmp"],
-	[AC_MSG_ERROR([GNU MP libraries not found, see http://swox.com/gmp])])
-fi
-
-AC_SUBST(GMP_CFLAGS)
-AC_SUBST(GMP_LIBS)
+#AC_ARG_ENABLE(static-gmp,
+#	[  --enable-static-gmp     statically link in GMP],
+#	[static_gmp="yes"])
+#
+#if test "$static_gmp" = "yes" ; then
+#   GMP_LIBS=$GMP_LIBA
+#else
+#   LD_LIBRARY_PATH="$try_prefix/lib":"$LD_LIBRARY_PATH"
+#   export LD_LIBRARY_PATH
+#
+#   AC_CHECK_LIB(gmp, __gmpz_init,
+#	[GMP_LIBS="-L$try_prefix/lib -lgmp"],
+#	[AC_MSG_ERROR([GNU MP libraries not found, see http://swox.com/gmp])])
+#fi
+#
+#AC_SUBST(GMP_CFLAGS)
+#AC_SUBST(GMP_LIBS)
 
 
 
 AC_CONFIG_FILES(
-	[Makefile src/Makefile]
+	[Makefile src/Makefile src/mpi/Makefile]
 	[samples/Makefile]
 	[doc/Makefile doc/Doxyfile]
 	[meanwhile.spec meanwhile.pc]

@@ -1,7 +1,10 @@
 
-version 0.5.1 (cvs)
+version 0.6.0 (cvs)
 
 	- support for sending legacy invitations via Place service
+
+	- using MPI code from http://www.cs.dartmouth.edu/~sting/mpi/ as a
+	replacement for the GMP dependancy
 	
 version 0.5.0 (2005-10-28)
 
