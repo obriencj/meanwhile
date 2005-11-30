@@ -180,7 +180,7 @@ void mwSession_free(struct mwSession *s) {
   }
 
   h = s->handler;
-  if(h) h->clear(s);
+  if(h && h->clear) h->clear(s);
   s->handler = NULL;
 
   session_buf_free(s);
@@ -329,13 +329,13 @@ void mwSession_stop(struct mwSession *s, guint32 reason) {
 /** compose authentication information into an opaque based on the
     password, encrypted via RC2/40 */
 static void compose_auth_rc2_40(struct mwOpaque *auth, const char *pass) {
-  char iv[8], key[5];
+  unsigned char iv[8], key[5];
   struct mwOpaque a, b, z;
   struct mwPutBuffer *p;
 
   /* get an IV and a random five-byte key */
-  mwIV_init((char *) iv);
-  mwKeyRandom((char *) key, 5);
+  mwIV_init(iv);
+  mwKeyRandom(key, 5);
 
   /* the opaque with the key */
   a.len = 5;
@@ -366,7 +366,7 @@ static void compose_auth_rc2_40(struct mwOpaque *auth, const char *pass) {
 static void compose_auth_rc2_128(struct mwOpaque *auth, const char *pass,
 				 guint32 magic, struct mwOpaque *rkey) {
 
-  char iv[8];
+  unsigned char iv[8];
   struct mwOpaque a, b, c;
   struct mwPutBuffer *p;
 
