@@ -6,7 +6,8 @@ version 0.6.0 (cvs)
 
 	Features
 	- support for sending legacy invitations via Place service
-
+	- Bug #1352944 Gaim crashes when I try to logon to Sametime
+	
 	Bug Fixes
 	- Crash and other problems with joining a Place
 	
