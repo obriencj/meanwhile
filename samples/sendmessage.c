@@ -1,4 +1,5 @@
 
+#include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/socket.h>
@@ -46,7 +47,7 @@ static void mw_session_io_close(struct mwSession *session) {
 
 /* handler function for when the session wants to write data */
 static int mw_session_io_write(struct mwSession *session,
-			       const char *buf, gsize len) {
+			       const guchar *buf, gsize len) {
 
   struct sample_client *client;
   int ret = 0;
@@ -188,7 +189,7 @@ static struct mwSessionHandler mw_session_handler = {
     pass it to the session, passing back the return code from the read
     call for handling in read_cb */
 static int read_recv(struct mwSession *session, int sock) {
-  char buf[BUF_LEN];
+  guchar buf[BUF_LEN];
   int len;
 
   len = read(sock, buf, BUF_LEN);
@@ -295,7 +296,9 @@ int main(int argc, char *argv[]) {
   GIOChannel *io_chan;
   
   if (argc < 7) {
-    fprintf(stderr,"usage %s:  server port sender password recipient message\n", argv[0]);
+    fprintf(stderr,
+	    "usage %s:  server port sender password"
+	    "recipient message\n", argv[0]);
     exit(0);
   }
   
@@ -319,7 +322,8 @@ int main(int argc, char *argv[]) {
   mwSession_setProperty(session, mwSession_CLIENT_TYPE_ID,
 			GUINT_TO_POINTER(mwLogin_MEANWHILE), NULL);
 
-  /* set up the client data structure with the things we need it to remember */
+  /* set up the client data structure with the things we need it to
+     remember */
   client = g_new0(struct sample_client, 1);
   client->session = session;
   client->sock = init_sock(server, portno);

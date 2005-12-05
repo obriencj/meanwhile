@@ -40,11 +40,11 @@ struct proxy_side {
   GIOChannel *chan;
   gint chan_io;
 
-  char *buf;
+  guchar *buf;
   gsize buf_size;
   gsize buf_recv;
 
-  void (*forward)(const char *buf, gsize len);
+  void (*forward)(const guchar *buf, gsize len);
 };
 
 
@@ -52,17 +52,7 @@ static struct proxy_side client;
 static struct proxy_side server;
 
 
-#define HX   "%02x"
-#define HX1  HX "   "
-#define HX2  HX HX " "
-#define HX4  HX2 HX2
-#define HX8  HX4 HX4
-#define HXF  HX8 HX8
-
-
-static void hexout(const char *txt, const unsigned char *buf, gsize len) {
-#if USE_HEXDUMP
-
+static void hexdump(const char *txt, const guchar *buf, gsize len) {
   FILE *fp;
 
   if(txt) fprintf(stdout, "\n%s\n", txt);
@@ -72,56 +62,6 @@ static void hexout(const char *txt, const unsigned char *buf, gsize len) {
   fwrite(buf, len, 1, fp);
   fflush(fp);
   pclose(fp);
-
-#else
-
-  if(txt) printf("\n%s\n", txt);
-
-  while(len >= 16) {
-    /* printf("%s\n", HXF); */
-    printf((HXF),
-	   buf[0],  buf[1],  buf[2],  buf[3],
-	   buf[4],  buf[5],  buf[6],  buf[7],
-	   buf[8],  buf[9],  buf[10], buf[11],
-	   buf[12], buf[13], buf[14], buf[15]);
-    buf += 16;
-    len -= 16;
-
-    if(len) putchar('\n');
-  }
-
-  if(len >= 8) {
-    /* printf("%s\n", HX8); */
-    printf((HX8),
-	    buf[0],  buf[1],  buf[2],  buf[3],
-	    buf[4],  buf[5],  buf[6],  buf[7]);
-    buf += 8;
-    len -= 8;
-  }
-  
-  if(len >= 4) {
-    /* printf("%s\n", HX4); */
-    printf((HX4), buf[0],  buf[1],  buf[2],  buf[3]);
-    buf += 4;
-    len -= 4;
-  }
-  
-  if(len >= 2) {
-    /* printf("%s\n", HX2); */
-    printf((HX2), buf[0],  buf[1]);
-    buf += 2;
-    len -= 2;
-  }
-  
-  if(len) {
-    /* printf("%s\n", HX1); */
-    printf((HX1), buf[0]);
-    buf++;
-    len--;
-  }
-
-  putchar('\n');
-#endif
 }
 
 
@@ -184,8 +124,8 @@ static void munge_create(struct proxy_side *side,
 }
 
 
-static void side_process(struct proxy_side *s, const char *buf, gsize len) {
-  struct mwOpaque o = { .len = len, .data = (char *) buf };
+static void side_process(struct proxy_side *s, const guchar *buf, gsize len) {
+  struct mwOpaque o = { .len = len, .data = (guchar *) buf };
   struct mwGetBuffer *b;
   guint16 type;
 
@@ -226,7 +166,7 @@ static void side_process(struct proxy_side *s, const char *buf, gsize len) {
 
 
 /* handle input to complete an existing buffer */
-static gsize side_recv_cont(struct proxy_side *s, const char *b, gsize n) {
+static gsize side_recv_cont(struct proxy_side *s, const guchar *b, gsize n) {
 
   gsize x = s->buf_size - s->buf_recv;
 
@@ -246,9 +186,9 @@ static gsize side_recv_cont(struct proxy_side *s, const char *b, gsize n) {
       mwGetBuffer_free(gb);
 
       if(n < x) {
-	char *t;
+	guchar *t;
 	x += 4;
-	t = (char *) g_malloc(x);
+	t = (guchar *) g_malloc(x);
 	memcpy(t, s->buf, 4);
 	memcpy(t+4, b, n);
 	
@@ -276,13 +216,13 @@ static gsize side_recv_cont(struct proxy_side *s, const char *b, gsize n) {
 
 
 /* handle input when there's nothing previously buffered */
-static gsize side_recv_empty(struct proxy_side *s, const char *b, gsize n) {
-  struct mwOpaque o = { .len = n, .data = (char *) b };
+static gsize side_recv_empty(struct proxy_side *s, const guchar *b, gsize n) {
+  struct mwOpaque o = { .len = n, .data = (guchar *) b };
   struct mwGetBuffer *gb;
   gsize x;
 
   if(n < 4) {
-    s->buf = (char *) g_malloc0(4);
+    s->buf = (guchar *) g_malloc0(4);
     memcpy(s->buf, b, n);
     s->buf_size = 4;
     s->buf_recv = n;
@@ -297,7 +237,7 @@ static gsize side_recv_empty(struct proxy_side *s, const char *b, gsize n) {
   if(n < (x + 4)) {
 
     x += 4;
-    s->buf = (char *) g_malloc(x);
+    s->buf = (guchar *) g_malloc(x);
     memcpy(s->buf, b, n);
     s->buf_size = x;
     s->buf_recv = n;
@@ -313,7 +253,7 @@ static gsize side_recv_empty(struct proxy_side *s, const char *b, gsize n) {
 }
 
 
-static gsize side_recv(struct proxy_side *s, const char *b, gsize n) {
+static gsize side_recv(struct proxy_side *s, const guchar *b, gsize n) {
 
   if(n && (s->buf_size == 0) && (*b & 0x80)) {
     ADVANCE(b, n, 1);
@@ -331,8 +271,8 @@ static gsize side_recv(struct proxy_side *s, const char *b, gsize n) {
 }
 
 
-static void feed_buf(struct proxy_side *side, const char *buf, gsize n) {
-  char *b = (char *) buf;
+static void feed_buf(struct proxy_side *side, const guchar *buf, gsize n) {
+  guchar *b = (guchar *) buf;
   gsize remain = 0;
   
   g_return_if_fail(side != NULL);
@@ -346,7 +286,7 @@ static void feed_buf(struct proxy_side *side, const char *buf, gsize n) {
 
 
 static int read_recv(struct proxy_side *side) {
-  char buf[2048];
+  guchar buf[2048];
   int len;
 
   len = read(side->sock, buf, 2048);
@@ -389,9 +329,9 @@ static gboolean read_cb(GIOChannel *chan,
 }
 
 
-static void client_cb(const char *buf, gsize len) {
+static void client_cb(const guchar *buf, gsize len) {
   if(server.sock) {
-    hexout("client -> server", buf, len);
+    hexdump("client -> server", buf, len);
     write(server.sock, buf, len);
   }
 }
@@ -402,7 +342,7 @@ static gboolean listen_cb(GIOChannel *chan,
 			  gpointer data) {
 
   struct sockaddr_in rem;
-  int len = sizeof(rem);
+  guint len = sizeof(rem);
   struct proxy_side *side = data;
   int sock;
   
@@ -447,9 +387,9 @@ static void init_client(int port) {
 }
 
 
-static void server_cb(const char *buf, gsize len) {
+static void server_cb(const guchar *buf, gsize len) {
   if(client.sock) {
-    hexout("server -> client", buf, len);
+    hexdump("server -> client", buf, len);
     write(client.sock, buf, len);
   }
 }

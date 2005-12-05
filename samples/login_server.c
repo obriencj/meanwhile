@@ -21,8 +21,7 @@
 #include <glib.h>
 #include <glib/glist.h>
 
-#include <gmp.h>
-
+#include <mw_cipher.h>
 #include <mw_common.h>
 #include <mw_message.h>
 
@@ -37,15 +36,15 @@ static GIOChannel *chan;
 static int chan_io;
 
 
-static char *sbuf;
+static guchar *sbuf;
 static gsize sbuf_size;
 static gsize sbuf_recv;
 
 
-static mpz_t private, public;
+struct mwMpi *private, *public;
 
 
-static void hexout(const char *txt, const unsigned char *buf, gsize len) {
+static void hexout(const char *txt, const guchar *buf, gsize len) {
   FILE *fp;
 
   if(txt) fprintf(stdout, "\n%s\n", txt);
@@ -88,8 +87,8 @@ static void handshake_ack() {
   msg->major = 0x1e;
   msg->minor = 0x1d;
 
-  mwDHRandKeypair(private, public);
-  mwDHExportKey(public, &msg->data);
+  mwMpi_randDHKeypair(private, public);
+  mwMpi_export(public, &msg->data);
 
   msg->magic = 0x01234567;
   hexout("sending pubkey:", msg->data.data, msg->data.len);
@@ -103,11 +102,11 @@ static void handle_login(struct mwMsgLogin *msg) {
   struct mwGetBuffer *gb;
   struct mwOpaque a, b, c;
   guint16 z;
-  mpz_t remote, shared;
-  char iv[8];
+  struct mwMpi *remote, *shared;
+  guchar iv[8];
 
-  mpz_init(remote);
-  mpz_init(shared);
+  remote = mwMpi_new();
+  shared = mwMpi_new();
 
   mwIV_init(iv);
 
@@ -117,11 +116,11 @@ static void handle_login(struct mwMsgLogin *msg) {
   mwOpaque_get(gb, &b);
   mwGetBuffer_free(gb);
 
-  mwDHImportKey(remote, &a);
+  mwMpi_import(remote, &a);
   mwOpaque_clear(&a);
 
-  mwDHCalculateShared(shared, remote, private);
-  mwDHExportKey(shared, &a);
+  mwMpi_calculateDHShared(shared, remote, private);
+  mwMpi_export(shared, &a);
   hexout("shared key:", a.data, a.len);
 
   mwDecrypt(a.data+(a.len-16), 16, iv, &b, &c);
@@ -131,8 +130,8 @@ static void handle_login(struct mwMsgLogin *msg) {
   mwOpaque_clear(&b);
   mwOpaque_clear(&c);
 
-  mpz_clear(remote);
-  mpz_clear(shared);
+  mwMpi_free(remote);
+  mwMpi_free(shared);
 }
 
 
@@ -142,8 +141,8 @@ static void done() {
 }
 
 
-static void side_process(const char *buf, gsize len) {
-  struct mwOpaque o = { .len = len, .data = (char *) buf };
+static void side_process(const guchar *buf, gsize len) {
+  struct mwOpaque o = { .len = len, .data = (guchar *) buf };
   struct mwGetBuffer *b;
   guint16 type;
 
@@ -195,7 +194,7 @@ static void sbuf_free() {
 
 
 /* handle input to complete an existing buffer */
-static gsize side_recv_cont(const char *b, gsize n) {
+static gsize side_recv_cont(const guchar *b, gsize n) {
 
   gsize x = sbuf_size - sbuf_recv;
 
@@ -215,9 +214,9 @@ static gsize side_recv_cont(const char *b, gsize n) {
       mwGetBuffer_free(gb);
 
       if(n < x) {
-	char *t;
+	guchar *t;
 	x += 4;
-	t = (char *) g_malloc(x);
+	t = (guchar *) g_malloc(x);
 	memcpy(t, sbuf, 4);
 	memcpy(t+4, b, n);
 	
@@ -245,13 +244,13 @@ static gsize side_recv_cont(const char *b, gsize n) {
 
 
 /* handle input when there's nothing previously buffered */
-static gsize side_recv_empty(const char *b, gsize n) {
-  struct mwOpaque o = { .len = n, .data = (char *) b };
+static gsize side_recv_empty(const guchar *b, gsize n) {
+  struct mwOpaque o = { .len = n, .data = (guchar *) b };
   struct mwGetBuffer *gb;
   gsize x;
 
   if(n < 4) {
-    sbuf = (char *) g_malloc0(4);
+    sbuf = (guchar *) g_malloc0(4);
     memcpy(sbuf, b, n);
     sbuf_size = 4;
     sbuf_recv = n;
@@ -266,7 +265,7 @@ static gsize side_recv_empty(const char *b, gsize n) {
   if(n < (x + 4)) {
 
     x += 4;
-    sbuf = (char *) g_malloc(x);
+    sbuf = (guchar *) g_malloc(x);
     memcpy(sbuf, b, n);
     sbuf_size = x;
     sbuf_recv = n;
@@ -282,7 +281,7 @@ static gsize side_recv_empty(const char *b, gsize n) {
 }
 
 
-static gsize side_recv(const char *b, gsize n) {
+static gsize side_recv(const guchar *b, gsize n) {
 
   if(n && (sbuf_size == 0) && (*b & 0x80)) {
     ADVANCE(b, n, 1);
@@ -300,8 +299,8 @@ static gsize side_recv(const char *b, gsize n) {
 }
 
 
-static void feed_buf(const char *buf, gsize n) {
-  char *b = (char *) buf;
+static void feed_buf(const guchar *buf, gsize n) {
+  guchar *b = (guchar *) buf;
   gsize remain = 0;
 
   while(n > 0) {
@@ -313,7 +312,7 @@ static void feed_buf(const char *buf, gsize n) {
 
 
 static int read_recv() {
-  char buf[2048];
+  guchar buf[2048];
   int len;
 
   len = read(sock, buf, 2048);
@@ -352,7 +351,7 @@ static gboolean listen_cb(GIOChannel *chan,
 			  gpointer data) {
 
   struct sockaddr_in rem;
-  int len = sizeof(rem);
+  guint len = sizeof(rem);
 
   printf("accepting connection\n");
   
@@ -396,8 +395,8 @@ static void init_socket(int port) {
 int main(int argc, char *argv[]) {
   int port = 0;
 
-  mpz_init(private);
-  mpz_init(public);
+  private = mwMpi_new();
+  public = mwMpi_new();
 
   if(argc > 1) {
     port = atoi(argv[1]);

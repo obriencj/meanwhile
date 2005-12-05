@@ -37,11 +37,9 @@ static GIOChannel *chan;
 /** the listening event on the io channel */
 static int chan_io;
 
-
 static char *host;
 
-
-static char *sbuf;
+static guchar *sbuf;
 static gsize sbuf_size;
 static gsize sbuf_recv;
 
@@ -95,8 +93,8 @@ static void done() {
 }
 
 
-static void side_process(const char *buf, gsize len) {
-  struct mwOpaque o = { .len = len, .data = (char *) buf };
+static void side_process(const guchar *buf, gsize len) {
+  struct mwOpaque o = { .len = len, .data = (guchar *) buf };
   struct mwGetBuffer *b;
   guint16 type;
 
@@ -138,7 +136,7 @@ static void sbuf_free() {
 
 
 /* handle input to complete an existing buffer */
-static gsize side_recv_cont(const char *b, gsize n) {
+static gsize side_recv_cont(const guchar *b, gsize n) {
 
   gsize x = sbuf_size - sbuf_recv;
 
@@ -158,9 +156,9 @@ static gsize side_recv_cont(const char *b, gsize n) {
       mwGetBuffer_free(gb);
 
       if(n < x) {
-	char *t;
+	guchar *t;
 	x += 4;
-	t = (char *) g_malloc(x);
+	t = (guchar *) g_malloc(x);
 	memcpy(t, sbuf, 4);
 	memcpy(t+4, b, n);
 	
@@ -188,13 +186,13 @@ static gsize side_recv_cont(const char *b, gsize n) {
 
 
 /* handle input when there's nothing previously buffered */
-static gsize side_recv_empty(const char *b, gsize n) {
-  struct mwOpaque o = { .len = n, .data = (char *) b };
+static gsize side_recv_empty(const guchar *b, gsize n) {
+  struct mwOpaque o = { .len = n, .data = (guchar *) b };
   struct mwGetBuffer *gb;
   gsize x;
 
   if(n < 4) {
-    sbuf = (char *) g_malloc0(4);
+    sbuf = (guchar *) g_malloc0(4);
     memcpy(sbuf, b, n);
     sbuf_size = 4;
     sbuf_recv = n;
@@ -209,7 +207,7 @@ static gsize side_recv_empty(const char *b, gsize n) {
   if(n < (x + 4)) {
 
     x += 4;
-    sbuf = (char *) g_malloc(x);
+    sbuf = (guchar *) g_malloc(x);
     memcpy(sbuf, b, n);
     sbuf_size = x;
     sbuf_recv = n;
@@ -225,7 +223,7 @@ static gsize side_recv_empty(const char *b, gsize n) {
 }
 
 
-static gsize side_recv(const char *b, gsize n) {
+static gsize side_recv(const guchar *b, gsize n) {
 
   if(n && (sbuf_size == 0) && (*b & 0x80)) {
     ADVANCE(b, n, 1);
@@ -243,8 +241,8 @@ static gsize side_recv(const char *b, gsize n) {
 }
 
 
-static void feed_buf(const char *buf, gsize n) {
-  char *b = (char *) buf;
+static void feed_buf(const guchar *buf, gsize n) {
+  guchar *b = (guchar *) buf;
   gsize remain = 0;
 
   while(n > 0) {
@@ -256,7 +254,7 @@ static void feed_buf(const char *buf, gsize n) {
 
 
 static int read_recv() {
-  char buf[2048];
+  guchar buf[2048];
   int len;
 
   len = read(sock, buf, 2048);
@@ -295,7 +293,7 @@ static gboolean listen_cb(GIOChannel *chan,
 			  gpointer data) {
 
   struct sockaddr_in rem;
-  int len = sizeof(rem);
+  guint len = sizeof(rem);
   
   sock = accept(sock, (struct sockaddr *) &rem, &len);
   g_assert(sock > 0);

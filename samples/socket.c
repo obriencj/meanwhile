@@ -103,7 +103,7 @@ static void mw_session_io_close(struct mwSession *session) {
 
 /* the io_write function from the session handler */
 static int mw_session_io_write(struct mwSession *session,
-			       const char *buf, gsize len) {
+			       const guchar *buf, gsize len) {
 
   struct sample_client *client;
   int ret = 0;
@@ -181,7 +181,7 @@ static struct mwSessionHandler mw_session_handler = {
     closed, less-than zero in the event of an error, and greater than
     zero for success */
 static int read_recv(struct mwSession *session, int sock) {
-  char buf[BUF_LEN];
+  guchar buf[BUF_LEN];
   int len;
 
   len = read(sock, buf, BUF_LEN);
