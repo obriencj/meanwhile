@@ -7,7 +7,7 @@ Makefile
 Makefile.in
 nocipher_proxy
 *.o
-redirect_proxy
+redirect_server
 sendmessage
 socket
 *tmp*
