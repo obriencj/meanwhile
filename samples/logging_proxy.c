@@ -27,8 +27,6 @@
 #include <glib.h>
 #include <glib/glist.h>
 
-#include <gmp.h>
-
 #include <mw_cipher.h>
 #include <mw_common.h>
 #include <mw_message.h>
@@ -42,11 +40,11 @@ struct proxy_side {
   GIOChannel *chan;
   gint chan_io;
 
-  char *buf;
+  guchar *buf;
   gsize buf_size;
   gsize buf_recv;
 
-  void (*forward)(const char *buf, gsize len);
+  void (*forward)(const guchar *buf, gsize len);
 };
 
 
@@ -75,9 +73,9 @@ static gint listen_io = 0;
 
 /** encryption state information used in the RC2/40 cipher */
 struct rc2_40enc {
-  unsigned char outgoing_iv[8];
+  guchar outgoing_iv[8];
   int outgoing_key[64];
-  unsigned char incoming_iv[8];
+  guchar incoming_iv[8];
   int incoming_key[64];
 };
 
@@ -93,14 +91,14 @@ static int session_key[64] = {
 
 /** encryption state information used in the RC2/128 cipher */
 struct rc2_128enc {
-  unsigned char outgoing_iv[8];
-  unsigned char incoming_iv[8];
+  guchar outgoing_iv[8];
+  guchar incoming_iv[8];
   int shared_key[64];
 };
 
 
 /* re-usable rc2 128 stuff */
-static mpz_t private_key;
+static struct mwMpi *private_key;
 static struct mwOpaque public_key;
 
 
@@ -157,7 +155,7 @@ static GHashTable *channels;
 
 
 /** print a message to stdout and use hexdump to print a data chunk */
-static void hexdump_vprintf(const unsigned char *buf, gsize len,
+static void hexdump_vprintf(const guchar *buf, gsize len,
 			    const char *txt, va_list args) {
   FILE *fp;
 
@@ -176,7 +174,7 @@ static void hexdump_vprintf(const unsigned char *buf, gsize len,
 
 
 /** print a message to stdout and use hexdump to print a data chunk */
-static void hexdump_printf(const unsigned char *buf, gsize len,
+static void hexdump_printf(const guchar *buf, gsize len,
 			   const char *txt, ...) {
   va_list args;
   va_start(args, txt);
@@ -319,17 +317,17 @@ static void munge_accept(struct proxy_side *side,
   /* init right-side encryption with our enc and accepted enc */
   switch(item->id) {
   case mwCipher_RC2_128: {
-    mpz_t remote, shared;
+    struct mwMpi *remote, *shared;
     struct mwOpaque k;
 
-    mpz_init(remote);
-    mpz_init(shared);
+    remote = mwMpi_new();
+    shared = mwMpi_new();
 
     printf("right side accepted RC2/128\n");
 
-    mwDHImportKey(remote, &item->info);
-    mwDHCalculateShared(shared, remote, private_key);
-    mwDHExportKey(shared, &k);
+    mwMpi_import(remote, &item->info);
+    mwMpi_calculateDHShared(shared, remote, private_key);
+    mwMpi_export(shared, &k);
 
     chan->enc_mode = enc_hard;
 
@@ -337,8 +335,8 @@ static void munge_accept(struct proxy_side *side,
     mwIV_init(chan->right_enc.hard.incoming_iv);
     mwKeyExpand(chan->right_enc.hard.shared_key, k.data+(k.len-16), 16);
 
-    mpz_clear(remote);
-    mpz_clear(shared);
+    mwMpi_free(remote);
+    mwMpi_free(shared);
     mwOpaque_clear(&k);
     break;
   }
@@ -356,7 +354,7 @@ static void munge_accept(struct proxy_side *side,
       who = msg->acceptor.login_id;
       printf("right side is the server\n");
       printf("server is %s\n", who);
-      mwKeyExpand(chan->right_enc.easy.incoming_key, who, 5);
+      mwKeyExpand(chan->right_enc.easy.incoming_key, (guchar *) who, 5);
       key_copy(chan->right_enc.easy.outgoing_key, session_key);
 
     } else {
@@ -364,7 +362,7 @@ static void munge_accept(struct proxy_side *side,
       printf("right side is the client\n");
       printf("server is %s\n", who);
       key_copy(chan->right_enc.easy.incoming_key, session_key);
-      mwKeyExpand(chan->right_enc.easy.outgoing_key, who, 5);
+      mwKeyExpand(chan->right_enc.easy.outgoing_key, (guchar *) who, 5);
     }
 
     break;
@@ -377,26 +375,26 @@ static void munge_accept(struct proxy_side *side,
   /* init left-side encryption with offered enc and our enc, munge accept */
   switch(item->id) {
   case mwCipher_RC2_128: {
-    mpz_t remote, shared;
+    struct mwMpi *remote, *shared;
     struct mwOpaque k;
     struct mwEncryptItem *offered;
     
-    mpz_init(remote);
-    mpz_init(shared);
+    remote = mwMpi_new();
+    shared = mwMpi_new();
 
     printf("accepting left side with RC2/128\n");
     
     offered = find_item(chan->offer.items, mwCipher_RC2_128);
-    mwDHImportKey(remote, &offered->info);
-    mwDHCalculateShared(shared, remote, private_key);
-    mwDHExportKey(shared, &k);
+    mwMpi_import(remote, &offered->info);
+    mwMpi_calculateDHShared(shared, remote, private_key);
+    mwMpi_export(shared, &k);
     
     mwIV_init(chan->left_enc.hard.outgoing_iv);
     mwIV_init(chan->left_enc.hard.incoming_iv);
     mwKeyExpand(chan->left_enc.hard.shared_key, k.data+(k.len-16), 16);
-    
-    mpz_clear(remote);
-    mpz_clear(shared);
+
+    mwMpi_free(remote);
+    mwMpi_free(shared);
     mwOpaque_clear(&k);
     
     /* munge accept with out public key */
@@ -569,8 +567,8 @@ static void forward(struct proxy_side *to,
 
 
 /* handle messages from either side */
-static void side_process(struct proxy_side *s, const char *buf, gsize len) {
-  struct mwOpaque o = { .len = len, .data = (char *) buf };
+static void side_process(struct proxy_side *s, const guchar *buf, gsize len) {
+  struct mwOpaque o = { .len = len, .data = (guchar *) buf };
   struct mwGetBuffer *b;
   guint16 type;
 
@@ -589,7 +587,7 @@ static void side_process(struct proxy_side *s, const char *buf, gsize len) {
   case mwMessage_LOGIN_ACK: {
     struct mwMsgLoginAck *msg = (struct mwMsgLoginAck *) mwMessage_get(b);
     printf("client is %s\n", msg->login.login_id);
-    mwKeyExpand(session_key, msg->login.login_id, 5);
+    mwKeyExpand(session_key, (guchar *) msg->login.login_id, 5);
     mwMessage_free(MW_MESSAGE(msg));
     forward(s, &o);
     break;
@@ -650,7 +648,7 @@ static void side_buf_free(struct proxy_side *s) {
 
 
 /** handle input to complete an existing buffer */
-static gsize side_recv_cont(struct proxy_side *s, const char *b, gsize n) {
+static gsize side_recv_cont(struct proxy_side *s, const guchar *b, gsize n) {
 
   gsize x = s->buf_size - s->buf_recv;
 
@@ -670,9 +668,9 @@ static gsize side_recv_cont(struct proxy_side *s, const char *b, gsize n) {
       mwGetBuffer_free(gb);
 
       if(n < x) {
-	char *t;
+	guchar *t;
 	x += 4;
-	t = (char *) g_malloc(x);
+	t = (guchar *) g_malloc(x);
 	memcpy(t, s->buf, 4);
 	memcpy(t+4, b, n);
 	
@@ -700,13 +698,13 @@ static gsize side_recv_cont(struct proxy_side *s, const char *b, gsize n) {
 
 
 /** handle input when there's nothing previously buffered */
-static gsize side_recv_empty(struct proxy_side *s, const char *b, gsize n) {
-  struct mwOpaque o = { .len = n, .data = (char *) b };
+static gsize side_recv_empty(struct proxy_side *s, const guchar *b, gsize n) {
+  struct mwOpaque o = { .len = n, .data = (guchar *) b };
   struct mwGetBuffer *gb;
   gsize x;
 
   if(n < 4) {
-    s->buf = (char *) g_malloc0(4);
+    s->buf = (guchar *) g_malloc0(4);
     memcpy(s->buf, b, n);
     s->buf_size = 4;
     s->buf_recv = n;
@@ -721,7 +719,7 @@ static gsize side_recv_empty(struct proxy_side *s, const char *b, gsize n) {
   if(n < (x + 4)) {
 
     x += 4;
-    s->buf = (char *) g_malloc(x);
+    s->buf = (guchar *) g_malloc(x);
     memcpy(s->buf, b, n);
     s->buf_size = x;
     s->buf_recv = n;
@@ -738,7 +736,7 @@ static gsize side_recv_empty(struct proxy_side *s, const char *b, gsize n) {
 
 
 /** handle input in chunks */
-static gsize side_recv(struct proxy_side *s, const char *b, gsize n) {
+static gsize side_recv(struct proxy_side *s, const guchar *b, gsize n) {
 
   if(n && (s->buf_size == 0) && (*b & 0x80)) {
     ADVANCE(b, n, 1);
@@ -757,8 +755,8 @@ static gsize side_recv(struct proxy_side *s, const char *b, gsize n) {
 
 
 /** handle input */
-static void feed_buf(struct proxy_side *side, const char *buf, gsize n) {
-  char *b = (char *) buf;
+static void feed_buf(struct proxy_side *side, const guchar *buf, gsize n) {
+  guchar *b = (guchar *) buf;
   gsize remain = 0;
   
   g_return_if_fail(side != NULL);
@@ -772,7 +770,7 @@ static void feed_buf(struct proxy_side *side, const char *buf, gsize n) {
 
 
 static int read_recv(struct proxy_side *side) {
-  char buf[2048];
+  guchar buf[2048];
   int len;
 
   len = read(side->sock, buf, 2048);
@@ -828,7 +826,7 @@ static gboolean read_cb(GIOChannel *chan,
 }
 
 
-static void client_cb(const char *buf, gsize len) {
+static void client_cb(const guchar *buf, gsize len) {
   if(server.sock) write(server.sock, buf, len);
 }
 
@@ -844,22 +842,22 @@ static void init_client(int sock) {
 }
 
 
-static void server_cb(const char *buf, gsize len) {
+static void server_cb(const guchar *buf, gsize len) {
   if(client.sock) write(client.sock, buf, len);
 }
 
 
 /** generate a private/public DH keypair for internal (re)use */
 static void init_rc2_128() {
-  mpz_t public;
+  struct mwMpi *public;
 
-  mpz_init(private_key);
-  mpz_init(public);
+  private_key = mwMpi_new();
+  public = mwMpi_new();
 
-  mwDHRandKeypair(private_key, public);
-  mwDHExportKey(public, &public_key);
+  mwMpi_randDHKeypair(private_key, public);
+  mwMpi_export(public, &public_key);
 
-  mpz_clear(public);
+  mwMpi_free(public);
 }
 
 
@@ -912,7 +910,7 @@ static gboolean listen_cb(GIOChannel *chan,
 			  gpointer data) {
 
   struct sockaddr_in rem;
-  int len = sizeof(rem);
+  guint len = sizeof(rem);
   int sock;
   
   printf("got connection\n");
