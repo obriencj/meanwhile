@@ -651,7 +651,7 @@ const char *mwConference_getTitle(struct mwConference *conf) {
 }
 
 
-GList *mwConference_memebers(struct mwConference *conf) {
+GList *mwConference_getMembers(struct mwConference *conf) {
   g_return_val_if_fail(conf != NULL, NULL);
   g_return_val_if_fail(conf->members != NULL, NULL);
 
