@@ -49,15 +49,6 @@ typedef struct mwCipherInstance *(*mwCipherInstantiator)
      (struct mwCipher *cipher, struct mwChannel *chan);
 
 
-/** Generate a descriptor for use in a channel create message to
-    indicate the availability of this cipher
-
-    @todo remove for 1.0
-*/
-typedef struct mwEncryptItem *(*mwCipherDescriptor)
-     (struct mwCipherInstance *instance);
-
-
 /** Process (encrypt or decrypt, depending) the given data. The passed
     buffer may be freed in processing and be replaced with a freshly
     allocated buffer. The post-processed buffer must in turn be freed
@@ -267,11 +258,11 @@ void mwMpi_import(struct mwMpi *i, struct mwOpaque *o);
 void mwMpi_export(struct mwMpi *i, struct mwOpaque *o);
 
 
-/** initialize and set a big integer to the Sametime Prime value */
+/** set a big integer to the Sametime Prime value */
 void mwMpi_setDHPrime(struct mwMpi *i);
 
 
-/** initialize and set a big integer to the Sametime Base value */
+/** set a big integer to the Sametime Base value */
 void mwMpi_setDHBase(struct mwMpi *i);
 
 

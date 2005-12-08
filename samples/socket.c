@@ -25,7 +25,7 @@
    
    This file is a simple demonstration of using unix socket code to
    connect a mwSession to a sametime server and get it fully logged
-   in.
+   in. It doesn't do anything after logging in.
    
    Here you'll find examples of:
     - opening a socket to the host
