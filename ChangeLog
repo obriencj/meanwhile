@@ -1,6 +1,8 @@
 
-version 0.6.0 (cvs)
-
+version 1.0.0 (cvs)
+	
+	- using shared library versioning, 1:0:0
+	
 	- using MPI code from http://www.cs.dartmouth.edu/~sting/mpi/ as a
 	replacement for the GMP dependancy
 
