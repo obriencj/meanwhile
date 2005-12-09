@@ -345,7 +345,7 @@ gboolean gboolean_peek(struct mwGetBuffer *b) {
 }
 
 
-gboolean mw_streq(const char *a, const char *b) {
+static gboolean mw_streq(const char *a, const char *b) {
   return (a == b) || (a && b && !strcmp(a, b));
 }
 

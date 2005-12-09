@@ -31,7 +31,9 @@ libmeanwhile_la_CFLAGS = \
 	$(DEBUG_CFLAGS) \
 	$(GLIB_CFLAGS) $(GMP_CFLAGS)
 
-libmeanwhile_la_LDFLAGS = -no-undefined
+libmeanwhile_la_LDFLAGS = \
+	@MW_SO_OS_FLAGS@ \
+	-version-info @MW_SO_VERSION@
 
 libmeanwhile_la_SOURCES = \
 	channel.c \

@@ -22,10 +22,6 @@
 #define _MW_SRVC_IM_H
 
 
-#include <glib.h>
-#include "mw_common.h"
-
-
 /** @file mw_srvc_im.h
 
     The IM service provides one-on-one communication between
@@ -34,13 +30,22 @@
     provides plain-text chat with typing notification. More complex
     features may be negotiated transparently by setting the IM Client
     Type for a conversation, or for the service as a whole.
- */
+*/
 
 
-/** Type identifier for the IM service */
+#include <glib.h>
+#include "mw_common.h"
+
+
+#ifdef _cplusplus
+extern "C" {
+#endif
+  
+  
+/* identifier for the IM service */
 #define mwService_IM  0x00001000
-
-
+  
+  
 /** @struct mwServiceIm
 
     An instance of the IM service. This service provides simple
@@ -263,5 +268,9 @@ void mwConversation_removeClientData(struct mwConversation *conv);
 void mwConversation_free(struct mwConversation *conv);
 
 
+#ifdef _cplusplus
+}
 #endif
 
+
+#endif /* _MW_SRVC_IM_H */

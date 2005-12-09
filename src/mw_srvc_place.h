@@ -26,6 +26,11 @@
 #include "mw_common.h"
 
 
+#ifdef _cplusplus
+extern "C" {
+#endif
+
+
 /** Type identifier for the place service */
 #define mwService_PLACE  0x80000022
 
@@ -134,4 +139,10 @@ gpointer mwPlace_getClientData(struct mwPlace *place);
 void mwPlace_removeClientData(struct mwPlace *place);
 
 
+#ifdef _cplusplus
+}
 #endif
+
+
+#endif /* _MW_SRVC_PLACE_H */
+

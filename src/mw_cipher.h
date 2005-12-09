@@ -26,6 +26,11 @@
 #include "mw_common.h"
 
 
+#ifdef _cplusplus
+extern "C" {
+#endif
+
+
 /* place-holders */
 struct mwChannel;
 struct mwSession;
@@ -280,6 +285,9 @@ void mwMpi_calculateDHShared(struct mwMpi *shared, struct mwMpi *remote,
 /* @} */
 
 
+#ifdef _cplusplus
+}
 #endif
 
 
+#endif /* _MW_CIPHER_H */

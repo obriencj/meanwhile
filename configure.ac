@@ -1,16 +1,18 @@
 
 # version of meanwhile
-m4_define(meanwhile_version,		0.6.0)
+m4_define(meanwhile_major,	1)
+m4_define(meanwhile_minor,	0)
+m4_define(meanwhile_micro,	0)
 
-# release of meanwhile
-m4_define(meanwhile_release,		0)
+# release of meanwhile. 0 for CVS, 1 for release
+m4_define(meanwhile_release,	0)
 
 # required and compat version of glib2.
 m4_define(glib_required_version,	2.0.0)
 
 
 AC_INIT
-AM_INIT_AUTOMAKE(meanwhile, meanwhile_version)
+AM_INIT_AUTOMAKE(meanwhile, meanwhile_major.meanwhile_minor.meanwhile_micro)
 
 RELEASE=meanwhile_release
 AC_SUBST(RELEASE)
@@ -29,16 +31,18 @@ AC_PROG_INSTALL
 AC_HEADER_STDC
 
 
-# Darwin...
+
+# Darwin is special I guess
 if test `uname` = "Darwin" ; then
-	os_so_ext=".dylib"
-	os_ld_flags="-dynamic-lib"
+	MW_SO_OS_FLAGS=-dynamic-lib
 else	
-	os_so_ext=".so"
-	os_ld_flags="-shared -no-undefined"
+	MW_SO_OS_FLAGS=-shared
 fi
-AC_SUBST(os_so_ext)
-AC_SUBST(os_ld_flags)
+AC_SUBST(MW_SO_OS_FLAGS)
+
+
+MW_SO_VERSION=meanwhile_major:meanwhile_minor:meanwhile_micro
+AC_SUBST(MW_SO_VERSION)
 
 
 

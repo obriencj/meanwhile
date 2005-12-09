@@ -47,6 +47,11 @@
 #include "mw_common.h"
 
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 struct mwChannelSet;
 struct mwCipher;
 struct mwMessage;
@@ -383,5 +388,10 @@ gpointer mwSession_getClientData(struct mwSession *session);
 void mwSession_removeClientData(struct mwSession *session);
 
 
+#ifdef __cplusplus
+}
 #endif
+
+
+#endif /* _MW_SESSION_H */
 

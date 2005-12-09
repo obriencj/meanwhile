@@ -22,9 +22,21 @@
 #define _MW_ST_LIST_H
 
 
+/** @file mw_st_list.h
+
+    Parse and compose buddy lists in the format commonly used by Sametime
+    Connect clients.
+*/
+
+
 #include <glib.h>
 #include <glib/glist.h>
 #include "mw_common.h"
+
+
+#ifdef _cplusplus
+extern "C" {
+#endif
 
 
 #define ST_LIST_MAJOR  3
@@ -197,4 +209,10 @@ void mwSametimeUser_setAlias(struct mwSametimeUser *u, const char *alias);
 const char *mwSametimeUser_getAlias(struct mwSametimeUser *u);
 
 
+
+#ifdef _cplusplus
+}
 #endif
+
+
+#endif /* _MW_ST_LIST_H */

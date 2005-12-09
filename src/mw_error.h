@@ -21,8 +21,6 @@
 #ifndef _MW_ERROR_H
 #define _MW_ERROR_H
 
-#include <glib.h>
-
 
 /** @file mw_error.h
 
@@ -32,6 +30,14 @@
     actually appear from Meanwhile. These are taken directly from the
     houri draft, along with the minimal explanation for each.
 */
+
+
+#include <glib.h>
+
+
+#ifdef _cplusplus
+extern "C" {
+#endif
 
 
 /** reference to a new string appropriate for the given error code.*/
@@ -160,4 +166,9 @@ enum ERR_IM {
 };
 
 
+#ifdef _cplusplus
+}
 #endif
+
+
+#endif /* _MW_ERROR_H */

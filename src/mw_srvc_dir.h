@@ -25,6 +25,11 @@
 #include <glib/glist.h>
 
 
+#ifdef _cplusplus
+extern "C" {
+#endif
+
+
 struct mwSession;
 
 
@@ -199,4 +204,9 @@ int mwDirectory_search(struct mwDirectory *dir, const char *query);
 int mwDirectory_destroy(struct mwDirectory *dir);
 
 
+#ifdef _cplusplus
+}
 #endif
+
+
+#endif /* _MW_SRVC_DIR_H */

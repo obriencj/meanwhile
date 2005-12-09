@@ -145,13 +145,17 @@ static void sup_free(gpointer a) {
 }
 
 
-struct mwCipherInstance *get_supported(struct mwChannel *chan, guint16 id) {
+static struct mwCipherInstance *
+get_supported(struct mwChannel *chan, guint16 id) {
+
   guint32 cid = (guint32) id;
   return g_hash_table_lookup(chan->supported, GUINT_TO_POINTER(cid));
 }
 
 
-void put_supported(struct mwChannel *chan, struct mwCipherInstance *ci) {
+static void put_supported(struct mwChannel *chan,
+			  struct mwCipherInstance *ci) {
+
   struct mwCipher *cipher = mwCipherInstance_getCipher(ci);
   guint32 cid = (guint32) mwCipher_getType(cipher);
   g_hash_table_insert(chan->supported, GUINT_TO_POINTER(cid), ci);
@@ -317,7 +321,9 @@ struct mwOpaque *mwChannel_getAddtlAccept(struct mwChannel *chan) {
 }
 
 
-struct mwCipherInstance *mwChannel_getCipherInstance(struct mwChannel *chan) {
+struct mwCipherInstance *
+mwChannel_getCipherInstance(struct mwChannel *chan) {
+
   g_return_val_if_fail(chan != NULL, NULL);
   return chan->cipher;
 }

@@ -616,7 +616,7 @@ static char *fetch_line(char **str) {
 }
 
 
-void list_get(const char *lines, struct mwSametimeList *l) {
+static void list_get(const char *lines, struct mwSametimeList *l) {
   char *s = (char *) lines;
   char *line;
 

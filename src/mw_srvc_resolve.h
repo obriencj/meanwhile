@@ -26,6 +26,11 @@
 #include <glib/glist.h>
 
 
+#ifdef _cplusplus
+extern "C" {
+#endif
+
+
 /** Type identifier for the conference service */
 #define mwService_RESOLVE  0x00000015
 
@@ -137,4 +142,9 @@ guint32 mwServiceResolve_resolve(struct mwServiceResolve *srvc,
 void mwServiceResolve_cancelResolve(struct mwServiceResolve *, guint32);
 
 
+#ifdef _cplusplus
+}
 #endif
+
+
+#endif /* _MW_SRVC_RESOLVE_H */

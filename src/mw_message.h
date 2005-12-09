@@ -26,6 +26,11 @@
 #include "mw_common.h"
 
 
+#ifdef _cplusplus
+extern "C" {
+#endif
+
+
 /** Cast a pointer to a message subtype (eg, mwMsgHandshake,
     mwMsgAdmin) into a pointer to a mwMessage */
 #define MW_MESSAGE(msg) (&msg->head)
@@ -291,5 +296,10 @@ struct mwMsgAnnounce {
 };
 
 
+#ifdef _cplusplus
+}
 #endif
+
+
+#endif /* _MW_MESSAGE_H */
 

@@ -23,14 +23,19 @@
 #define _MW_SRVC_FT_H
 
 
-#include "mw_common.h"
-
-
 /** @file mw_srvc_ft.h
 
     A file transfer is a simple way to get large chunks of binary data
     from one client to another.
 */
+
+
+#include "mw_common.h"
+
+
+#ifdef _cplusplus
+extern "C" {
+#endif
 
 
 /** @struct mwServiceFileTransfer
@@ -236,4 +241,9 @@ gpointer mwFileTransfer_getClientData(struct mwFileTransfer *ft);
 void mwFileTransfer_removeClientData(struct mwFileTransfer *ft);
 
 
+#ifdef _cplusplus
+}
 #endif
+
+
+#endif /* _MW_SRVC_FT_H */

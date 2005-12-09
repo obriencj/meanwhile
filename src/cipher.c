@@ -144,12 +144,6 @@ static void mp_set_rand(mp_int *i, guint bits) {
 }
 
 
-void mwMpi_rand(struct mwMpi *i, guint bits) {
-  g_return_if_fail(i != NULL);
-  mp_set_rand(&i->i, bits);
-}
-
-
 static void mwDHRandKeypair(mp_int *private, mp_int *public) {
   mp_int prime, base;
  

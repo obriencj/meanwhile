@@ -22,10 +22,6 @@
 #define _MW_CHANNEL_H
 
 
-#include <time.h>
-#include "mw_common.h"
-
-
 /** @file mw_channel.h
     
 Life-cycle of an outgoing channel:
@@ -78,6 +74,15 @@ to be used.
 local action. If by local action, then a close message is sent to
 the server.  The channel is cleaned up, its queues dumped, and it
 is deallocated. */
+
+
+#include <time.h>
+#include "mw_common.h"
+
+
+#ifdef _cplusplus
+extern "C" {
+#endif
 
 
 /* place-holders */
@@ -291,6 +296,10 @@ void mwChannel_selectCipherInstance(struct mwChannel *chan,
 				    struct mwCipherInstance *ci);
 
 
+struct mwCipherInstance *
+mwChannel_getCipherInstance(struct mwChannel *chan);
+
+
 /** get the state of a channel  */
 enum mwChannelState mwChannel_getState(struct mwChannel *);
 
@@ -362,5 +371,10 @@ void mwChannel_recvDestroy(struct mwChannel *chan,
 void mwChannel_recv(struct mwChannel *chan, struct mwMsgChannelSend *msg);
 
 
+#ifdef _cplusplus
+}
 #endif
+
+
+#endif /* _MW_CHANNEL_H */
 

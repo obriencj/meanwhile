@@ -26,6 +26,11 @@
 #include "mw_common.h"
 
 
+#ifdef _cplusplus
+extern "C" {
+#endif
+
+
 /** Type identifier for the conference service */
 #define mwService_CONFERENCE  0x80000010
 
@@ -193,7 +198,12 @@ gpointer mwConference_getClientData(struct mwConference *conf);
 /** remove associated client data if any, and call the cleanup
     function on the data as necessary */
 void mwConference_removeClientData(struct mwConference *conf);
+
+
+#ifdef _cplusplus
+}
+#endif
 				    
 
-#endif
+#endif /* _MW_SRVC_CONF_H */
 

@@ -26,6 +26,11 @@
 #include "mw_common.h"
 
 
+#ifdef _cplusplus
+extern "C" {
+#endif
+
+
 /** Type identifier for the storage service */
 #define mwService_STORAGE  0x00000018
 
@@ -183,4 +188,9 @@ void mwServiceStorage_save(struct mwServiceStorage *srvc,
 			   gpointer data, GDestroyNotify data_free);
 
 
+#ifdef _cplusplus
+}
 #endif
+
+
+#endif /* _MW_SRVC_STORE_H */

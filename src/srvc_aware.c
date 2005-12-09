@@ -418,7 +418,8 @@ static void attrib_recv(struct mwServiceAware *srvc,
 }
 
 
-gboolean list_add(struct mwAwareList *list, struct mwAwareIdBlock *id) {
+static gboolean list_add(struct mwAwareList *list,
+			 struct mwAwareIdBlock *id) {
 
   struct mwServiceAware *srvc = list->service;
   struct aware_entry *aware;

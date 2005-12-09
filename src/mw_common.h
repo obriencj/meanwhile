@@ -22,9 +22,6 @@
 #define _MW_COMMON_H
 
 
-#include <glib.h>
-
-
 /** @file mw_common.h
 
     Common data types and functions for handling those types.
@@ -59,6 +56,14 @@
     <code>gboolean TYPE_equal(TYPE *y, TYPE *z)</code>
     - simple equality test.
 */
+
+
+#include <glib.h>
+
+
+#ifdef _cplusplus
+extern "C" {
+#endif
 
 
 /** @struct mwPutBuffer
@@ -281,8 +286,8 @@ gboolean mwGetBuffer_error(struct mwGetBuffer *b);
 /*@}*/
 
 
-/** @name Basic Data Type Marshalling
-    The basic types are combined to construct the complex types.
+/** @name Basic Data Types
+    The basic types are combined to construct the compound types.
  */
 /*@{*/
 
@@ -327,7 +332,7 @@ void mwOpaque_clone(struct mwOpaque *to, const struct mwOpaque *from);
 /*@}*/
 
 
-/** @name Complex Data Type Marshalling */
+/** @name Compound Data Types */
 /*@{*/
 
 
@@ -424,4 +429,9 @@ void mwEncryptItem_free(struct mwEncryptItem *item);
 /*@}*/
 
 
+#ifdef _cplusplus
+}
 #endif
+
+
+#endif /* _MW_COMMON_H */

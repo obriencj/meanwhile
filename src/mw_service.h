@@ -25,6 +25,11 @@
 #include "mw_common.h"
 
 
+#ifdef _cplusplus
+extern "C" {
+#endif
+
+
 /* place-holders */
 struct mwChannel;
 struct mwService;
@@ -356,5 +361,10 @@ void mwService_removeClientData(struct mwService *service);
 /*@}*/
 
 
+#ifdef _cplusplus
+}
 #endif
+
+
+#endif /* _MW_SERVICE_H */
 

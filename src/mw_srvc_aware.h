@@ -22,9 +22,6 @@
 #define _MW_SRVC_AWARE_H
 
 
-#include "mw_common.h"
-
-
 /** @file mw_srvc_aware.h
 
     The aware service...
@@ -35,6 +32,14 @@
     free'ing its lists and invalidating mwAwareList references from
     client code.
 */
+
+
+#include "mw_common.h"
+
+
+#ifdef _cplusplus
+extern "C" {
+#endif
 
 
 /** Type identifier for the aware service */
@@ -265,6 +270,10 @@ mwServiceAware_getAttribute(struct mwServiceAware *srvc,
 			    guint32 key);
 
 
+#ifdef _cplusplus
+}
 #endif
 
+
+#endif /* _MW_SRVC_AWARE_H */
 
