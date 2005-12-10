@@ -144,6 +144,10 @@ void mwCipher_free(struct mwCipher* cipher);
 struct mwCipher *mwCipherInstance_getCipher(struct mwCipherInstance *ci);
 
 
+/** reference the channel a cipher instance is attached to */
+struct mwChannel *mwCipherInstance_getChannel(struct mwCipherInstance *ci);
+
+
 /** Indicates a cipher has been offered to our channel */
 void mwCipherInstance_offered(struct mwCipherInstance *ci,
 			      struct mwEncryptItem *item);
