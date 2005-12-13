@@ -322,7 +322,8 @@ void mwEncryptExpanded(const int *ekey, guchar *iv,
   int x, y;
 
   /* pad upwards to a multiple of 8 */
-  o_len = (i_len & -8) + 8;
+  /* o_len = (i_len & -8) + 8; */
+  o_len = i_len + (8 - (i_len % 8));
   o = g_malloc(o_len);
 
   out_data->data = o;
@@ -348,8 +349,7 @@ void mwEncryptExpanded(const int *ekey, guchar *iv,
 }
 
 
-void mwEncrypt(const guchar *key, gsize keylen,
-	       guchar *iv,
+void mwEncrypt(const guchar *key, gsize keylen, guchar *iv,
 	       struct mwOpaque *in, struct mwOpaque *out) {
 
   int ekey[64];
@@ -414,8 +414,12 @@ void mwDecryptExpanded(const int *ekey, guchar *iv,
 
   int x, y;
 
-  /* this doesn't check to ensure that in_data->len is a multiple of
-     8, which is damn well ought to be. */
+  if(i_len & 8) {
+    /* this doesn't check to ensure that in_data->len is a multiple of
+       8, which is damn well ought to be. */
+    g_warning("attempting decryption of mis-sized data, %u bytes",
+	      (guint) i_len);
+  }
 
   o = g_malloc(i_len);
   o_len = i_len;
