@@ -144,46 +144,46 @@ static void mp_set_rand(mp_int *i, guint bits) {
 }
 
 
-static void mwDHRandKeypair(mp_int *private, mp_int *public) {
+static void mwDHRandKeypair(mp_int *private_key, mp_int *public_key) {
   mp_int prime, base;
  
   mwInitDHPrime(&prime);
   mwInitDHBase(&base);
 
-  mp_set_rand(private, 512);
-  mp_exptmod(&base, private, &prime, public);
+  mp_set_rand(private_key, 512);
+  mp_exptmod(&base, private_key, &prime, public_key);
 
   mp_clear(&prime);
   mp_clear(&base);
 }
 
 
-void mwMpi_randDHKeypair(struct mwMpi *private, struct mwMpi *public) {
-  g_return_if_fail(private != NULL);
-  g_return_if_fail(public != NULL);
+void mwMpi_randDHKeypair(struct mwMpi *private_key, struct mwMpi *public_key) {
+  g_return_if_fail(private_key != NULL);
+  g_return_if_fail(public_key != NULL);
 
-  mwDHRandKeypair(&private->i, &public->i);
+  mwDHRandKeypair(&private_key->i, &public_key->i);
 }
 
 
-static void mwDHCalculateShared(mp_int *shared, mp_int *remote,
-				mp_int *private) {
+static void mwDHCalculateShared(mp_int *shared_key, mp_int *remote_key,
+				mp_int *private_key) {
   mp_int prime;
  
   mwInitDHPrime(&prime);
-  mp_exptmod(remote, private, &prime, shared);
+  mp_exptmod(remote_key, private_key, &prime, shared_key);
   mp_clear(&prime);
 }
 
 
-void mwMpi_calculateDHShared(struct mwMpi *shared, struct mwMpi *remote,
-			     struct mwMpi *private) {
+void mwMpi_calculateDHShared(struct mwMpi *shared_key, struct mwMpi *remote_key,
+			     struct mwMpi *private_key) {
 
-  g_return_if_fail(shared != NULL);
-  g_return_if_fail(remote != NULL);
-  g_return_if_fail(private != NULL);
+  g_return_if_fail(shared_key != NULL);
+  g_return_if_fail(remote_key != NULL);
+  g_return_if_fail(private_key != NULL);
 
-  mwDHCalculateShared(&shared->i, &remote->i, &private->i);
+  mwDHCalculateShared(&shared_key->i, &remote_key->i, &private_key->i);
 }
 
 

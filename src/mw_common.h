@@ -61,7 +61,7 @@
 #include <glib.h>
 
 
-#ifdef _cplusplus
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -429,7 +429,7 @@ void mwEncryptItem_free(struct mwEncryptItem *item);
 /*@}*/
 
 
-#ifdef _cplusplus
+#ifdef __cplusplus
 }
 #endif
 

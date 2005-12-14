@@ -1,4 +1,8 @@
 
+version 1.0.1 (cvs)
+
+	- fix C++ ifdefs in headers, removed C++ keywords in variable names
+
 version 1.0.0 (2005-12-13)
 	
 	- using shared library versioning, 1:0:0

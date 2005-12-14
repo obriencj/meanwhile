@@ -26,7 +26,7 @@
 #include "mw_common.h"
 
 
-#ifdef _cplusplus
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -277,19 +277,19 @@ void mwMpi_setDHBase(struct mwMpi *i);
 
 /** sets private to a randomly generated value, and calculates public
     using the Sametime Prime and Base */
-void mwMpi_randDHKeypair(struct mwMpi *private, struct mwMpi *public);
+void mwMpi_randDHKeypair(struct mwMpi *private_key, struct mwMpi *public_key);
 
 
 /** sets the shared key value based on the remote and private keys,
     using the Sametime Prime and Base */
-void mwMpi_calculateDHShared(struct mwMpi *shared, struct mwMpi *remote,
-			     struct mwMpi *private);
+void mwMpi_calculateDHShared(struct mwMpi *shared_key, struct mwMpi *remote_key,
+			     struct mwMpi *private_key);
 
 
 /* @} */
 
 
-#ifdef _cplusplus
+#ifdef __cplusplus
 }
 #endif
 

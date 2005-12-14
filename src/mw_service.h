@@ -25,7 +25,7 @@
 #include "mw_common.h"
 
 
-#ifdef _cplusplus
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -361,7 +361,7 @@ void mwService_removeClientData(struct mwService *service);
 /*@}*/
 
 
-#ifdef _cplusplus
+#ifdef __cplusplus
 }
 #endif
 

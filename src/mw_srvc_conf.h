@@ -26,7 +26,7 @@
 #include "mw_common.h"
 
 
-#ifdef _cplusplus
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -200,7 +200,7 @@ gpointer mwConference_getClientData(struct mwConference *conf);
 void mwConference_removeClientData(struct mwConference *conf);
 
 
-#ifdef _cplusplus
+#ifdef __cplusplus
 }
 #endif
 				    

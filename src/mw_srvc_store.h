@@ -26,7 +26,7 @@
 #include "mw_common.h"
 
 
-#ifdef _cplusplus
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -188,7 +188,7 @@ void mwServiceStorage_save(struct mwServiceStorage *srvc,
 			   gpointer data, GDestroyNotify data_free);
 
 
-#ifdef _cplusplus
+#ifdef __cplusplus
 }
 #endif
 

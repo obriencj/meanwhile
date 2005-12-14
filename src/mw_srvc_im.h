@@ -37,7 +37,7 @@
 #include "mw_common.h"
 
 
-#ifdef _cplusplus
+#ifdef __cplusplus
 extern "C" {
 #endif
   
@@ -268,7 +268,7 @@ void mwConversation_removeClientData(struct mwConversation *conv);
 void mwConversation_free(struct mwConversation *conv);
 
 
-#ifdef _cplusplus
+#ifdef __cplusplus
 }
 #endif
 

@@ -25,7 +25,7 @@
 #include <glib/glist.h>
 
 
-#ifdef _cplusplus
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -204,7 +204,7 @@ int mwDirectory_search(struct mwDirectory *dir, const char *query);
 int mwDirectory_destroy(struct mwDirectory *dir);
 
 
-#ifdef _cplusplus
+#ifdef __cplusplus
 }
 #endif
 

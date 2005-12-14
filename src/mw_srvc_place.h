@@ -26,7 +26,7 @@
 #include "mw_common.h"
 
 
-#ifdef _cplusplus
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -139,7 +139,7 @@ gpointer mwPlace_getClientData(struct mwPlace *place);
 void mwPlace_removeClientData(struct mwPlace *place);
 
 
-#ifdef _cplusplus
+#ifdef __cplusplus
 }
 #endif
 

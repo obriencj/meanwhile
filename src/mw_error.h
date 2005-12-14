@@ -35,7 +35,7 @@
 #include <glib.h>
 
 
-#ifdef _cplusplus
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -166,7 +166,7 @@ enum ERR_IM {
 };
 
 
-#ifdef _cplusplus
+#ifdef __cplusplus
 }
 #endif
 

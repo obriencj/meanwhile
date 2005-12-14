@@ -80,7 +80,7 @@ is deallocated. */
 #include "mw_common.h"
 
 
-#ifdef _cplusplus
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -371,7 +371,7 @@ void mwChannel_recvDestroy(struct mwChannel *chan,
 void mwChannel_recv(struct mwChannel *chan, struct mwMsgChannelSend *msg);
 
 
-#ifdef _cplusplus
+#ifdef __cplusplus
 }
 #endif
 

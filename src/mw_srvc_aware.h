@@ -37,7 +37,7 @@
 #include "mw_common.h"
 
 
-#ifdef _cplusplus
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -270,7 +270,7 @@ mwServiceAware_getAttribute(struct mwServiceAware *srvc,
 			    guint32 key);
 
 
-#ifdef _cplusplus
+#ifdef __cplusplus
 }
 #endif
 

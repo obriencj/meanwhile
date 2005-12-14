@@ -34,7 +34,7 @@
 #include "mw_common.h"
 
 
-#ifdef _cplusplus
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -210,7 +210,7 @@ const char *mwSametimeUser_getAlias(struct mwSametimeUser *u);
 
 
 
-#ifdef _cplusplus
+#ifdef __cplusplus
 }
 #endif
 

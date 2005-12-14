@@ -26,7 +26,7 @@
 #include <glib/glist.h>
 
 
-#ifdef _cplusplus
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -142,7 +142,7 @@ guint32 mwServiceResolve_resolve(struct mwServiceResolve *srvc,
 void mwServiceResolve_cancelResolve(struct mwServiceResolve *, guint32);
 
 
-#ifdef _cplusplus
+#ifdef __cplusplus
 }
 #endif
 

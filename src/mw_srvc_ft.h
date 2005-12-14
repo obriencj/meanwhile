@@ -33,7 +33,7 @@
 #include "mw_common.h"
 
 
-#ifdef _cplusplus
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -241,7 +241,7 @@ gpointer mwFileTransfer_getClientData(struct mwFileTransfer *ft);
 void mwFileTransfer_removeClientData(struct mwFileTransfer *ft);
 
 
-#ifdef _cplusplus
+#ifdef __cplusplus
 }
 #endif
 

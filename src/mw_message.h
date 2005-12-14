@@ -26,7 +26,7 @@
 #include "mw_common.h"
 
 
-#ifdef _cplusplus
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -296,7 +296,7 @@ struct mwMsgAnnounce {
 };
 
 
-#ifdef _cplusplus
+#ifdef __cplusplus
 }
 #endif
 
