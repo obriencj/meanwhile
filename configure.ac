@@ -2,10 +2,10 @@
 # version of meanwhile
 m4_define(meanwhile_major,	1)
 m4_define(meanwhile_minor,	0)
-m4_define(meanwhile_micro,	0)
+m4_define(meanwhile_micro,	1)
 
 # release of meanwhile. 0 for CVS, 1 for release
-m4_define(meanwhile_release,	1)
+m4_define(meanwhile_release,	0)
 
 # required and compat version of glib2.
 m4_define(glib_required_version,	2.0.0)
@@ -32,12 +32,14 @@ AC_HEADER_STDC
 
 
 
-# Darwin is special I guess
-if test `uname` = "Darwin" ; then
-	MW_SO_OS_FLAGS=-dynamic-lib
-else	
-	MW_SO_OS_FLAGS=-shared
-fi
+case "${host}" in
+*darwin)
+	MW_SO_OS_FLAGS="-dynamic-lib";;
+*mingw32)
+	MW_SO_OS_FLAGS="-shared -no-undefined";;
+*)
+	MW_SO_OS_FLAGS="-shared";;
+esac
 AC_SUBST(MW_SO_OS_FLAGS)
 
 
@@ -111,18 +113,16 @@ AC_CONFIG_FILES([samples/build], [chmod +x samples/build])
 
 AC_OUTPUT()
 
-
-
 echo
 
-echo -n "mailme debug mode..       : "
+echo -n "mailme debug mode........ : "
 if test "$MW_MAILME" = 1 ; then
    echo "enabled"
 else
    echo "disabled"
 fi
 
-echo -n "Doxygen generation...     : "
+echo -n "Doxygen generation....... : "
 if test "$enable_doxygen" = "yes" ; then
    echo "enabled"
 else
