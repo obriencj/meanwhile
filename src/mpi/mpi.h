@@ -1,13 +1,13 @@
 /*
-    mpi.h
-
-    by Michael J. Fromberger <http://www.dartmouth.edu/~sting/>
-    Copyright (C) 1998 Michael J. Fromberger, All Rights Reserved
-
-    Arbitrary precision integer arithmetic library
-
-    $Id$
- */
+  mpi.h
+  
+  by Michael J. Fromberger <http://www.dartmouth.edu/~sting/>
+  Copyright (C) 1998 Michael J. Fromberger, All Rights Reserved
+  
+  Arbitrary precision integer arithmetic library
+  
+  modified for use in Meanwhile as a convenience library
+*/
 
 #ifndef _H_MPI_
 #define _H_MPI_
@@ -48,7 +48,7 @@
 #define DIGIT_BIT         MP_DIGIT_BIT
 #define DIGIT_MAX         MP_DIGIT_MAX
 
-/* Macros for accessing the mp_int internals           */
+/* Macros for accessing the mw_mp_int internals           */
 #define  SIGN(MP)     ((MP)->sign)
 #define  USED(MP)     ((MP)->used)
 #define  ALLOC(MP)    ((MP)->alloc)
@@ -68,112 +68,112 @@
 #define MAX_RADIX         64
 
 typedef struct {
-  mp_sign       sign;    /* sign of this quantity      */
-  mp_size       alloc;   /* how many digits allocated  */
-  mp_size       used;    /* how many digits used       */
-  mp_digit     *dp;      /* the digits themselves      */
-} mp_int;
+  mw_mp_sign       sign;    /* sign of this quantity      */
+  mw_mp_size       alloc;   /* how many digits allocated  */
+  mw_mp_size       used;    /* how many digits used       */
+  mw_mp_digit     *dp;      /* the digits themselves      */
+} mw_mp_int;
 
 /*------------------------------------------------------------------------*/
 /* Default precision                                                      */
 
-unsigned int mp_get_prec(void);
-void         mp_set_prec(unsigned int prec);
+unsigned int mw_mp_get_prec(void);
+void         mw_mp_set_prec(unsigned int prec);
 
 /*------------------------------------------------------------------------*/
 /* Memory management                                                      */
 
-mp_err mp_init(mp_int *mp);
-mp_err mp_init_array(mp_int mp[], int count);
-mp_err mp_init_size(mp_int *mp, mp_size prec);
-mp_err mp_init_copy(mp_int *mp, mp_int *from);
-mp_err mp_copy(mp_int *from, mp_int *to);
-void   mp_exch(mp_int *mp1, mp_int *mp2);
-void   mp_clear(mp_int *mp);
-void   mp_clear_array(mp_int mp[], int count);
-void   mp_zero(mp_int *mp);
-void   mp_set(mp_int *mp, mp_digit d);
-mp_err mp_set_int(mp_int *mp, long z);
+mw_mp_err mw_mp_init(mw_mp_int *mp);
+mw_mp_err mw_mp_init_array(mw_mp_int mp[], int count);
+mw_mp_err mw_mp_init_size(mw_mp_int *mp, mw_mp_size prec);
+mw_mp_err mw_mp_init_copy(mw_mp_int *mp, mw_mp_int *from);
+mw_mp_err mw_mp_copy(mw_mp_int *from, mw_mp_int *to);
+void   mw_mp_exch(mw_mp_int *mp1, mw_mp_int *mp2);
+void   mw_mp_clear(mw_mp_int *mp);
+void   mw_mp_clear_array(mw_mp_int mp[], int count);
+void   mw_mp_zero(mw_mp_int *mp);
+void   mw_mp_set(mw_mp_int *mp, mw_mp_digit d);
+mw_mp_err mw_mp_set_int(mw_mp_int *mp, long z);
 
 /*------------------------------------------------------------------------*/
 /* Single digit arithmetic                                                */
 
-mp_err mp_add_d(mp_int *a, mp_digit d, mp_int *b);
-mp_err mp_sub_d(mp_int *a, mp_digit d, mp_int *b);
-mp_err mp_mul_d(mp_int *a, mp_digit d, mp_int *b);
-mp_err mp_mul_2(mp_int *a, mp_int *c);
-mp_err mp_div_d(mp_int *a, mp_digit d, mp_int *q, mp_digit *r);
-mp_err mp_div_2(mp_int *a, mp_int *c);
-mp_err mp_expt_d(mp_int *a, mp_digit d, mp_int *c);
+mw_mp_err mw_mp_add_d(mw_mp_int *a, mw_mp_digit d, mw_mp_int *b);
+mw_mp_err mw_mp_sub_d(mw_mp_int *a, mw_mp_digit d, mw_mp_int *b);
+mw_mp_err mw_mp_mul_d(mw_mp_int *a, mw_mp_digit d, mw_mp_int *b);
+mw_mp_err mw_mp_mul_2(mw_mp_int *a, mw_mp_int *c);
+mw_mp_err mw_mp_div_d(mw_mp_int *a, mw_mp_digit d, mw_mp_int *q, mw_mp_digit *r);
+mw_mp_err mw_mp_div_2(mw_mp_int *a, mw_mp_int *c);
+mw_mp_err mw_mp_expt_d(mw_mp_int *a, mw_mp_digit d, mw_mp_int *c);
 
 /*------------------------------------------------------------------------*/
 /* Sign manipulations                                                     */
 
-mp_err mp_abs(mp_int *a, mp_int *b);
-mp_err mp_neg(mp_int *a, mp_int *b);
+mw_mp_err mw_mp_abs(mw_mp_int *a, mw_mp_int *b);
+mw_mp_err mw_mp_neg(mw_mp_int *a, mw_mp_int *b);
 
 /*------------------------------------------------------------------------*/
 /* Full arithmetic                                                        */
 
-mp_err mp_add(mp_int *a, mp_int *b, mp_int *c);
-mp_err mp_sub(mp_int *a, mp_int *b, mp_int *c);
-mp_err mp_mul(mp_int *a, mp_int *b, mp_int *c);
-mp_err mp_mul_2d(mp_int *a, mp_digit d, mp_int *c);
+mw_mp_err mw_mp_add(mw_mp_int *a, mw_mp_int *b, mw_mp_int *c);
+mw_mp_err mw_mp_sub(mw_mp_int *a, mw_mp_int *b, mw_mp_int *c);
+mw_mp_err mw_mp_mul(mw_mp_int *a, mw_mp_int *b, mw_mp_int *c);
+mw_mp_err mw_mp_mul_2d(mw_mp_int *a, mw_mp_digit d, mw_mp_int *c);
 #if MP_SQUARE
-mp_err mp_sqr(mp_int *a, mp_int *b);
+mw_mp_err mw_mp_sqr(mw_mp_int *a, mw_mp_int *b);
 #else
-#define mp_sqr(a, b) mp_mul(a, a, b)
+#define mw_mp_sqr(a, b) mw_mp_mul(a, a, b)
 #endif
-mp_err mp_div(mp_int *a, mp_int *b, mp_int *q, mp_int *r);
-mp_err mp_div_2d(mp_int *a, mp_digit d, mp_int *q, mp_int *r);
-mp_err mp_expt(mp_int *a, mp_int *b, mp_int *c);
-mp_err mp_2expt(mp_int *a, mp_digit k);
-mp_err mp_sqrt(mp_int *a, mp_int *b);
+mw_mp_err mw_mp_div(mw_mp_int *a, mw_mp_int *b, mw_mp_int *q, mw_mp_int *r);
+mw_mp_err mw_mp_div_2d(mw_mp_int *a, mw_mp_digit d, mw_mp_int *q, mw_mp_int *r);
+mw_mp_err mw_mp_expt(mw_mp_int *a, mw_mp_int *b, mw_mp_int *c);
+mw_mp_err mw_mp_2expt(mw_mp_int *a, mw_mp_digit k);
+mw_mp_err mw_mp_sqrt(mw_mp_int *a, mw_mp_int *b);
 
 /*------------------------------------------------------------------------*/
 /* Modular arithmetic                                                     */
 
 #if MP_MODARITH
-mp_err mp_mod(mp_int *a, mp_int *m, mp_int *c);
-mp_err mp_mod_d(mp_int *a, mp_digit d, mp_digit *c);
-mp_err mp_addmod(mp_int *a, mp_int *b, mp_int *m, mp_int *c);
-mp_err mp_submod(mp_int *a, mp_int *b, mp_int *m, mp_int *c);
-mp_err mp_mulmod(mp_int *a, mp_int *b, mp_int *m, mp_int *c);
+mw_mp_err mw_mp_mod(mw_mp_int *a, mw_mp_int *m, mw_mp_int *c);
+mw_mp_err mw_mp_mod_d(mw_mp_int *a, mw_mp_digit d, mw_mp_digit *c);
+mw_mp_err mw_mp_addmod(mw_mp_int *a, mw_mp_int *b, mw_mp_int *m, mw_mp_int *c);
+mw_mp_err mw_mp_submod(mw_mp_int *a, mw_mp_int *b, mw_mp_int *m, mw_mp_int *c);
+mw_mp_err mw_mp_mulmod(mw_mp_int *a, mw_mp_int *b, mw_mp_int *m, mw_mp_int *c);
 #if MP_SQUARE
-mp_err mp_sqrmod(mp_int *a, mp_int *m, mp_int *c);
+mw_mp_err mw_mp_sqrmod(mw_mp_int *a, mw_mp_int *m, mw_mp_int *c);
 #else
-#define mp_sqrmod(a, m, c) mp_mulmod(a, a, m, c)
+#define mw_mp_sqrmod(a, m, c) mw_mp_mulmod(a, a, m, c)
 #endif
-mp_err mp_exptmod(mp_int *a, mp_int *b, mp_int *m, mp_int *c);
-mp_err mp_exptmod_d(mp_int *a, mp_digit d, mp_int *m, mp_int *c);
+mw_mp_err mw_mp_exptmod(mw_mp_int *a, mw_mp_int *b, mw_mp_int *m, mw_mp_int *c);
+mw_mp_err mw_mp_exptmod_d(mw_mp_int *a, mw_mp_digit d, mw_mp_int *m, mw_mp_int *c);
 #endif /* MP_MODARITH */
 
 /*------------------------------------------------------------------------*/
 /* Comparisons                                                            */
 
-int    mp_cmp_z(mp_int *a);
-int    mp_cmp_d(mp_int *a, mp_digit d);
-int    mp_cmp(mp_int *a, mp_int *b);
-int    mp_cmp_mag(mp_int *a, mp_int *b);
-int    mp_cmp_int(mp_int *a, long z);
-int    mp_isodd(mp_int *a);
-int    mp_iseven(mp_int *a);
+int    mw_mp_cmw_mp_z(mw_mp_int *a);
+int    mw_mp_cmw_mp_d(mw_mp_int *a, mw_mp_digit d);
+int    mw_mp_cmp(mw_mp_int *a, mw_mp_int *b);
+int    mw_mp_cmw_mp_mag(mw_mp_int *a, mw_mp_int *b);
+int    mw_mp_cmw_mp_int(mw_mp_int *a, long z);
+int    mw_mp_isodd(mw_mp_int *a);
+int    mw_mp_iseven(mw_mp_int *a);
 
 /*------------------------------------------------------------------------*/
 /* Number theoretic                                                       */
 
 #if MP_NUMTH
-mp_err mp_gcd(mp_int *a, mp_int *b, mp_int *c);
-mp_err mp_lcm(mp_int *a, mp_int *b, mp_int *c);
-mp_err mp_xgcd(mp_int *a, mp_int *b, mp_int *g, mp_int *x, mp_int *y);
-mp_err mp_invmod(mp_int *a, mp_int *m, mp_int *c);
+mw_mp_err mw_mp_gcd(mw_mp_int *a, mw_mp_int *b, mw_mp_int *c);
+mw_mp_err mw_mp_lcm(mw_mp_int *a, mw_mp_int *b, mw_mp_int *c);
+mw_mp_err mw_mp_xgcd(mw_mp_int *a, mw_mp_int *b, mw_mp_int *g, mw_mp_int *x, mw_mp_int *y);
+mw_mp_err mw_mp_invmod(mw_mp_int *a, mw_mp_int *m, mw_mp_int *c);
 #endif /* end MP_NUMTH */
 
 /*------------------------------------------------------------------------*/
 /* Input and output                                                       */
 
 #if MP_IOFUNC
-void   mp_print(mp_int *mp, FILE *ofp);
+void   mw_mp_print(mw_mp_int *mp, FILE *ofp);
 #endif /* end MP_IOFUNC */
 
 /*------------------------------------------------------------------------*/
@@ -182,40 +182,40 @@ void   mp_print(mp_int *mp, FILE *ofp);
 #define BITS     1
 #define BYTES    CHAR_BIT
 
-mp_err mp_read_signed_bin(mp_int *mp, unsigned char *str, int len);
-int    mp_signed_bin_size(mp_int *mp);
-mp_err mp_to_signed_bin(mp_int *mp, unsigned char *str);
+mw_mp_err mw_mp_read_signed_bin(mw_mp_int *mp, unsigned char *str, int len);
+int    mw_mp_signed_bin_size(mw_mp_int *mp);
+mw_mp_err mw_mp_to_signed_bin(mw_mp_int *mp, unsigned char *str);
 
-mp_err mp_read_unsigned_bin(mp_int *mp, unsigned char *str, int len);
-int    mp_unsigned_bin_size(mp_int *mp);
-mp_err mp_to_unsigned_bin(mp_int *mp, unsigned char *str);
+mw_mp_err mw_mp_read_unsigned_bin(mw_mp_int *mp, unsigned char *str, int len);
+int    mw_mp_unsigned_bin_size(mw_mp_int *mp);
+mw_mp_err mw_mp_to_unsigned_bin(mw_mp_int *mp, unsigned char *str);
 
-int    mp_count_bits(mp_int *mp);
+int    mw_mp_count_bits(mw_mp_int *mp);
 
 #if MP_COMPAT_MACROS
-#define mp_read_raw(mp, str, len) mp_read_signed_bin((mp), (str), (len))
-#define mp_raw_size(mp)           mp_signed_bin_size(mp)
-#define mp_toraw(mp, str)         mp_to_signed_bin((mp), (str))
-#define mp_read_mag(mp, str, len) mp_read_unsigned_bin((mp), (str), (len))
-#define mp_mag_size(mp)           mp_unsigned_bin_size(mp)
-#define mp_tomag(mp, str)         mp_to_unsigned_bin((mp), (str))
+#define mw_mp_read_raw(mp, str, len) mw_mp_read_signed_bin((mp), (str), (len))
+#define mw_mp_raw_size(mp)           mw_mp_signed_bin_size(mp)
+#define mw_mp_toraw(mp, str)         mw_mp_to_signed_bin((mp), (str))
+#define mw_mp_read_mag(mp, str, len) mw_mp_read_unsigned_bin((mp), (str), (len))
+#define mw_mp_mag_size(mp)           mw_mp_unsigned_bin_size(mp)
+#define mw_mp_tomag(mp, str)         mw_mp_to_unsigned_bin((mp), (str))
 #endif
 
-mp_err mp_read_radix(mp_int *mp, unsigned char *str, int radix);
-int    mp_radix_size(mp_int *mp, int radix);
-int    mp_value_radix_size(int num, int qty, int radix);
-mp_err mp_toradix(mp_int *mp, unsigned char *str, int radix);
+mw_mp_err mw_mp_read_radix(mw_mp_int *mp, unsigned char *str, int radix);
+int    mw_mp_radix_size(mw_mp_int *mp, int radix);
+int    mw_mp_value_radix_size(int num, int qty, int radix);
+mw_mp_err mw_mp_toradix(mw_mp_int *mp, unsigned char *str, int radix);
 
-int    mp_char2value(char ch, int r);
+int    mw_mp_char2value(char ch, int r);
 
-#define mp_tobinary(M, S)  mp_toradix((M), (S), 2)
-#define mp_tooctal(M, S)   mp_toradix((M), (S), 8)
-#define mp_todecimal(M, S) mp_toradix((M), (S), 10)
-#define mp_tohex(M, S)     mp_toradix((M), (S), 16)
+#define mw_mp_tobinary(M, S)  mw_mp_toradix((M), (S), 2)
+#define mw_mp_tooctal(M, S)   mw_mp_toradix((M), (S), 8)
+#define mw_mp_todecimal(M, S) mw_mp_toradix((M), (S), 10)
+#define mw_mp_tohex(M, S)     mw_mp_toradix((M), (S), 16)
 
 /*------------------------------------------------------------------------*/
 /* Error strings                                                          */
 
-const  char  *mp_strerror(mp_err ec);
+const  char  *mw_mp_strerror(mw_mp_err ec);
 
 #endif /* end _H_MPI_ */

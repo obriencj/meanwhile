@@ -1,5 +1,4 @@
 /* Default configuration for MPI library */
-/* $Id$ */
 
 #ifndef MPI_CONFIG_H_
 #define MPI_CONFIG_H_
@@ -26,7 +25,7 @@
 #endif
 
 #ifndef MP_LOGTAB
-#define MP_LOGTAB     1  /* use table of logs instead of log()? */
+#define MP_LOGTAB     0  /* use table of logs instead of log()? */
 #endif
 
 #ifndef MP_MEMSET
@@ -55,7 +54,7 @@
 #endif
 
 #ifndef MP_DEFPREC
-#define MP_DEFPREC    16 /* default precision, in digits        */
+#define MP_DEFPREC    32 /* default precision, in digits        */
 #endif
 
 #ifndef MP_MACRO

@@ -35,7 +35,7 @@ AC_HEADER_STDC
 case "${host}" in
 *darwin)
 	MW_SO_OS_FLAGS="-dynamic-lib";;
-*mingw32)
+*mingw32 | *cygwin)
 	MW_SO_OS_FLAGS="-shared -no-undefined";;
 *)
 	MW_SO_OS_FLAGS="-shared";;
