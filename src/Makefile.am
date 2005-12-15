@@ -28,8 +28,7 @@ noinst_HEADERS = \
 mwincludedir = $(includedir)/meanwhile
 
 libmeanwhile_la_CFLAGS = \
-	$(DEBUG_CFLAGS) \
-	$(GLIB_CFLAGS) $(GMP_CFLAGS)
+	$(DEBUG_CFLAGS)	$(GLIB_CFLAGS)
 
 libmeanwhile_la_LDFLAGS = \
 	@MW_SO_OS_FLAGS@ \

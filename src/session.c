@@ -276,7 +276,7 @@ void mwSession_start(struct mwSession *s) {
 
   if(msg->major >= 0x001e && msg->minor >= 0x001d) {
     msg->unknown_a = 0x0100;
-    msg->local_host = (char *) property_get(s, mwSession_CLIENT_HOST);
+    msg->local_host = property_get(s, mwSession_CLIENT_HOST);
   }
 
   ret = mwSession_send(s, MW_MESSAGE(msg));
