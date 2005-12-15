@@ -456,7 +456,7 @@ static void HANDSHAKE_ACK_recv(struct mwSession *s,
   /** @todo default to password for now. later use token optionally */
   {
     const char *pw;
-    pw = (const char *) property_get(s, mwSession_AUTH_PASSWORD);
+    pw = property_get(s, mwSession_AUTH_PASSWORD);
    
     if(msg->data.len >= 64) {
       /* good login encryption */

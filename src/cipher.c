@@ -134,7 +134,7 @@ static void mw_mp_set_rand(mw_mp_int *i, guint bits) {
   l = len = (bits / 8) + 1;
   buf = g_malloc(len);
 
-  srand(clock());
+  srand(time(NULL));
   while(l--) buf[l] = rand() & 0xff;
 
   buf[0] &= (0xff >> (8 - (bits % 8)));
@@ -218,18 +218,20 @@ void mwMpi_export(struct mwMpi *i, struct mwOpaque *o) {
 void mwKeyRandom(guchar *key, gsize keylen) {
   g_return_if_fail(key != NULL);
 
-  srand(clock());
+  srand(time(NULL));
   while(keylen--) key[keylen] = rand() & 0xff;
 }
 
 
 void mwIV_init(guchar *iv) {
-  int i;
-  static guchar normal_iv[] = {
-    0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef
-  };
-  for(i = 8; i--; iv[i] = normal_iv[i]);
-  /* memcpy(iv, normal_iv, 8); */
+  iv[0] = 0x01;
+  iv[1] = 0x23;
+  iv[2] = 0x45;
+  iv[3] = 0x67;
+  iv[4] = 0x89;
+  iv[5] = 0xab;
+  iv[6] = 0xcd;
+  iv[7] = 0xef;
 }
 
 
