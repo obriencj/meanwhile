@@ -132,6 +132,8 @@ fi
 echo
 echo configure complete, now run \`make\`
 echo
+echo you may need to run \`ldconfig\` as root after installation before
+echo being able to load this library
 
 
 # The End.
