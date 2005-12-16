@@ -1,7 +1,11 @@
 
-version 1.0.1 (cvs)
+version 1.0.1 (2005-12-16)
 
-	- fix C++ ifdefs in headers, removed C++ keywords in variable names
+	Bug Fixes
+	- fix C++ ifdefs in headers, removed C++ keywords in variable
+	names
+	- Bug #1379550 meanwhile 1.0.0, login verification unavailable
+	error
 
 version 1.0.0 (2005-12-13)
 	
