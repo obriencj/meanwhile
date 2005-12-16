@@ -31,6 +31,10 @@ AC_PROG_INSTALL
 AC_HEADER_STDC
 
 
+dnl  current:revision:age
+MW_SO_VERSION=1:1:0
+AC_SUBST(MW_SO_VERSION)
+
 
 case "${host}" in
 *darwin)
@@ -41,10 +45,6 @@ case "${host}" in
 	MW_SO_OS_FLAGS="-shared";;
 esac
 AC_SUBST(MW_SO_OS_FLAGS)
-
-
-MW_SO_VERSION=meanwhile_major:meanwhile_minor:meanwhile_micro
-AC_SUBST(MW_SO_VERSION)
 
 
 
