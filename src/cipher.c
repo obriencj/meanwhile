@@ -416,7 +416,7 @@ void mwDecryptExpanded(const int *ekey, guchar *iv,
 
   int x, y;
 
-  if(i_len & 8) {
+  if(i_len % 8) {
     /* this doesn't check to ensure that in_data->len is a multiple of
        8, which is damn well ought to be. */
     g_warning("attempting decryption of mis-sized data, %u bytes",
