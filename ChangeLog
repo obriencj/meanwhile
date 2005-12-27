@@ -4,7 +4,7 @@ version 1.0.2 (cvs)
 	Bug Fixes
 	- fix error 0x8000001f when inviting Sametime Connect user to a
 	chat (stopped offering encryption on conferences)
-	- fix problem in chat invitations coming from null users
+	- Bug #1390997 crash when accepting conference invite
 	
 version 1.0.1 (2005-12-16)
 
