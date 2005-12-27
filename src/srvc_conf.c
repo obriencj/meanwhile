@@ -683,8 +683,10 @@ int mwConference_open(struct mwConference *conf) {
   mwChannel_setProtoType(chan, PROTOCOL_TYPE);
   mwChannel_setProtoVer(chan, PROTOCOL_VER);
   
+#if 0
   /* offer all known ciphers */
   mwChannel_populateSupportedCipherInstances(chan);
+#endif
 
   b = mwPutBuffer_new();
   mwString_put(b, conf->name);

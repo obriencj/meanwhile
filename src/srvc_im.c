@@ -523,6 +523,8 @@ static void convo_invite(struct mwConversation *conv,
 
   struct mwGetBuffer *b;
   char *title, *name, *msg;
+  char *unkn, *host;
+  guint16 with_who;
 
   g_info("convo_invite");
 
@@ -539,7 +541,25 @@ static void convo_invite(struct mwConversation *conv,
   mwGetBuffer_advance(b, 19);
   mwString_get(b, &name);
 
-  if(! mwGetBuffer_error(b)) {
+  /* todo: add a mwString_skip */
+  mwString_get(b, &unkn);
+  mwString_get(b, &host);
+  g_free(unkn);
+  g_free(host);
+
+  /* hack. Sometimes incoming convo invitation channels won't have the
+     owner id block filled in */
+  guint16_get(b, &with_who);
+  if(with_who && !conv->target.user) {
+    char *login;
+    mwString_get(b, &conv->target.user);
+    mwString_get(b, &login); g_free(login);
+    mwString_get(b, &conv->target.community);
+  }  
+
+  if(mwGetBuffer_error(b)) {
+    mw_mailme_opaque(o, "problem with place invite over IM service");
+  } else {
     handler->place_invite(conv, msg, title, name);
   }
 
