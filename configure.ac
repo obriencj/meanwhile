@@ -23,8 +23,9 @@ AC_PREREQ([2.50])
 AM_MAINTAINER_MODE
 
 AC_PROG_CC
-AC_PROG_LIBTOOL
 AC_PROG_INSTALL
+AC_PROG_LIBTOOL
+LIBTOOL="$LIBTOOL --silent"
 
 AC_HEADER_STDC
 
@@ -90,8 +91,8 @@ AC_SUBST(WITH_DOC_SUBPACKAGE)
 
 
 
-# libm for log in mpi.c
-AC_CHECK_LIB(m, log, LIBM="-lm")
+# libm for use in mpi.c
+AC_CHECK_LIB(m, main, LIBM="-lm")
 AC_CHECK_HEADER(math.h)
 AC_SUBST(LIBM)
 

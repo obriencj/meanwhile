@@ -2,13 +2,18 @@
 #! /bin/sh
 
 
-CC=gcc
-PKGCONFIG=pkg-config
+CC=@CC@
+PKG_CONFIG=@PKG_CONFIG@
 
 
 function build() {
-    SAMPLE=$1
-    SOURCE="${SAMPLE}.c"
+    if (echo "$1" | grep '\.c$' > /dev/null) ; then
+        SAMPLE=$(echo "$1" | sed 's/\.c$//')
+        SOURCE="$1"
+    else
+        SAMPLE="$1"
+        SOURCE="${SAMPLE}.c"
+    fi
 
     if test -z "$SOURCE" ; then
 	echo "please specify a target to build"
@@ -22,7 +27,7 @@ function build() {
     PKG_CONFIG_PATH="$PKG_CONFIG_PATH":@prefix@/lib/pkgconfig
     export PKG_CONFIG_PATH
 
-    CFLAGS=`$PKGCONFIG --libs --cflags glib-2.0 meanwhile`
+    CFLAGS=`$PKG_CONFIG --libs --cflags glib-2.0 meanwhile`
 
     "$CC" $CFLAGS -o "$SAMPLE" "$SOURCE"
     return $?
