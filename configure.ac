@@ -31,13 +31,13 @@ AC_HEADER_STDC
 
 
 
-dnl  current:revision:age
+# current:revision:age
 MW_SO_VERSION=$((meanwhile_major+meanwhile_minor)):meanwhile_micro:meanwhile_minor
 AC_SUBST(MW_SO_VERSION)
 
 
 
-dnl  os-specific so flags
+# os-specific so flags
 case "${host}" in
 *darwin)
 	MW_SO_OS_FLAGS="-dynamic-lib";;
