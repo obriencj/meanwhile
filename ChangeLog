@@ -1,5 +1,5 @@
 
-version 1.0.2 (cvs)
+version 1.0.2 (2005-12-29)
 
 	Bug Fixes
 	- fix error 0x8000001f when inviting Sametime Connect user to a
@@ -16,8 +16,7 @@ version 1.0.1 (2005-12-16)
 
 version 1.0.0 (2005-12-13)
 	
-	- using shared library versioning, 1:0:0
-	
+	- using shared library versioning, 1:0:0	
 	- using MPI code from http://www.cs.dartmouth.edu/~sting/mpi/ as a
 	replacement for the GMP dependancy
 
