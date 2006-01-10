@@ -1,4 +1,8 @@
 
+version 1.0.3 (cvs)
+
+	- fix for possible absense of G_MAXUINT16 macro in mpi-types.h
+	
 version 1.0.2 (2005-12-29)
 
 	Bug Fixes
