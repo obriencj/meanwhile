@@ -5,3 +5,5 @@ Makefile.in
 lib*
 mw_config.h
 old
+test
+stamp-h1
