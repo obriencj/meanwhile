@@ -1,3 +1,5 @@
+#ifndef _MW_DEBUG_H
+#define _MW_DEBUG_H
 
 /*
   Meanwhile - Unofficial Lotus Sametime Community Client Library
@@ -18,14 +20,12 @@
   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
-#ifndef _MW_DEBUG_H
-#define _MW_DEBUG_H
-
 
 #include <stdarg.h>
 #include <glib.h>
 
 #include "mw_common.h"
+#include "mw_config.h"
 
 
 /** replaces NULL strings with "(null)". useful for printf where
@@ -43,6 +43,37 @@
 #ifndef g_info
 #define g_info(format...) g_log(G_LOG_DOMAIN, G_LOG_LEVEL_INFO, format)
 #endif
+
+
+#if DEBUG
+
+#define mw_debug_enter() (g_debug("entering %s:%s",__FILE__,__FUNCTION__))
+
+#define mw_debug_leave() (g_debug("leaving %s:%s",__FILE__,__FUNCTION__))
+
+#define mw_debug_exit() mw_debug_leave()
+
+#define mw_debug_return()				\
+  { g_debug("leaving %s:%s",__FILE__,__FUNCTION__);	\
+    return; }
+
+#define mw_debug_return_val(val)					\
+  { g_debug("leaving %s:%s, returning %s", __FILE__,__FUNCTION__,#val); \
+    return (val); }
+
+#else /* DEBUG */
+
+#define mw_debug_enter()
+
+#define mw_debug_leave()
+
+#define mw_debug_exit() mw_debug_leave()
+
+#define mw_debug_return() { return; }
+
+#define mw_debug_return_val(val) { return (val); }
+
+#endif /* DEBUG */
 
 
 #ifndef MW_MAILME_ADDRESS
@@ -75,30 +106,30 @@
 
 
 void mw_debug_datav(const guchar *buf, gsize len,
-		    const char *info, va_list args);
+		    const gchar *info, va_list args);
 
 
 void mw_debug_data(const guchar *buf, gsize len,
-		   const char *info, ...);
+		   const gchar *info, ...);
 
 
-void mw_debug_opaquev(struct mwOpaque *o, const char *info, va_list args);
+void mw_debug_opaquev(const MwOpaque *o, const gchar *info, va_list args);
 
 
-void mw_debug_opaque(struct mwOpaque *o, const char *info, ...);
+void mw_debug_opaque(const MwOpaque *o, const gchar *info, ...);
 
 
 void mw_mailme_datav(const guchar *buf, gsize len,
-		     const char *info, va_list args);
+		     const gchar *info, va_list args);
 
 void mw_mailme_data(const guchar *buf, gsize len,
-		    const char *info, ...);
+		    const gchar *info, ...);
 
 
 /** Outputs a hex dump of a mwOpaque with debugging info and a
     pre-defined message. Identical to mw_mailme_opaque, but taking a
     va_list argument */
-void mw_mailme_opaquev(struct mwOpaque *o, const char *info, va_list args);
+void mw_mailme_opaquev(const MwOpaque *o, const gchar *info, va_list args);
 
 
 
@@ -121,7 +152,7 @@ void mw_mailme_opaquev(struct mwOpaque *o, const char *info, va_list args);
     MW_MAILME_CUT_STOP
     @endcode
  */
-void mw_mailme_opaque(struct mwOpaque *o, const char *info, ...);
+void mw_mailme_opaque(const MwOpaque *o, const gchar *info, ...);
 
 
 #endif

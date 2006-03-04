@@ -1,8 +1,8 @@
 
 # version of meanwhile
-m4_define(meanwhile_major,	1)
+m4_define(meanwhile_major,	2)
 m4_define(meanwhile_minor,	0)
-m4_define(meanwhile_micro,	3)
+m4_define(meanwhile_micro,	0)
 
 # release of meanwhile. 0 for CVS, 1 for release
 m4_define(meanwhile_release,	0)
@@ -14,6 +14,7 @@ m4_define(glib_required_version,	2.0.0)
 
 AC_INIT
 AM_INIT_AUTOMAKE(meanwhile, meanwhile_major.meanwhile_minor.meanwhile_micro)
+
 
 RELEASE=meanwhile_release
 AC_SUBST(RELEASE)
@@ -28,6 +29,16 @@ AC_PROG_LIBTOOL
 LIBTOOL="$LIBTOOL --silent"
 
 AC_HEADER_STDC
+
+
+
+AC_CONFIG_HEADER([src/mw_config.h])
+
+AC_DEFINE(MW_VERSION, "meanwhile_major.meanwhile_minor.meanwhile_micro")
+AC_DEFINE(MW_VER_MAJOR, meanwhile_major)
+AC_DEFINE(MW_VER_MINOR, meanwhile_minor)
+AC_DEFINE(MW_VER_MICRO, meanwhile_micro)
+AC_DEFINE(MW_VER_RELEASE, "meanwhile_release")
 
 
 
@@ -112,10 +123,27 @@ AC_SUBST(GLIB_LIBS)
 
 
 
+# GObject-2.0
+PKG_CHECK_MODULES(GOBJECT,
+[gobject-2.0 >= glib_required_version],
+[
+	AC_DEFINE(HAVE_GOBJECT, 1, [Define if we've found gobject.])
+])
+
+GOBJECT_VERSION=glib_required_version
+AC_SUBST(GOBJECT_VERSION)
+AC_SUBST(GOBJECT_CFLAGS)
+AC_SUBST(GOBJECT_LIBS)
+
+
+
+GTK_DOC_CHECK(1.0)
+
+
+
 AC_CONFIG_FILES(
 	[Makefile src/Makefile src/mpi/Makefile]
-	[samples/Makefile]
-	[doc/Makefile doc/Doxyfile]
+dnl	[doc/Makefile samples/Makefile]
 	[meanwhile.spec meanwhile.pc]
 )
 
@@ -129,13 +157,6 @@ echo
 
 echo -n "mailme debug mode........ : "
 if test "$MW_MAILME" = 1 ; then
-   echo "enabled"
-else
-   echo "disabled"
-fi
-
-echo -n "Doxygen generation....... : "
-if test "$enable_doxygen" = "yes" ; then
    echo "enabled"
 else
    echo "disabled"

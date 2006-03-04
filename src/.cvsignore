@@ -3,4 +3,5 @@
 Makefile
 Makefile.in
 lib*
-mw_client.h
+mw_config.h
+old

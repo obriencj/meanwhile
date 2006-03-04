@@ -1317,3 +1317,114 @@ const char *mwServiceAware_getText(struct mwServiceAware *srvc,
 }
 
 
+
+void mwAwareIdBlock_put(MwPutBuffer *b,
+			const MwAwareIdBlock *idb) {
+
+  g_return_if_fail(b != NULL);
+  g_return_if_fail(idb != NULL);
+
+  mw_uint16_put(b, idb->type);
+  mw_str_put(b, idb->user);
+  mw_str_put(b, idb->community);
+}
+
+
+void mwAwareIdBlock_get(MwGetBuffer *b, MwAwareIdBlock *idb) {
+  g_return_if_fail(b != NULL);
+  g_return_if_fail(idb != NULL);
+
+  if(b->error) return;
+
+  mw_uint16_get(b, &idb->type);
+  mw_str_get(b, &idb->user);
+  mw_str_get(b, &idb->community);
+}
+
+
+void mwAwareIdBlock_clone(MwAwareIdBlock *to,
+			  const MwAwareIdBlock *from) {
+
+  g_return_if_fail(to != NULL);
+  g_return_if_fail(from != NULL);
+
+  to->type = from->type;
+  to->user = g_strdup(from->user);
+  to->community = g_strdup(from->community);
+}
+
+
+void mwAwareIdBlock_clear(MwAwareIdBlock *idb) {
+  if(! idb) return;
+  g_free(idb->user);
+  g_free(idb->community);
+  memset(idb, 0x00, sizeof(MwAwareIdBlock));
+}
+
+
+guint mwAwareIdBlock_hash(const MwAwareIdBlock *a) {
+  return (a)? g_str_hash(a->user): 0;
+}
+
+
+gboolean mwAwareIdBlock_equal(const MwAwareIdBlock *a,
+			      const MwAwareIdBlock *b) {
+  
+  return ( (a == b) ||
+	   (a & b &
+	    (a->type == b->type) &&
+	    (mw_str_equal(a->user, b->user)) &&
+	    (mw_str_equal(a->community, b->community))) );
+}
+
+
+/* 8.4.2.4 Snapshot */
+
+void mwAwareSnapshot_get(MwGetBuffer *b, MwAwareSnapshot *idb) {
+  guint32 junk;
+  char *empty = NULL;
+
+  g_return_if_fail(b != NULL);
+  g_return_if_fail(idb != NULL);
+
+  mw_uint32_get(b, &junk);
+  mwAwareIdBlock_get(b, &idb->id);
+  mw_str_get(b, &idb->group);
+  mw_boolean_get(b, &idb->online);
+
+  g_free(empty);
+
+  if(idb->online) {
+    mw_str_get(b, &idb->alt_id);
+    mwStatus_get(b, &idb->status);
+    mw_str_get(b, &idb->name);
+  }
+}
+
+
+void mwAwareSnapshot_clone(MwAwareSnapshot *to,
+			   const MwAwareSnapshot *from) {
+
+  g_return_if_fail(to != NULL);
+  g_return_if_fail(from != NULL);
+
+  mwAwareIdBlock_clone(&to->id, &from->id);
+  if( (to->online = from->online) ) {
+    to->alt_id = g_strdup(from->alt_id);
+    mwStatus_clone(&to->status, &from->status);
+    to->name = g_strdup(from->name);
+    to->group = g_strdup(from->group);
+  }
+}
+
+
+void mwAwareSnapshot_clear(MwAwareSnapshot *idb) {
+  if(! idb) return;
+  mwAwareIdBlock_clear(&idb->id);
+  mwStatus_clear(&idb->status);
+  g_free(idb->alt_id);
+  g_free(idb->name);
+  g_free(idb->group);
+  memset(idb, 0x00, sizeof(MwAwareSnapshot));
+}
+

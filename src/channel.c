@@ -1,4 +1,3 @@
-
 /*
   Meanwhile - Unofficial Lotus Sametime Community Client Library
   Copyright (C) 2004  Christopher (siege) O'Brien
@@ -18,950 +17,1004 @@
   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
+
 #include <glib.h>
 #include <glib/ghash.h>
 #include <glib/glist.h>
-#include <string.h>
 
 #include "mw_channel.h"
-#include "mw_cipher.h"
+#include "mw_encrypt.h"
 #include "mw_debug.h"
 #include "mw_error.h"
+#include "mw_marshal.h"
 #include "mw_message.h"
-#include "mw_service.h"
+#include "mw_object.h"
 #include "mw_session.h"
 #include "mw_util.h"
 
 
-/** @todo reorganize this file, stuff is just strewn about */
+/** set in mw_channel_class_init */
+static GObjectClass *parent_class;
 
 
-struct mwChannel {
+enum properties {
+  property_state = 1,
 
-  /** session this channel belongs to */
-  struct mwSession *session;
+  property_channel_id,
+  property_session,
+  
+  property_remote_user,
+  property_remote_community,
+  property_remote_client_type,
+  property_remote_login_id,
 
-  enum mwChannelState state;
+  property_service_id,
+  property_protocol_type,
+  property_protocol_version,
 
-  /** creator for incoming channel, target for outgoing channel */
-  struct mwLoginInfo user;
+  property_offered_policy,
+  property_accepted_policy,
+  property_cipher,
 
-  /* similar to data from the CreateCnl message in 8.4.1.7 */
-  guint32 reserved;    /**< special, unknown meaning */
-  guint32 id;          /**< channel ID */
-  guint32 service;     /**< service ID */
-  guint32 proto_type;  /**< service protocol type */
-  guint32 proto_ver;   /**< service protocol version */
-  guint32 options;     /**< channel options */
+  property_offered_info,
+  property_accepted_info,
 
-  struct mwOpaque addtl_create;
-  struct mwOpaque addtl_accept;
-
-  /** all those supported ciphers */
-  GHashTable *supported;
-  guint16 offered_policy;  /**< @see enum mwEncryptPolicy */
-  guint16 policy;          /**< @see enum mwEncryptPolicy */
-
-  /** cipher information determined at channel acceptance */
-  struct mwCipherInstance *cipher;
-
-  /** statistics table */
-  GHashTable *stats;
-
-  GSList *outgoing_queue;     /**< queued outgoing messages */
-  GSList *incoming_queue;     /**< queued incoming messages */
-
-  struct mw_datum srvc_data;  /**< service-specific data */
+  property_close_code,
+  property_close_info,
 };
 
 
-struct mwChannelSet {
-  struct mwSession *session;  /**< owning session */
-  GHashTable *map;            /**< map of all channels, by ID */
-  guint32 counter;            /**< counter for outgoing ID */
-};
+struct mw_channel_private {
+  enum mw_channel_state state;
 
-
-static void flush_channel(struct mwChannel *);
-
-
-static const char *state_str(enum mwChannelState state) {
-  switch(state) {
-  case mwChannel_NEW:      return "new";
-  case mwChannel_INIT:     return "initializing";
-  case mwChannel_WAIT:     return "waiting";
-  case mwChannel_OPEN:     return "open";
-  case mwChannel_DESTROY:  return "closing";
-  case mwChannel_ERROR:    return "error";
-
-  case mwChannel_UNKNOWN:  /* fall through */
-  default:                 return "UNKNOWN";
-  }
-}
-
-
-static void state(struct mwChannel *chan, enum mwChannelState state,
-		  guint32 err_code) {
-
-  g_return_if_fail(chan != NULL);
-
-  if(chan->state == state) return;
-
-  chan->state = state;
-
-  if(err_code) {
-    g_message("channel 0x%08x state: %s (0x%08x)",
-	      chan->id, state_str(state), err_code);
-  } else {
-    g_message("channel 0x%08x state: %s", chan->id, state_str(state));
-  }
-}
-
-
-static gpointer get_stat(struct mwChannel *chan,
-			 enum mwChannelStatField field) {
-
-  return g_hash_table_lookup(chan->stats, (gpointer) field);
-}
-
-
-static void set_stat(struct mwChannel *chan, enum mwChannelStatField field,
-		     gpointer val) {
-
-  g_hash_table_insert(chan->stats, (gpointer) field, val);
-}
-
-
-#define incr_stat(chan, field, incr) \
-  set_stat(chan, field, get_stat(chan, field) + incr)
-
-
-#define timestamp_stat(chan, field) \
-  set_stat(chan, field, (gpointer) time(NULL))
-
-
-static void sup_free(gpointer a) {
-  mwCipherInstance_free(a);
-}
-
-
-static struct mwCipherInstance *
-get_supported(struct mwChannel *chan, guint16 id) {
-
-  guint32 cid = (guint32) id;
-  return g_hash_table_lookup(chan->supported, GUINT_TO_POINTER(cid));
-}
-
-
-static void put_supported(struct mwChannel *chan,
-			  struct mwCipherInstance *ci) {
-
-  struct mwCipher *cipher = mwCipherInstance_getCipher(ci);
-  guint32 cid = (guint32) mwCipher_getType(cipher);
-  g_hash_table_insert(chan->supported, GUINT_TO_POINTER(cid), ci);
-}
-
-
-struct mwChannel *mwChannel_newIncoming(struct mwChannelSet *cs, guint32 id) {
-  struct mwChannel *chan;
-
-  g_return_val_if_fail(cs != NULL, NULL);
-  g_return_val_if_fail(cs->session != NULL, NULL);
-
-  chan = g_new0(struct mwChannel, 1);
-  chan->state = mwChannel_NEW;
-  chan->session = cs->session;
-  chan->id = id;
-
-  chan->stats = g_hash_table_new(g_direct_hash, g_direct_equal);
-
-  chan->supported = g_hash_table_new_full(g_direct_hash, g_direct_equal,
-					  NULL, sup_free);
-
-  g_hash_table_insert(cs->map, GUINT_TO_POINTER(id), chan);
-
-  state(chan, mwChannel_WAIT, 0);
-
-  return chan;
-}
-
-
-struct mwChannel *mwChannel_newOutgoing(struct mwChannelSet *cs) {
   guint32 id;
-  struct mwChannel *chan;
 
-  g_return_val_if_fail(cs != NULL, NULL);
-  g_return_val_if_fail(cs->map != NULL, NULL);
+  MwSession *session;
 
-  /* grab the next id, and try to make sure there isn't already a
-     channel using it */
-  do {
-    id = ++cs->counter;
-  } while(g_hash_table_lookup(cs->map, GUINT_TO_POINTER(id)));
+  MwLogin remote;
+
+  guint32 service_id;
+  guint32 protocol_type;
+  guint32 protocol_version;
+
+  guint16 offered_policy;
+  guint16 accepted_policy;
+  MwCipher *cipher;
+
+  MwOpaque offered_info;
+  MwOpaque accepted_info;
   
-  chan = mwChannel_newIncoming(cs, id);
-  state(chan, mwChannel_INIT, 0);
+  guint32 close_code;
+  MwOpaque close_info;
 
-  return chan;
+  GHashTable *ciphers;
+};
+
+
+static void mw_channel_set_state(MwChannel *self,
+				 enum mw_channel_state state) {
+
+  MwChannelClass *klass = MW_CHANNEL_GET_CLASS(self);
+  MwChannelPrivate *priv;
+
+  g_return_if_fail(self->private != NULL);
+  priv = self->private;
+
+  priv->state = state;
+
+  g_signal_emit(G_OBJECT(self), klass->signal_state_changed, 0, NULL);
 }
 
 
-guint32 mwChannel_getId(struct mwChannel *chan) {
-  g_return_val_if_fail(chan != NULL, 0);
-  return chan->id;
-}
+static enum mw_channel_state mw_channel_get_state(MwChannel *self) {
+  MwChannelPrivate *priv;
 
-
-struct mwSession *mwChannel_getSession(struct mwChannel *chan) {
-  g_return_val_if_fail(chan != NULL, NULL);
-  return chan->session;
-}
-
-
-guint32 mwChannel_getServiceId(struct mwChannel *chan) {
-  g_return_val_if_fail(chan != NULL, 0);
-  return chan->service;
-}
-
-
-struct mwService *mwChannel_getService(struct mwChannel *chan) {
-  g_return_val_if_fail(chan != NULL, NULL);
-  return mwSession_getService(chan->session, chan->service);
-}
-
-
-void mwChannel_setService(struct mwChannel *chan, struct mwService *srvc) {
-  g_return_if_fail(chan != NULL);
-  g_return_if_fail(srvc != NULL);
-  g_return_if_fail(chan->state == mwChannel_INIT);
-  chan->service = mwService_getType(srvc);
-}
-
-
-gpointer mwChannel_getServiceData(struct mwChannel *chan) {
-  g_return_val_if_fail(chan != NULL, NULL);
-  return mw_datum_get(&chan->srvc_data);
-}
-
-
-void mwChannel_setServiceData(struct mwChannel *chan,
-			      gpointer data, GDestroyNotify clean) {
-
-  g_return_if_fail(chan != NULL);
-  mw_datum_set(&chan->srvc_data, data, clean);
-}
-
-
-void mwChannel_removeServiceData(struct mwChannel *chan) {
-  g_return_if_fail(chan != NULL);
-  mw_datum_clear(&chan->srvc_data);
-}
-
-
-guint32 mwChannel_getProtoType(struct mwChannel *chan) {
-  g_return_val_if_fail(chan != NULL, 0x00);
-  return chan->proto_type;
-}
-
-
-void mwChannel_setProtoType(struct mwChannel *chan, guint32 proto_type) {
-  g_return_if_fail(chan != NULL);
-  g_return_if_fail(chan->state == mwChannel_INIT);
-  chan->proto_type = proto_type;
-}
-
-
-guint32 mwChannel_getProtoVer(struct mwChannel *chan) {
-  g_return_val_if_fail(chan != NULL, 0x00);
-  return chan->proto_ver;
-}
-
-
-void mwChannel_setProtoVer(struct mwChannel *chan, guint32 proto_ver) {
-  g_return_if_fail(chan != NULL);
-  g_return_if_fail(chan->state == mwChannel_INIT);
-  chan->proto_ver = proto_ver;
-}
-
-
-guint16 mwChannel_getEncryptPolicy(struct mwChannel *chan) {
-  g_return_val_if_fail(chan != NULL, 0x00);
-  return chan->policy;
-}
-
-
-guint32 mwChannel_getOptions(struct mwChannel *chan) {
-  g_return_val_if_fail(chan != NULL, 0x00);
-  return chan->options;
-}
-
-
-void mwChannel_setOptions(struct mwChannel *chan, guint32 options) {
-  g_return_if_fail(chan != NULL);
-  g_return_if_fail(chan->state == mwChannel_INIT);
-  chan->options = options;
-}
-
-
-struct mwLoginInfo *mwChannel_getUser(struct mwChannel *chan) {
-  g_return_val_if_fail(chan != NULL, NULL);
-  return &chan->user;
-}
-
-
-struct mwOpaque *mwChannel_getAddtlCreate(struct mwChannel *chan) {
-  g_return_val_if_fail(chan != NULL, NULL);
-  return &chan->addtl_create;
-}
-
-
-struct mwOpaque *mwChannel_getAddtlAccept(struct mwChannel *chan) {
-  g_return_val_if_fail(chan != NULL, NULL);
-  return &chan->addtl_accept;
-}
-
-
-struct mwCipherInstance *
-mwChannel_getCipherInstance(struct mwChannel *chan) {
-
-  g_return_val_if_fail(chan != NULL, NULL);
-  return chan->cipher;
-}
-
-
-enum mwChannelState mwChannel_getState(struct mwChannel *chan) {
-  g_return_val_if_fail(chan != NULL, mwChannel_UNKNOWN);
-  return chan->state;
-}
-
-
-gpointer mwChannel_getStatistic(struct mwChannel *chan,
-				enum mwChannelStatField stat) {
+  g_return_val_if_fail(self->private != NULL, mw_channel_UNKNOWN);
+  priv = self->private;
   
-  g_return_val_if_fail(chan != NULL, 0);
-  g_return_val_if_fail(chan->stats != NULL, 0);
-
-  return get_stat(chan, stat);
+  return priv->state;
 }
 
 
-/* send a channel create message */
-int mwChannel_create(struct mwChannel *chan) {
-  struct mwMsgChannelCreate *msg;
-  GList *list, *l;
-  int ret;
+static gboolean mw_channel_is_state(MwChannel *self,
+				    enum mw_channel_state state) {
+  
+  return (mw_channel_get_state(self) == state);
+}
 
-  g_return_val_if_fail(chan != NULL, -1);
-  g_return_val_if_fail(chan->state == mwChannel_INIT, -1);
-  g_return_val_if_fail(mwChannel_isOutgoing(chan), -1);
 
-  msg = (struct mwMsgChannelCreate *)
-    mwMessage_new(mwMessage_CHANNEL_CREATE);
+static void mw_add_cipher(MwChannel *self, MwCipher *ci) {
+  MwChannelPrivate *priv;
+  GHashTable *ht;
+  guint id;
+  
+  id = MwCipherClass_getIdentifier(MW_CIPHER_GET_CLASS(ci));
 
-  msg->channel = chan->id;
-  msg->target.user = g_strdup(chan->user.user_id);
-  msg->target.community = g_strdup(chan->user.community);
-  msg->service = chan->service;
-  msg->proto_type = chan->proto_type;
-  msg->proto_ver = chan->proto_ver;
-  msg->options = chan->options;
-  mwOpaque_clone(&msg->addtl, &chan->addtl_create);
+  g_debug("adding cipher by id 0x%x", id);
+  
+  g_return_if_fail(self->private != NULL);
+  priv = self->private;
+  ht = priv->ciphers;
+  
+  g_hash_table_insert(ht, GUINT_TO_POINTER(id), ci);
+}
 
-  list = mwChannel_getSupportedCipherInstances(chan);
-  if(list) {
-    /* offer what we have */
-    for(l = list; l; l = l->next) {
-      struct mwEncryptItem *ei = mwCipherInstance_offer(l->data);
-      msg->encrypt.items = g_list_append(msg->encrypt.items, ei);
+
+static MwCipher *mw_get_cipher(MwChannel *self, guint id) {
+  MwChannelPrivate *priv;
+  GHashTable *ht;
+  
+  g_return_val_if_fail(self->private != NULL, NULL);
+  priv = self->private;
+  ht = priv->ciphers;
+  
+  return g_hash_table_lookup(ht, GUINT_TO_POINTER(id));
+}
+
+
+static void mw_msg_send(MwChannel *self, MwMessage *msg) {
+  MwChannelClass *klass;
+  guint sid;
+
+  klass = MW_CHANNEL_GET_CLASS(self);
+  sid = klass->signal_outgoing;
+
+  g_signal_emit(self, sid, 0, msg, NULL);
+}
+
+
+static void mw_create(MwChannel *self, const MwOpaque *info) {
+  MwChannelPrivate *priv;
+  MwMsgChannelCreate *msg;
+  guint id, service, proto_type, proto_ver, policy;
+
+  mw_debug_enter();
+
+  priv = self->private;
+  MwOpaque_clone(&priv->offered_info, info);
+
+  msg = MwMessage_new(mw_message_CHANNEL_CREATE);
+  
+  g_object_get(G_OBJECT(self),
+	       "id", &id,
+	       "service-id", &service,
+	       "protocol-type", &proto_type,
+	       "protocol-version", &proto_ver,
+	       "offered-policy", &policy,
+	       "remote-user", &msg->target.user,
+	       "remote-community", &msg->target.community,
+	       NULL);
+  
+  msg->channel = id;
+  msg->service = service;
+  msg->proto_type = proto_type;
+  msg->proto_ver = proto_ver;
+  MwOpaque_clone(&msg->addtl, info);
+
+  /* populate the message's enc block, and the channel's ciphers */
+  if(policy != mw_channel_encrypt_NONE) {
+    GList *l = MwSession_getCiphers(priv->session);
+    guint i, ls = g_list_length(l);
+    
+    msg->enc_mode = policy;
+    msg->enc_extra = policy;
+    msg->enc_count = ls;
+    msg->enc_items = g_new0(MwEncItem, ls);
+    
+    for(i = 0; i < ls; i++) {
+      MwCipher *ci = MwCipherClass_newInstance(l->data, self);
+      MwEncItem *ei = msg->enc_items + i;
+      ei->cipher = MwCipherClass_getIdentifier(l->data);
+      MwCipher_offer(ci, &ei->info);
+      mw_add_cipher(self, ci);
+      l = g_list_delete_link(l, l);
     }
-
-    /* we're easy to get along with */
-    chan->offered_policy = mwEncrypt_WHATEVER;
-    g_list_free(list);
-
-  } else {
-    /* we apparently don't support anything */
-    chan->offered_policy = mwEncrypt_NONE;
   }
 
-  msg->encrypt.mode = chan->offered_policy;
-  msg->encrypt.extra = chan->offered_policy;
+  mw_msg_send(self, MW_MESSAGE(msg));
+  MwMessage_free(MW_MESSAGE(msg));
+
+  mw_channel_set_state(self, mw_channel_PENDING);
+
+  mw_debug_exit();
+}
+
+
+static MwCipher *mw_find_best(MwChannel *self) {
+  MwChannelPrivate *priv;
+  GList *l;
+  MwCipher *cipher = NULL;
+  guint pol;
+
+  priv = self->private;
+  l = mw_map_collect_values(priv->ciphers);
+
+  for(; l; l = g_list_delete_link(l, l)) {
+    MwCipher *c = l->data;
+    guint p = MwCipherClass_getPolicy(MW_CIPHER_GET_CLASS(c));
+
+    if(!cipher || p > pol) {
+      g_debug("cipher id 0x%x looks good...", p);
+      cipher = c;
+      pol = p;
+    }
+  }
+
+  return cipher;
+}
+
+
+static MwCipher *mw_find_match(MwChannel *self, guint pol) {
+  MwChannelPrivate *priv;
+  GList *l;
+  MwCipher *cipher = NULL;
+
+  priv = self->private;
+  l = mw_map_collect_values(priv->ciphers);
+
+  for(; l; l = g_list_delete_link(l, l)) {
+    MwCipher *c = l->data;
+    guint p = MwCipherClass_getPolicy(MW_CIPHER_GET_CLASS(c));
+    if(p == pol) {
+      cipher = c;
+      break;
+    }
+  }
+  g_list_free(l);
+
+  return cipher;
+}
+
+
+static void mw_accept(MwChannel *self, const MwOpaque *info) {
+  MwChannelPrivate *priv;
+  MwMsgChannelAccept *msg;
+  guint id, service, proto_type, proto_ver, o_policy, a_policy;
+  MwCipher *cipher = NULL;
+
+  mw_debug_enter();
+
+  priv = self->private;
+  MwOpaque_clone(&priv->accepted_info, info);
+
+  msg = MwMessage_new(mw_message_CHANNEL_ACCEPT);
   
-  ret = mwSession_send(chan->session, MW_MESSAGE(msg));
-  mwMessage_free(MW_MESSAGE(msg));
+  /* it seems appropriate to use this to get the attributes, but maybe
+     it would be better to just get them from priv */
+  g_object_get(G_OBJECT(self),
+	       "id", &id,
+	       "service-id", &service,
+	       "protocol-type", &proto_type,
+	       "protocol-version", &proto_ver,
+	       "offered-policy", &o_policy,
+	       NULL);
 
-  state(chan, (ret)? mwChannel_ERROR: mwChannel_WAIT, ret);
+  msg->head.channel = id;
+  msg->service = service;
+  msg->proto_type = proto_type;
+  msg->proto_ver = proto_ver;
+  MwOpaque_clone(&msg->addtl, info);
 
-  return ret;
+  msg->enc_extra = o_policy;
+
+  switch(o_policy) {
+  case mw_channel_encrypt_NONE:
+    cipher = NULL;
+    break;
+
+  case mw_channel_encrypt_ANY:
+  case mw_channel_encrypt_WHATEVER:
+    cipher = mw_find_best(self);
+    break;
+
+  default:
+    cipher = mw_find_match(self, o_policy);
+    if(! cipher) {
+      g_warning("couldn't meet channel encryption policy of 0x%x", o_policy);
+      cipher = mw_find_best(self);
+    }
+  }
+
+  if(cipher) {
+    MwCipherClass *cc = MW_CIPHER_GET_CLASS(cipher);
+    a_policy = MwCipherClass_getPolicy(cc);
+
+    msg->enc_item.cipher = MwCipherClass_getIdentifier(cc);
+    MwCipher_accept(cipher, &msg->enc_item.info);
+
+    priv->cipher = cipher;
+
+  } else {
+    a_policy = mw_channel_encrypt_NONE;
+  }
+
+  g_debug("accepted channel with policy 0x%x", a_policy);
+  priv->accepted_policy = a_policy;
+  msg->enc_mode = a_policy;
+
+  mw_msg_send(self, MW_MESSAGE(msg));
+  MwMessage_free(MW_MESSAGE(msg));
+
+  mw_channel_set_state(self, mw_channel_OPEN);
+
+  mw_debug_exit();
 }
 
 
-static void channel_open(struct mwChannel *chan) {
-  state(chan, mwChannel_OPEN, 0);
-  timestamp_stat(chan, mwChannelStat_OPENED_AT);
-  flush_channel(chan);
+static void mw_open(MwChannel *self, const MwOpaque *info) {
+  switch(mw_channel_get_state(self)) {
+  case mw_channel_CLOSED:
+    mw_create(self, info);
+    break;
+  case mw_channel_PENDING:
+    mw_accept(self, info);
+    break;
+  default:
+    ;
+  }
 }
 
 
-int mwChannel_accept(struct mwChannel *chan) {
-  struct mwSession *session;
-  struct mwMsgChannelAccept *msg;
-  struct mwCipherInstance *ci;
+static void mw_close(MwChannel *self, guint32 code, const MwOpaque *info) {
+  MwChannelPrivate *priv;
+  MwMsgChannelClose *msg;
+  guint id;
 
-  int ret;
+  mw_debug_enter();
 
-  g_return_val_if_fail(chan != NULL, -1);
-  g_return_val_if_fail(mwChannel_isIncoming(chan), -1);
-  g_return_val_if_fail(chan->state == mwChannel_WAIT, -1);
+  if(mw_channel_is_state(self, mw_channel_ERROR) ||
+     mw_channel_is_state(self, mw_channel_CLOSED)) {
 
-  session = chan->session;
-  g_return_val_if_fail(session != NULL, -1);
+    /* prevent circular calls from a messy handler */
+    return;
+  }
 
-  msg = (struct mwMsgChannelAccept *)
-    mwMessage_new(mwMessage_CHANNEL_ACCEPT);
+  g_return_if_fail(self->private != NULL);
+  priv = self->private;
 
-  msg->head.channel = chan->id;
-  msg->service = chan->service;
-  msg->proto_type = chan->proto_type;
-  msg->proto_ver = chan->proto_ver;
-  mwOpaque_clone(&msg->addtl, &chan->addtl_accept);
+  /* fill in on the channel */
+  priv->close_code = code;
+  MwOpaque_clone(&priv->close_info, info);
 
-  ci = chan->cipher;
+  g_object_get(G_OBJECT(self),
+	       "id", &id, NULL);
+  
+  msg = MwMessage_new(mw_message_CHANNEL_CLOSE);
+  msg->head.channel = id;
+  msg->reason = code;
+  MwOpaque_clone(&msg->data, info);
 
-  if(! ci) {
-    /* automatically select a cipher if one hasn't been already */
+  mw_msg_send(self, MW_MESSAGE(msg));
+  MwMessage_free(MW_MESSAGE(msg));
 
-    switch(chan->offered_policy) {
-    case mwEncrypt_NONE:
-      mwChannel_selectCipherInstance(chan, NULL);
-      break;
-      
-    case mwEncrypt_RC2_40:
-      ci = get_supported(chan, mwCipher_RC2_40);
-      mwChannel_selectCipherInstance(chan, ci);
-      break;
+  if(code) mw_channel_set_state(self, mw_channel_ERROR);
+  mw_channel_set_state(self, mw_channel_CLOSED);
 
-    case mwEncrypt_RC2_128:
-      ci = get_supported(chan, mwCipher_RC2_128);
-      mwChannel_selectCipherInstance(chan, ci);
-      break;
-      
-    case mwEncrypt_WHATEVER:
-    case mwEncrypt_ALL:
-    default:
-      {
-	GList *l, *ll;
+  mw_debug_exit();
+}
 
-	l = mwChannel_getSupportedCipherInstances(chan);
-	if(l) {
-	  /* nobody selected a cipher, so we'll just pick the last in
-	     the list of available ones */
-	  for(ll = l; ll->next; ll = ll->next);
-	  ci = ll->data;
-	  g_list_free(l);
-	  
-	  mwChannel_selectCipherInstance(chan, ci);
-	  
-	} else {
-	  /* this may cause breakage, but there's really nothing else
-	     we can do. They want something we can't provide. If they
-	     don't like it, then they'll error the channel out */
-	  mwChannel_selectCipherInstance(chan, NULL);
-	}
+
+static void recv_CREATE(MwChannel *self, MwMsgChannelCreate *msg) {
+  /* fill internal fields,
+     set state to mw_channel_PENDING */
+
+  MwChannelPrivate *priv;
+
+  g_return_if_fail(self->private != NULL);
+  priv = self->private;
+
+  priv->id = msg->channel;
+  priv->service_id = msg->service;
+  priv->protocol_type = msg->proto_type;
+  priv->protocol_version = msg->proto_ver;
+  MwOpaque_clone(&priv->offered_info, &msg->addtl);
+  MwLogin_clone(&priv->remote, &msg->creator, TRUE);
+  priv->offered_policy = msg->enc_mode;
+
+  if(msg->enc_mode != mw_channel_encrypt_NONE) {
+    guint i, count = msg->enc_count;
+
+    g_debug("loading %u offered ciphers", count);
+
+    for(i = 0; i < count; i++) {
+      MwEncItem *ei;
+      MwCipherClass *cc;
+
+      ei = msg->enc_items + i;
+      cc = MwSession_getCipher(priv->session, ei->cipher);
+
+      if(cc) {
+	MwCipher *ci = MwCipherClass_newInstance(cc, self);
+	MwCipher_offered(ci, &ei->info);
+	mw_add_cipher(self, ci);
       }
     }
   }
 
-  msg->encrypt.mode = chan->policy; /* set in selectCipherInstance */
-  msg->encrypt.extra = chan->offered_policy;
-
-  if(chan->cipher) {
-    msg->encrypt.item = mwCipherInstance_accept(chan->cipher);
-  }
-
-  ret = mwSession_send(session, MW_MESSAGE(msg));
-  mwMessage_free(MW_MESSAGE(msg));
-
-  if(ret) {
-    state(chan, mwChannel_ERROR, ret);
-  } else {
-    channel_open(chan);
-  }
-
-  return ret;
+  mw_channel_set_state(self, mw_channel_PENDING);
 }
 
 
-static void channel_free(struct mwChannel *chan) {
-  struct mwSession *s;
-  struct mwMessage *msg;
-  GSList *l;
+static void recv_ACCEPT(MwChannel *self, MwMsgChannelAccept *msg) {
+  /* fill internal fields,
+     set state to mw_channel_OPEN */
 
-  /* maybe no warning in the future */
-  g_return_if_fail(chan != NULL);
-
-  s = chan->session;
-
-  mwLoginInfo_clear(&chan->user);
-  mwOpaque_clear(&chan->addtl_create);
-  mwOpaque_clear(&chan->addtl_accept);
-
-  if(chan->supported) {
-    g_hash_table_destroy(chan->supported);
-    chan->supported = NULL;
-  }
-
-  if(chan->stats) {
-    g_hash_table_destroy(chan->stats);
-    chan->stats = NULL;
-  }
+  MwChannelPrivate *priv;
   
-  mwCipherInstance_free(chan->cipher);
+  g_return_if_fail(self->private != NULL);
+  priv = self->private;
 
-  /* clean up the outgoing queue */
-  for(l = chan->outgoing_queue; l; l = l->next) {
-    msg = (struct mwMessage *) l->data;
-    l->data = NULL;
-    mwMessage_free(msg);
+  MwOpaque_clone(&priv->accepted_info, &msg->addtl);
+  MwLogin_clone(&priv->remote, &msg->acceptor, TRUE);
+  priv->accepted_policy = msg->enc_mode;
+
+  {
+    MwCipher *ci;
+    ci = mw_get_cipher(self, msg->enc_item.cipher);
+    MwCipher_accepted(ci, &msg->enc_item.info);
   }
-  g_slist_free(chan->outgoing_queue);
 
-  /* clean up the incoming queue */
-  for(l = chan->incoming_queue; l; l = l->next) {
-    msg = (struct mwMessage *) l->data;
-    l->data = NULL;
-    mwMessage_free(msg);
-  }
-  g_slist_free(chan->incoming_queue);
-
-  g_free(chan);
+  mw_channel_set_state(self, mw_channel_OPEN);
 }
 
 
-int mwChannel_destroy(struct mwChannel *chan,
-		      guint32 reason, struct mwOpaque *info) {
+static void recv_CLOSE(MwChannel *self, MwMsgChannelClose *msg) {
+  /* fill internal fields,
+     set state to mw_channel_CLOSED */
 
-  struct mwMsgChannelDestroy *msg;
-  struct mwSession *session;
-  struct mwChannelSet *cs;
-  int ret;
-
-  /* may make this not a warning in the future */
-  g_return_val_if_fail(chan != NULL, 0);
-
-  state(chan, reason? mwChannel_ERROR: mwChannel_DESTROY, reason);
-
-  session = chan->session;
-  g_return_val_if_fail(session != NULL, -1);
-
-  cs = mwSession_getChannels(session);
-  g_return_val_if_fail(cs != NULL, -1);
-
-  /* compose the message */
-  msg = (struct mwMsgChannelDestroy *)
-    mwMessage_new(mwMessage_CHANNEL_DESTROY);
-  msg->head.channel = chan->id;
-  msg->reason = reason;
-  if(info) mwOpaque_clone(&msg->data, info);
-
-  /* remove the channel from the channel set */
-  g_hash_table_remove(cs->map, GUINT_TO_POINTER(chan->id));
+  MwChannelPrivate *priv;
   
-  /* send the message */
-  ret = mwSession_send(session, (struct mwMessage *) msg);
-  mwMessage_free(MW_MESSAGE(msg));
+  g_return_if_fail(self->private != NULL);
+  priv = self->private;
 
-  return ret;
+  priv->close_code = msg->reason;
+  MwOpaque_clone(&priv->close_info, &msg->data);
+
+  if(msg->reason) mw_channel_set_state(self, mw_channel_ERROR);
+  mw_channel_set_state(self, mw_channel_CLOSED);
 }
 
 
-static void queue_outgoing(struct mwChannel *chan,
-			   struct mwMsgChannelSend *msg) {
+static void recv_SEND(MwChannel *self, MwMsgChannelSend *msg) {
+  /* decrypt as necessary,
+     trigger signal_incoming */
 
-  g_info("queue_outgoing, channel 0x%08x", chan->id);
-  chan->outgoing_queue = g_slist_append(chan->outgoing_queue, msg);
-}
+  MwChannelClass *klass = MW_CHANNEL_GET_CLASS(self);
 
+  mw_debug_enter();
 
-static int channel_send(struct mwChannel *chan,
-			struct mwMsgChannelSend *msg) {
+  if(msg->head.options & mw_message_option_ENCRYPT) {
+    MwOpaque dec;
+    MwCipher *cipher;
 
-  int ret = 0;
+    g_object_get(G_OBJECT(self), "cipher", &cipher, NULL);
 
-  /* if the channel is open, send and free the message. Otherwise,
-     queue the message to be sent once the channel is finally
-     opened */
-
-  if(chan->state == mwChannel_OPEN) {
-    ret = mwSession_send(chan->session, (struct mwMessage *) msg);
-    mwMessage_free(MW_MESSAGE(msg));
+    MwCipher_decrypt(cipher, &msg->data, &dec);
+    g_signal_emit(G_OBJECT(self), klass->signal_incoming, 0,
+		  (guint) msg->type, &dec, NULL);
+    
+    mw_gobject_unref(cipher);
+    MwOpaque_clear(&dec);
 
   } else {
-    queue_outgoing(chan, msg);
+    g_signal_emit(G_OBJECT(self), klass->signal_incoming, 0,
+		  (guint) msg->type, &msg->data, NULL);
   }
 
-  return ret;
+  mw_debug_exit();
 }
 
 
-int mwChannel_sendEncrypted(struct mwChannel *chan,
-			    guint32 type, struct mwOpaque *data,
-			    gboolean encrypt) {
+static void mw_feed(MwChannel *self, MwMessage *msg) {
+  switch(msg->type) {
+  case mw_message_CHANNEL_CREATE:
+    recv_CREATE(self, (MwMsgChannelCreate *) msg);
+    break;
+  case mw_message_CHANNEL_ACCEPT:
+    recv_ACCEPT(self, (MwMsgChannelAccept *) msg);
+    break;
+  case mw_message_CHANNEL_CLOSE:
+    recv_CLOSE(self, (MwMsgChannelClose *) msg);
+    break;
+  case mw_message_CHANNEL_SEND:
+    recv_SEND(self, (MwMsgChannelSend *) msg);
+    break;
+  default:
+    /* todo warning */
+    ;
+  }
+}
 
-  struct mwMsgChannelSend *msg;
 
-  g_return_val_if_fail(chan != NULL, -1);
+static void mw_send(MwChannel *self, guint16 type, const MwOpaque *data,
+		    gboolean enc) {
 
-  msg = (struct mwMsgChannelSend *) mwMessage_new(mwMessage_CHANNEL_SEND);
-  msg->head.channel = chan->id;
+  MwChannelPrivate *priv;
+  MwCipher *cipher;
+  MwMsgChannelSend *msg;
+  guint id, policy;
+  
+  mw_debug_enter();
+
+  priv = self->private;
+
+  g_object_get(G_OBJECT(self),
+	       "cipher", &cipher,
+	       "id", &id,
+	       "accepted-policy", &policy,
+	       NULL);
+
+  msg = MwMessage_new(mw_message_CHANNEL_SEND);
+  msg->head.channel = id;
   msg->type = type;
 
-  mwOpaque_clone(&msg->data, data);
+  if(policy == mw_channel_encrypt_NONE ||
+     (policy == mw_channel_encrypt_WHATEVER && !enc)) {
 
-  if(encrypt && chan->cipher) {
-    msg->head.options = mwMessageOption_ENCRYPT;
-    mwCipherInstance_encrypt(chan->cipher, &msg->data);
-  }
-
-  return channel_send(chan, msg);  
-}
-
-
-int mwChannel_send(struct mwChannel *chan, guint32 type,
-		   struct mwOpaque *data) {
-
-  return mwChannel_sendEncrypted(chan, type, data, TRUE);
-}
-
-
-static void queue_incoming(struct mwChannel *chan,
-			   struct mwMsgChannelSend *msg) {
-
-  /* we clone the message, because session_process will clear it once
-     we return */
-
-  struct mwMsgChannelSend *m = g_new0(struct mwMsgChannelSend, 1);
-  m->head.type = msg->head.type;
-  m->head.options = msg->head.options;
-  m->head.channel = msg->head.channel;
-  mwOpaque_clone(&m->head.attribs, &msg->head.attribs);
-
-  m->type = msg->type;
-  mwOpaque_clone(&m->data, &msg->data);
-
-  g_info("queue_incoming, channel 0x%08x", chan->id);
-  chan->incoming_queue = g_slist_append(chan->incoming_queue, m);
-}
-
-
-static void channel_recv(struct mwChannel *chan,
-			 struct mwMsgChannelSend *msg) {
-
-  struct mwService *srvc;
-  srvc = mwChannel_getService(chan);
-
-  incr_stat(chan, mwChannelStat_MSG_RECV, 1);
-
-  if(msg->head.options & mwMessageOption_ENCRYPT) {
-    struct mwOpaque data = { 0, 0 };
-    mwOpaque_clone(&data, &msg->data);
-
-    mwCipherInstance_decrypt(chan->cipher, &data);
-    mwService_recv(srvc, chan, msg->type, &data);
-    mwOpaque_clear(&data);
+    /* send unencrypted */
+    MwOpaque_clone(&msg->data, data);
     
   } else {
-    mwService_recv(srvc, chan, msg->type, &msg->data);
+    /* send encrypted */
+    msg->head.options |= mw_message_option_ENCRYPT;
+    MwCipher_encrypt(cipher, data, &msg->data);
   }
+
+  mw_msg_send(self, MW_MESSAGE(msg));
+  MwMessage_free(MW_MESSAGE(msg));
+
+  mw_gobject_unref(cipher);
+
+  mw_debug_exit();
 }
 
 
-static void flush_channel(struct mwChannel *chan) {
-  GSList *l;
-
-  for(l = chan->incoming_queue; l; l = l->next) {
-    struct mwMsgChannelSend *msg = (struct mwMsgChannelSend *) l->data;
-    l->data = NULL;
-
-    channel_recv(chan, msg);
-    mwMessage_free(MW_MESSAGE(msg));
-  }
-  g_slist_free(chan->incoming_queue);
-  chan->incoming_queue = NULL;
-
-  for(l = chan->outgoing_queue; l; l = l->next) {
-    struct mwMessage *msg = (struct mwMessage *) l->data;
-    l->data = NULL;
-
-    mwSession_send(chan->session, msg);
-    mwMessage_free(msg);
-  }
-  g_slist_free(chan->outgoing_queue);
-  chan->outgoing_queue = NULL;
-}
-
-
-void mwChannel_recv(struct mwChannel *chan, struct mwMsgChannelSend *msg) {
-  if(chan->state == mwChannel_OPEN) {
-    channel_recv(chan, msg);
-
-  } else {
-    queue_incoming(chan, msg);
-  }
-}
-
-
-struct mwChannel *mwChannel_find(struct mwChannelSet *cs, guint32 chan) {
-  g_return_val_if_fail(cs != NULL, NULL);
-  g_return_val_if_fail(cs->map != NULL, NULL);
-  return g_hash_table_lookup(cs->map, GUINT_TO_POINTER(chan));
-}
-
-
-void mwChannelSet_free(struct mwChannelSet *cs) {
-  if(! cs) return;
-  if(cs->map) g_hash_table_destroy(cs->map);
-  g_free(cs);
-}
-
-
-struct mwChannelSet *mwChannelSet_new(struct mwSession *s) {
-  struct mwChannelSet *cs = g_new0(struct mwChannelSet, 1);
-  cs->session = s;
-
-  /* for some reason, g_int_hash/g_int_equal cause a SIGSEGV */
-  cs->map = g_hash_table_new_full(g_direct_hash, g_direct_equal,
-				  NULL, (GDestroyNotify) channel_free);
-  return cs;
-}
-
-
-void mwChannel_recvCreate(struct mwChannel *chan,
-			  struct mwMsgChannelCreate *msg) {
-
-  struct mwSession *session;
-  GList *list;
-  struct mwService *srvc;
+static GObject *
+mw_channel_constructor(GType type, guint props_count,
+		       GObjectConstructParam *props) {
   
-  g_return_if_fail(chan != NULL);
-  g_return_if_fail(msg != NULL);
-  g_return_if_fail(chan->id == msg->channel);
+  MwChannelClass *klass;
 
-  session = chan->session;
-  g_return_if_fail(session != NULL);
+  GObject *obj;
+  MwChannel *self;
+  MwChannelPrivate *priv;
 
-  if(mwChannel_isOutgoing(chan)) {
-    g_warning("channel 0x%08x not an incoming channel", chan->id);
-    mwChannel_destroy(chan, ERR_REQUEST_INVALID, NULL);
-    return;
+  mw_debug_enter();
+
+  klass = MW_CHANNEL_CLASS(g_type_class_peek(MW_TYPE_CHANNEL));
+
+  obj = parent_class->constructor(type, props_count, props);
+  self = (MwChannel *) obj;
+
+  g_return_val_if_fail(self->private != NULL, NULL);
+  priv = self->private;
+
+  priv->state = mw_channel_CLOSED;
+  priv->ciphers = g_hash_table_new_full(g_direct_hash, g_direct_equal,
+					NULL,
+					(GDestroyNotify) mw_gobject_unref);
+
+  mw_debug_exit();
+  return obj;
+}
+
+
+static void mw_channel_dispose(GObject *obj) {
+  MwChannel *self = (MwChannel *) obj;
+  MwChannelPrivate *priv;
+
+  mw_debug_enter();
+
+  priv = self->private;
+  self->private = NULL;
+
+  if(priv) {
+    g_debug("cleaning out private");
+
+    MwLogin_clear(&priv->remote, TRUE);
+
+    MwOpaque_clear(&priv->offered_info);
+    MwOpaque_clear(&priv->accepted_info);
+    MwOpaque_clear(&priv->close_info);
+    
+    /* will unref all our ciphers */
+    g_hash_table_destroy(priv->ciphers);
+
+    /* the above should do this for us */
+    /* g_object_unref(G_OBJECT(priv->cipher)); */
+
+    mw_gobject_unref(priv->session);
+    
+    g_free(priv);
   }
 
-  chan->offered_policy = msg->encrypt.mode;
-  g_message("channel offered with encrypt policy 0x%04x", chan->policy);
+  parent_class->dispose(obj);
 
-  for(list = msg->encrypt.items; list; list = list->next) {
-    struct mwEncryptItem *ei = list->data;
-    struct mwCipher *cipher;
-    struct mwCipherInstance *ci;
+  mw_debug_exit();
+}
 
-    g_message("channel offered cipher id 0x%04x", ei->id);
-    cipher = mwSession_getCipher(session, ei->id);
-    if(! cipher) {
-      g_message("no such cipher found in session");
-      continue;
+
+static gboolean mw_set_requires_state(MwChannel *self,
+				      enum mw_channel_state state,
+				      GParamSpec *pspec) {
+
+  /* todo add property name and state name */
+
+  if(! mw_channel_is_state(self, state)) {
+    g_warning("MwChannel property cannot be set in this state");
+    return FALSE;
+
+  } else {
+    return TRUE;
+  }
+}
+
+
+static void mw_set_property(GObject *object,
+			    guint property_id, const GValue *value,
+			    GParamSpec *pspec) {
+
+  MwChannel *self = MW_CHANNEL(object);
+  MwChannelPrivate *priv;
+
+  g_return_if_fail(self->private != NULL);
+  priv = self->private;
+
+  switch(property_id) {
+  case property_channel_id:
+    priv->id = g_value_get_uint(value);
+    break;
+  case property_session:
+    {
+      MwSession *session = MW_SESSION(g_value_dup_object(value));
+      mw_gobject_unref(priv->session);
+      priv->session = session;
+      g_debug("channel sets session to %p, refcount of %u",
+	      session, mw_gobject_refcount(session));
     }
+    break;
+  case property_remote_user:
+    if(mw_set_requires_state(self, mw_channel_CLOSED, pspec)) {
+      g_free(priv->remote.id.user);
+      priv->remote.id.user = g_value_dup_string(value);
+    }
+    break;
+  case property_remote_community:
+    if(mw_set_requires_state(self, mw_channel_CLOSED, pspec)) {
+      g_free(priv->remote.id.community);
+      priv->remote.id.community = g_value_dup_string(value);
+    }
+    break;
+  case property_service_id:
+    if(mw_set_requires_state(self, mw_channel_CLOSED, pspec)) {
+      priv->service_id = g_value_get_uint(value);
+    }
+    break;
+  case property_protocol_type:
+    if(mw_set_requires_state(self, mw_channel_CLOSED, pspec)) {
+      priv->protocol_type = g_value_get_uint(value);
+    }
+    break;
+  case property_protocol_version:
+    if(mw_set_requires_state(self, mw_channel_CLOSED, pspec)) {
+      priv->protocol_version = g_value_get_uint(value);
+    }
+    break;
+  case property_offered_policy:
+    if(mw_set_requires_state(self, mw_channel_CLOSED, pspec)) {
+      priv->offered_policy = g_value_get_uint(value);
+    }
+    break;
+  case property_accepted_policy:
+    if(mw_set_requires_state(self, mw_channel_PENDING, pspec)) {
+      guint offered = priv->offered_policy;
+      guint accepted = g_value_get_uint(value);
 
-    ci = mwCipher_newInstance(cipher, chan);
-    mwCipherInstance_offered(ci, ei);
-    mwChannel_addSupportedCipherInstance(chan, ci);
+      if(accepted < offered || offered == mw_channel_encrypt_NONE) {
+	g_warning("cannot accept with policy 0x%x when offered 0x%x",
+		  accepted, offered);
+      } else {
+	priv->accepted_policy = accepted;
+      }
+    }
+    break;
+  default:
+    ;
   }
+}
 
-  mwLoginInfo_clone(&chan->user, &msg->creator);
-  chan->service = msg->service;
-  chan->proto_type = msg->proto_type;
-  chan->proto_ver = msg->proto_ver;
+
+static void mw_get_property(GObject *object,
+			    guint property_id, GValue *value,
+			    GParamSpec *pspec) {
+
+  MwChannel *self = MW_CHANNEL(object);
+  MwChannelPrivate *priv;
+
+  g_return_if_fail(self->private != NULL);
+  priv = self->private;
+
+  switch(property_id) {
+  case property_state:
+    g_value_set_uint(value, priv->state);
+    break;
+  case property_channel_id:
+    g_value_set_uint(value, priv->id);
+    break;
+  case property_session:
+    g_value_set_object(value, priv->session);
+    break;
+  case property_remote_user:
+    g_value_set_string(value, priv->remote.id.user);
+    break;
+  case property_remote_community:
+    g_value_set_string(value, priv->remote.id.community);
+    break;
+  case property_remote_client_type:
+    g_value_set_uint(value, priv->remote.client);
+    break;
+  case property_remote_login_id:
+    g_value_set_string(value, priv->remote.login_id);
+    break;
+  case property_service_id:
+    g_value_set_uint(value, priv->service_id);
+    break;
+  case property_protocol_type:
+    g_value_set_uint(value, priv->protocol_type);
+    break;
+  case property_protocol_version:
+    g_value_set_uint(value, priv->protocol_version);
+    break;
+  case property_offered_policy:
+    g_value_set_uint(value, priv->offered_policy);
+    break;
+  case property_accepted_policy:
+    g_value_set_uint(value, priv->accepted_policy);
+    break;
+  case property_cipher:
+    g_value_set_object(value, priv->cipher);
+    break;
+  case property_offered_info:
+    g_value_set_boxed(value, &priv->offered_info);
+    break;
+  case property_accepted_info:
+    g_value_set_boxed(value, &priv->accepted_info);
+    break;
+  case property_close_code:
+    g_value_set_uint(value, priv->close_code);
+    break;
+  case property_close_info:
+    g_value_set_boxed(value, &priv->close_info);
+    break;
+  default:
+    ;
+  }
+}
+
+
+static guint mw_signal_state_changed() {
+  return g_signal_new("state-changed",
+		      MW_TYPE_CHANNEL,
+		      0,
+		      0,
+		      NULL, NULL,
+		      mw_marshal_VOID__VOID,
+		      G_TYPE_NONE,
+		      0);
+}
+
+
+static guint mw_signal_outgoing() {
+  return g_signal_new("outgoing",
+		      MW_TYPE_CHANNEL,
+		      0,
+		      0,
+		      NULL, NULL,
+		      mw_marshal_VOID__POINTER,
+		      G_TYPE_NONE,
+		      1,
+		      G_TYPE_POINTER);
+}
+
+
+static guint mw_signal_incoming() {
+  return g_signal_new("incoming",
+		      MW_TYPE_CHANNEL,
+		      0,
+		      0,
+		      NULL, NULL,
+		      mw_marshal_VOID__UINT_POINTER,
+		      G_TYPE_NONE,
+		      2,
+		      G_TYPE_UINT,
+		      G_TYPE_POINTER);
+}
+
+
+static void mw_channel_class_init(gpointer g_class, gpointer g_class_data) {
+  GObjectClass *gobject_class;
+  MwChannelClass *klass;
+
+  mw_debug_enter();
+
+  gobject_class = G_OBJECT_CLASS(g_class);
+  klass = MW_CHANNEL_CLASS(g_class);
+
+  parent_class = g_type_class_peek_parent(gobject_class);
+
+  gobject_class->constructor = mw_channel_constructor;
+  gobject_class->dispose = mw_channel_dispose;
+  gobject_class->set_property = mw_set_property;
+  gobject_class->get_property = mw_get_property;
+
+  mw_prop_uint(gobject_class, property_state,
+	       "state", "get channel state",
+	       G_PARAM_READABLE);
+
+  mw_prop_uint(gobject_class, property_channel_id,
+	       "id", "get channel ID",
+	       G_PARAM_READWRITE|G_PARAM_CONSTRUCT_ONLY);
+
+  mw_prop_obj(gobject_class, property_session,
+	      "session", "get session",
+	      MW_TYPE_SESSION, G_PARAM_READWRITE|G_PARAM_CONSTRUCT_ONLY);
+
+  mw_prop_str(gobject_class, property_remote_user,
+	      "user", "get/set the channel's remote user",
+	      G_PARAM_READWRITE);
+
+  mw_prop_str(gobject_class, property_remote_community,
+	      "community", "get/set the channel's remote community",
+	      G_PARAM_READWRITE);
+
+  mw_prop_uint(gobject_class, property_remote_client_type,
+	       "client", "get the remote user's client type id",
+	       G_PARAM_READABLE);
+
+  mw_prop_str(gobject_class, property_remote_login_id,
+	      "login-id", "get the remote user's login id",
+	      G_PARAM_READABLE);
+
+  mw_prop_uint(gobject_class, property_service_id,
+	       "service-id", "get/set the service identifier",
+	       G_PARAM_READWRITE);
+
+  mw_prop_uint(gobject_class, property_protocol_type,
+	       "protocol-type", "get/set the protocol type",
+	       G_PARAM_READWRITE);
+
+  mw_prop_uint(gobject_class, property_protocol_version,
+	       "protocol-version", "get/set the protocol version",
+	       G_PARAM_READWRITE);
+
+  mw_prop_uint(gobject_class, property_offered_policy,
+	       "offered-policy", "get/set the offered encrypt policy",
+	       G_PARAM_READWRITE);
+
+  mw_prop_uint(gobject_class, property_accepted_policy,
+	       "accepted-policy", "get/set the accepted encrypt policy",
+	       G_PARAM_READWRITE);
+
+  mw_prop_obj(gobject_class, property_cipher,
+	      "cipher", "get the accepted cipher",
+	      MW_TYPE_OBJECT, G_PARAM_READABLE);
+
+  mw_prop_boxed(gobject_class, property_offered_info,
+		"offered-info", "get the offered additional info opaque",
+		MW_TYPE_OPAQUE, G_PARAM_READABLE);
+
+  mw_prop_boxed(gobject_class, property_accepted_info,
+		"accepted-info", "get the accepted additional info opaque",
+		MW_TYPE_OPAQUE, G_PARAM_READABLE);
+
+  mw_prop_uint(gobject_class, property_close_code,
+	       "close-code", "get the closing code",
+	       G_PARAM_READABLE);
   
-  srvc = mwSession_getService(session, msg->service);
-  if(srvc) {
-    mwService_recvCreate(srvc, chan, msg);
+  mw_prop_boxed(gobject_class, property_close_info,
+		"close-info", "get the closeing info opaque",
+		MW_TYPE_OPAQUE, G_PARAM_READABLE);
 
-  } else {
-    mwChannel_destroy(chan, ERR_SERVICE_NO_SUPPORT, NULL);
-  }  
+  klass->signal_state_changed = mw_signal_state_changed();
+  klass->signal_outgoing = mw_signal_outgoing();
+  klass->signal_incoming = mw_signal_incoming();
+
+  klass->open = mw_open;
+  klass->close = mw_close;
+  klass->feed = mw_feed;
+  klass->send = mw_send;
+
+  mw_debug_exit();
 }
 
 
-void mwChannel_recvAccept(struct mwChannel *chan,
-			  struct mwMsgChannelAccept *msg) {
+static void mw_channel_init(GTypeInstance *instance, gpointer g_class) {
+  MwChannel *self = (MwChannel *) instance;
+  MwChannelPrivate *priv;
 
-  struct mwService *srvc;
+  priv = g_new0(MwChannelPrivate, 1);
+  self->private = priv;
+}
+
+
+static const GTypeInfo info = {
+  .class_size = sizeof(MwChannelClass),
+  .base_init = NULL,
+  .base_finalize = NULL,
+  .class_init = mw_channel_class_init,
+  .class_finalize = NULL,
+  .class_data = NULL,
+  .instance_size = sizeof(MwChannel),
+  .n_preallocs = 0,
+  .instance_init = mw_channel_init,
+  .value_table = NULL,
+};
+
+
+GType MwChannel_getType() {
+  static GType type = 0;
+
+  if(type == 0) {
+    type = g_type_register_static(MW_TYPE_OBJECT, "MwChannelType",
+				  &info, 0);
+  }
+  
+  return type;
+}
+
+
+void MwChannel_open(MwChannel *chan, const MwOpaque *info) {
+  void (*fn)(MwChannel *, const MwOpaque *);
+
+  g_return_if_fail(chan != NULL);
+
+  fn = MW_CHANNEL_GET_CLASS(chan)->open;
+  fn(chan, info);
+}
+
+
+void MwChannel_close(MwChannel *chan, guint32 code, const MwOpaque *info) {
+  void (*fn)(MwChannel *, guint32, const MwOpaque *);
+
+  g_return_if_fail(chan != NULL);
+
+  fn = MW_CHANNEL_GET_CLASS(chan)->close;
+  fn(chan, code, info);
+}
+
+
+void MwChannel_feed(MwChannel *chan, MwMessage *msg) {
+  void (*fn)(MwChannel *, MwMessage *);
 
   g_return_if_fail(chan != NULL);
   g_return_if_fail(msg != NULL);
-  g_return_if_fail(chan->id == msg->head.channel);
 
-  if(mwChannel_isIncoming(chan)) {
-    g_warning("channel 0x%08x not an outgoing channel", chan->id);
-    mwChannel_destroy(chan, ERR_REQUEST_INVALID, NULL);
-    return;
-  }
-
-  if(chan->state != mwChannel_WAIT) {
-    g_warning("channel 0x%08x state not WAIT: %s",
-	      chan->id, state_str(chan->state));
-    mwChannel_destroy(chan, ERR_REQUEST_INVALID, NULL);
-    return;
-  }
-
-  mwLoginInfo_clone(&chan->user, &msg->acceptor);
-
-  srvc = mwSession_getService(chan->session, chan->service);
-  if(! srvc) {
-    g_warning("no service: 0x%08x", chan->service);
-    mwChannel_destroy(chan, ERR_SERVICE_NO_SUPPORT, NULL);
-    return;
-  }
-
-  chan->policy = msg->encrypt.mode;
-  g_message("channel accepted with encrypt policy 0x%04x", chan->policy);
-
-  if(! msg->encrypt.mode || ! msg->encrypt.item) {
-    /* no mode or no item means no encryption */
-    mwChannel_selectCipherInstance(chan, NULL);
-
-  } else {
-    guint16 cid = msg->encrypt.item->id;
-    struct mwCipherInstance *ci = get_supported(chan, cid);
-
-    if(! ci) {
-      g_warning("not an offered cipher: 0x%04x", cid);
-      mwChannel_destroy(chan, ERR_REQUEST_INVALID, NULL);
-      return;
-    }
-
-    mwCipherInstance_accepted(ci, msg->encrypt.item);
-    mwChannel_selectCipherInstance(chan, ci);
-  }
-
-  /* mark it as open for the service */
-  state(chan, mwChannel_OPEN, 0);
-
-  /* let the service know */
-  mwService_recvAccept(srvc, chan, msg);
-
-  /* flush it if the service didn't just immediately close it */
-  if(mwChannel_isState(chan, mwChannel_OPEN)) {
-    channel_open(chan);
-  }
+  fn = MW_CHANNEL_GET_CLASS(chan)->feed;
+  fn(chan, msg);
 }
 
 
-void mwChannel_recvDestroy(struct mwChannel *chan,
-			   struct mwMsgChannelDestroy *msg) {
+void MwChannel_send(MwChannel *chan, guint16 type, const MwOpaque *msg,
+		    gboolean encrypt) {
 
-  struct mwChannelSet *cs;
-  struct mwService *srvc;
-
-  g_return_if_fail(chan != NULL);
-  g_return_if_fail(msg != NULL);
-  g_return_if_fail(chan->id == msg->head.channel);
-
-  state(chan, msg->reason? mwChannel_ERROR: mwChannel_DESTROY, msg->reason);
-
-  srvc = mwChannel_getService(chan);
-  if(srvc) mwService_recvDestroy(srvc, chan, msg);
-
-  cs = mwSession_getChannels(chan->session);
-  g_return_if_fail(cs != NULL);
-  g_return_if_fail(cs->map != NULL);
-
-  g_hash_table_remove(cs->map, GUINT_TO_POINTER(chan->id));
-}
-
-
-void mwChannel_populateSupportedCipherInstances(struct mwChannel *chan) {
-  struct mwSession *session;
-  GList *list;
+  void (*fn)(MwChannel *, guint16, const MwOpaque *, gboolean);
 
   g_return_if_fail(chan != NULL);
 
-  session = chan->session;
-  g_return_if_fail(session != NULL);
-
-  for(list = mwSession_getCiphers(session); list; list = list->next) {
-    struct mwCipherInstance *ci = mwCipher_newInstance(list->data, chan);
-    if(! ci) continue;
-    put_supported(chan, ci);
-  }
+  fn = MW_CHANNEL_GET_CLASS(chan)->send;
+  fn(chan, type, msg, encrypt);
 }
 
 
-void mwChannel_addSupportedCipherInstance(struct mwChannel *chan,
-					  struct mwCipherInstance *ci) {
-  g_return_if_fail(chan != NULL);
-  g_message("channel 0x%08x added cipher %s", chan->id,
-	    NSTR(mwCipher_getName(mwCipherInstance_getCipher(ci))));
-  put_supported(chan, ci);
+gboolean MwChannel_isState(MwChannel *chan, enum mw_channel_state state) {
+  guint cs;
+
+  g_return_val_if_fail(chan != NULL, FALSE);
+
+  g_object_get(G_OBJECT(chan), "state", &cs, NULL);
+
+  return cs == state;
 }
 
 
-static void collect(gpointer a, gpointer b, gpointer c) {
-  GList **list = c;
-  *list = g_list_append(*list, b);
-}
-
-
-GList *mwChannel_getSupportedCipherInstances(struct mwChannel *chan) {
-  GList *list = NULL;
-
-  g_return_val_if_fail(chan != NULL, NULL);
-  g_hash_table_foreach(chan->supported, collect, &list);
-
-  return list;
-}
-
-
-void mwChannel_selectCipherInstance(struct mwChannel *chan,
-				    struct mwCipherInstance *ci) {
-  struct mwCipher *c;
-
-  g_return_if_fail(chan != NULL);
-  g_return_if_fail(chan->supported != NULL);
-
-  chan->cipher = ci;
-  if(ci) {
-    guint cid;
-
-    c = mwCipherInstance_getCipher(ci);
-    cid = mwCipher_getType(c);
-
-    g_hash_table_steal(chan->supported, GUINT_TO_POINTER(cid));
-
-    switch(mwCipher_getType(c)) {
-    case mwCipher_RC2_40:
-      chan->policy = mwEncrypt_RC2_40;
-      break;
-
-    case mwCipher_RC2_128:
-      chan->policy = mwEncrypt_RC2_128;
-      break;
-
-    default:
-      /* unsure if this is bad */
-      chan->policy = mwEncrypt_WHATEVER;
-    }
-
-    g_message("channel 0x%08x selected cipher %s",
-	      chan->id, NSTR(mwCipher_getName(c)));
-
-  } else {
-
-    chan->policy = mwEncrypt_NONE;
-    g_message("channel 0x%08x selected no cipher", chan->id);
-  }
-
-  g_hash_table_destroy(chan->supported);
-  chan->supported = NULL;
-}
-
-
+/* The end. */

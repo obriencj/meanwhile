@@ -1,6 +1,7 @@
 
 
-SUBDIRS = doc samples src
+#SUBDIRS = doc samples src
+SUBDIRS = src
 
 
 EXTRA_DIST =	meanwhile.spec \

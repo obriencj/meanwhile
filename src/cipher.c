@@ -71,150 +71,6 @@ static guchar PT[] = {
 };
 
 
-/** prime number used in DH exchange */
-static guchar dh_prime[] = {
-  0xCF, 0x84, 0xAF, 0xCE, 0x86, 0xDD, 0xFA, 0x52,
-  0x7F, 0x13, 0x6D, 0x10, 0x35, 0x75, 0x28, 0xEE,
-  0xFB, 0xA0, 0xAF, 0xEF, 0x80, 0x8F, 0x29, 0x17,
-  0x4E, 0x3B, 0x6A, 0x9E, 0x97, 0x00, 0x01, 0x71,
-  0x7C, 0x8F, 0x10, 0x6C, 0x41, 0xC1, 0x61, 0xA6,
-  0xCE, 0x91, 0x05, 0x7B, 0x34, 0xDA, 0x62, 0xCB,
-  0xB8, 0x7B, 0xFD, 0xC1, 0xB3, 0x5C, 0x1B, 0x91,
-  0x0F, 0xEA, 0x72, 0x24, 0x9D, 0x56, 0x6B, 0x9F
-};
-
-
-/** base used in DH exchange */
-#define DH_BASE  3
-
-
-struct mwMpi *mwMpi_new() {
-  struct mwMpi *i;
-  i = g_new0(struct mwMpi, 1);
-  mw_mp_init(&i->i);
-  return i;
-}
-
-
-void mwMpi_free(struct mwMpi *i) {
-  if(! i) return;
-  mw_mp_clear(&i->i);
-  g_free(i);
-}
-
-
-static void mwInitDHPrime(mw_mp_int *i) {
-  mw_mp_init(i);
-  mw_mp_read_unsigned_bin(i, dh_prime, 64);
-}
-
-
-void mwMpi_setDHPrime(struct mwMpi *i) {
-  g_return_if_fail(i != NULL);
-  mw_mp_read_unsigned_bin(&i->i, dh_prime, 64);
-}
-
-
-static void mwInitDHBase(mw_mp_int *i) {
-  mw_mp_init(i);
-  mw_mp_set_int(i, DH_BASE);
-}
-
-
-void mwMpi_setDHBase(struct mwMpi *i) {
-  g_return_if_fail(i != NULL);
-  mw_mp_set_int(&i->i, DH_BASE);
-}
-
-
-static void mw_mp_set_rand(mw_mp_int *i, guint bits) {
-  size_t len, l;
-  guchar *buf;
-
-  l = len = (bits / 8) + 1;
-  buf = g_malloc(len);
-
-  srand(time(NULL));
-  while(l--) buf[l] = rand() & 0xff;
-
-  buf[0] &= (0xff >> (8 - (bits % 8)));
-
-  mw_mp_read_unsigned_bin(i, buf, len);
-  g_free(buf);
-}
-
-
-static void mwDHRandKeypair(mw_mp_int *private_key, mw_mp_int *public_key) {
-  mw_mp_int prime, base;
- 
-  mwInitDHPrime(&prime);
-  mwInitDHBase(&base);
-
-  mw_mp_set_rand(private_key, 512);
-  mw_mp_exptmod(&base, private_key, &prime, public_key);
-
-  mw_mp_clear(&prime);
-  mw_mp_clear(&base);
-}
-
-
-void mwMpi_randDHKeypair(struct mwMpi *private_key, struct mwMpi *public_key) {
-  g_return_if_fail(private_key != NULL);
-  g_return_if_fail(public_key != NULL);
-
-  mwDHRandKeypair(&private_key->i, &public_key->i);
-}
-
-
-static void mwDHCalculateShared(mw_mp_int *shared_key, mw_mp_int *remote_key,
-				mw_mp_int *private_key) {
-  mw_mp_int prime;
- 
-  mwInitDHPrime(&prime);
-  mw_mp_exptmod(remote_key, private_key, &prime, shared_key);
-  mw_mp_clear(&prime);
-}
-
-
-void mwMpi_calculateDHShared(struct mwMpi *shared_key, struct mwMpi *remote_key,
-			     struct mwMpi *private_key) {
-
-  g_return_if_fail(shared_key != NULL);
-  g_return_if_fail(remote_key != NULL);
-  g_return_if_fail(private_key != NULL);
-
-  mwDHCalculateShared(&shared_key->i, &remote_key->i, &private_key->i);
-}
-
-
-static void mwDHImportKey(mw_mp_int *key, struct mwOpaque *o) {
-  mw_mp_read_unsigned_bin(key, o->data, o->len);
-}
-
-
-void mwMpi_import(struct mwMpi *i, struct mwOpaque *o) {
-  g_return_if_fail(i != NULL);
-  g_return_if_fail(o != NULL);
-
-  mwDHImportKey(&i->i, o);
-}
-
-
-static void mwDHExportKey(mw_mp_int *key, struct mwOpaque *o) {
-  o->len = mw_mp_unsigned_bin_size(key);
-  o->data = g_malloc0(o->len);
-  mw_mp_to_unsigned_bin(key, o->data);
-}
-
-
-void mwMpi_export(struct mwMpi *i, struct mwOpaque *o) {
-  g_return_if_fail(i != NULL);
-  g_return_if_fail(o != NULL);
-  
-  mwDHExportKey(&i->i, o);
-}
-
-
 void mwKeyRandom(guchar *key, gsize keylen) {
   g_return_if_fail(key != NULL);
 
@@ -966,3 +822,43 @@ void mwCipherInstance_free(struct mwCipherInstance *ci) {
   g_free(ci);
 }
 
+
+
+/* 8.2.5 Encryption Block */
+
+/** @todo I think this can be put into cipher */
+
+void mwEncryptItem_put(MwPutBuffer *b,
+		       const MwEncryptItem *ei) {
+
+  g_return_if_fail(b != NULL);
+  g_return_if_fail(ei != NULL);
+  
+  mw_uint16_put(b, ei->id);
+  mwOpaque_put(b, &ei->info);
+
+}
+
+
+void mwEncryptItem_get(MwGetBuffer *b, MwEncryptItem *ei) {
+  g_return_if_fail(b != NULL);
+  g_return_if_fail(ei != NULL);
+
+  if(b->error) return;
+
+  mw_uint16_get(b, &ei->id);
+  mwOpaque_get(b, &ei->info);
+}
+
+
+void mwEncryptItem_clear(MwEncryptItem *ei) {
+  if(! ei) return;
+  ei->id = 0x0000;
+  mwOpaque_clear(&ei->info);
+}
+
+
+void mwEncryptItem_free(MwEncryptItem *ei) {
+  mwEncryptItem_clear(ei);
+  g_free(ei);
+}

@@ -1,4 +1,3 @@
-
 /*
   Meanwhile - Unofficial Lotus Sametime Community Client Library
   Copyright (C) 2004  Christopher (siege) O'Brien
@@ -18,1189 +17,1685 @@
   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
-#include <glib.h>
-#include <string.h>
 
+#include <glib.h>
+#include <glib/ghash.h>
+#include <string.h>
 #include "mw_channel.h"
-#include "mw_cipher.h"
+#include "mw_common.h"
 #include "mw_debug.h"
 #include "mw_error.h"
-#include "mw_message.h"
-#include "mw_service.h"
+#include "mw_encrypt.h"
+#include "mw_marshal.h"
+#include "mw_object.h"
+#include "mw_parser.h"
+#include "mw_queue.h"
 #include "mw_session.h"
+#include "mw_typedef.h"
 #include "mw_util.h"
 
 
-/** the hash table key for a service, for mwSession::services */
-#define SERVICE_KEY(srvc) mwService_getType(srvc)
-
-/** the hash table key for a cipher, for mwSession::ciphers */
-#define CIPHER_KEY(ciph)  mwCipher_getType(ciph)
+/** parent class of MwSessionClass, populated by mw_session_class_init */
+static GObjectClass *parent_class;
 
 
-#define GPOINTER(val)  (GUINT_TO_POINTER((guint) (val)))
-#define GUINT(val)     (GPOINTER_TO_UINT((val)))
+enum properties {
+  property_state = 1,
+  property_state_info,
 
+  property_auth_user,
+  property_auth_type,
+  property_auth_password,
+  property_auth_token,
 
-struct mwSession {
+  property_login_community,
+  property_login_name,
+  property_login_id,
+  property_login_desc,
+  property_login_ip,
 
-  /** provides I/O and callback functions */
-  struct mwSessionHandler *handler;
+  property_status,
+  property_status_idle,
+  property_status_desc,
 
-  enum mwSessionState state;  /**< session state */
-  gpointer state_info;        /**< additional state info */
+  property_client_type,
+  property_client_host,
+  property_client_ver_major,
+  property_client_ver_minor,
 
-  /* input buffering for an incoming message */
-  guchar *buf;  /**< buffer for incoming message data */
-  gsize buf_len;       /**< length of buf */
-  gsize buf_used;      /**< offset to last-used byte of buf */
-  
-  struct mwLoginInfo login;      /**< login information */
-  struct mwUserStatus status;    /**< user status */
-  struct mwPrivacyInfo privacy;  /**< privacy list */
-
-  /** the collection of channels */
-  struct mwChannelSet *channels;
-
-  /** the collection of services, keyed to guint32 service id */
-  GHashTable *services;
-
-  /** the collection of ciphers, keyed to guint16 cipher type */
-  GHashTable *ciphers;
-
-  /** arbitrary key:value pairs */
-  GHashTable *attributes;
-
-  /** optional user data */
-  struct mw_datum client_data;
+  property_server_id,
+  property_server_ver_major,
+  property_server_ver_minor,
 };
 
 
-static void property_set(struct mwSession *s, const char *key,
-			 gpointer val, GDestroyNotify clean) {
+struct mw_session_private {
+  enum mw_session_state state;
+  gpointer state_info;
+  GDestroyNotify state_info_clear;
 
-  g_hash_table_insert(s->attributes, g_strdup(key),
-		      mw_datum_new(val, clean));
+  MwLogin login;
+  MwPrivacy privacy;
+  MwStatus status;
+
+  /** parser for incoming messages */
+  MwParser *parser;
+
+  /** queue for outgoing session messages */
+  MwQueue *queue;
+
+  /** meta queue for outgoing channel messages */
+  MwMetaQueue *chan_queue;
+
+  guint32 channel_counter;  /**< counter for outgoing channel ID */
+  GHashTable *channels;     /**< associated channels, keyed by ID */
+
+  GHashTable *ciphers;        /**< (guint16)ID:MwCipherClass */
+  GHashTable *ciphers_by_pol; /**< (guint16)policy:MwCipherClass */
+
+  guint prop_auth_type;
+  gchar *prop_auth_password;
+  MwOpaque *prop_auth_token;
+  gchar *prop_client_host;
+
+  guint prop_client_ver_major;
+  guint prop_client_ver_minor;
+  guint prop_server_ver_major;
+  guint prop_server_ver_minor;
+};
+
+
+static void mw_session_set_state(MwSession *session,
+				 enum mw_session_state state,
+				 gpointer info, GDestroyNotify clear) {
+  MwSessionPrivate *priv;
+  MwSessionClass *klass;
+
+  g_return_if_fail(session != NULL);
+  g_return_if_fail(session->private != NULL);
+
+  priv = session->private;
+
+  if(priv->state_info_clear)
+    priv->state_info_clear(priv->state_info);
+
+  priv->state = state;
+  priv->state_info = info;
+  priv->state_info_clear = clear;
+
+  klass = MW_SESSION_GET_CLASS(session);
+
+  g_signal_emit(session, klass->signal_state_changed, 0, NULL);
 }
 
 
-static gpointer property_get(struct mwSession *s, const char *key) {
-  struct mw_datum *p = g_hash_table_lookup(s->attributes, key);
-  return p? p->data: NULL;
+static enum mw_session_state mw_session_get_state(MwSession *session) {
+  MwSessionPrivate *priv;
+
+  g_return_val_if_fail(session != NULL, mw_session_UNKNOWN);
+  g_return_val_if_fail(session->private != NULL, mw_session_UNKNOWN);
+  priv = session->private;
+
+  return priv->state;
 }
 
 
-static void property_del(struct mwSession *s, const char *key) {
-  g_hash_table_remove(s->attributes, key);
+/** handles "outgoing" signal on all channels created via a session */
+static void mw_channel_outgoing(MwChannel *chan, MwMessage *msg,
+				gpointer data) {
+  MwSession *session = data;
+  MwSessionPrivate *priv;
+  MwMetaQueue *mq;
+  MwPutBuffer *pb;
+  MwOpaque tmp;
+  guint sig;
+  gboolean ret = FALSE;
+
+  mw_debug_enter();
+
+  g_debug("channel %p with refcount %u", chan, mw_gobject_refcount(chan));
+
+  g_return_if_fail(session->private != NULL);
+  priv = session->private;
+  mq = priv->chan_queue;
+
+  /* take the outgoing message, write it to a buffer, stick it in the
+     channel meta-queue */
+  pb = MwPutBuffer_new();
+  MwMessage_put(pb, msg);
+  MwPutBuffer_free(pb, &tmp);
+
+  pb = MwPutBuffer_new();
+  MwOpaque_put(pb, &tmp);
+  MwPutBuffer_free(pb, MwMetaQueue_push(mq, G_OBJECT(chan)));
+
+  /* trigger the session's pending signal */
+  sig = MW_SESSION_GET_CLASS(session)->signal_pending;
+  g_signal_emit(session, sig, 0, &ret);
+
+  mw_debug_exit();
 }
 
 
-/**
-   set up the default properties for a newly created session
-*/
-static void session_defaults(struct mwSession *s) {
-  property_set(s, mwSession_CLIENT_VER_MAJOR,
-	       GPOINTER(MW_PROTOCOL_VERSION_MAJOR), NULL);
+/** triggered when a channel is destroyed, via a weak reference
+    handler*/
+static void mw_channel_weak_cb(gpointer data, GObject *gone) {
+  gpointer *mem = data;
+  MwSession *session;
+  MwSessionPrivate *priv;
 
-  property_set(s, mwSession_CLIENT_VER_MINOR, 
-	       GPOINTER(MW_PROTOCOL_VERSION_MINOR), NULL);
+  session = mem[0];
+  priv = session->private;
 
-  property_set(s, mwSession_CLIENT_TYPE_ID,
-	       GPOINTER(mwLogin_MEANWHILE), NULL);
-}
-
-
-struct mwSession *mwSession_new(struct mwSessionHandler *handler) {
-  struct mwSession *s;
-
-  g_return_val_if_fail(handler != NULL, NULL);
-
-  /* consider io_write and io_close to be absolute necessities */
-  g_return_val_if_fail(handler->io_write != NULL, NULL);
-  g_return_val_if_fail(handler->io_close != NULL, NULL);
-
-  s = g_new0(struct mwSession, 1);
-
-  s->state = mwSession_STOPPED;
-
-  s->handler = handler;
-
-  s->channels = mwChannelSet_new(s);
-  s->services = map_guint_new();
-  s->ciphers = map_guint_new();
-
-  s->attributes = g_hash_table_new_full(g_str_hash, g_str_equal, g_free,
-					(GDestroyNotify) mw_datum_free);
-
-  session_defaults(s);
-
-  return s;
-}
-
-
-/** free and reset the session buffer */
-static void session_buf_free(struct mwSession *s) {
-  g_return_if_fail(s != NULL);
-
-  g_free(s->buf);
-  s->buf = NULL;
-  s->buf_len = 0;
-  s->buf_used = 0;
-}
-
-
-/** a polite string version of the session state enum */
-static const char *state_str(enum mwSessionState state) {
-  switch(state) {
-  case mwSession_STARTING:      return "starting";
-  case mwSession_HANDSHAKE:     return "handshake sent";
-  case mwSession_HANDSHAKE_ACK: return "handshake acknowledged";
-  case mwSession_LOGIN:         return "login sent";
-  case mwSession_LOGIN_REDIR:   return "login redirected";
-  case mwSession_LOGIN_CONT:    return "forcing login";
-  case mwSession_LOGIN_ACK:     return "login acknowledged";
-  case mwSession_STARTED:       return "started";
-  case mwSession_STOPPING:      return "stopping";
-  case mwSession_STOPPED:       return "stopped";
-
-  case mwSession_UNKNOWN:       /* fall-through */
-  default:                      return "UNKNOWN";
+  if(priv) {
+    g_hash_table_remove(priv->channels, mem[1]);
   }
+
+  /* free what's allocated in mw_chan_setup */
+  g_free(mem);
 }
 
 
-void mwSession_free(struct mwSession *s) {
-  struct mwSessionHandler *h;
+static void mw_chan_setup(MwSession *s, MwChannel *chan) {
+  MwSessionPrivate *priv;
+  GHashTable *ht;
+  guint id;
+  gpointer *mem;
 
-  g_return_if_fail(s != NULL);
+  priv = s->private;
+  ht = priv->channels;
 
-  if(! mwSession_isStopped(s)) {
-    g_debug("session is not stopped (state: %s), proceeding with free",
-	    state_str(s->state));
+  g_object_get(G_OBJECT(chan), "id", &id, NULL);
+
+  /* put the channel in a weak mapping by its ID. So long as something
+     else has a reference to the channel, we'll accept incoming
+     channel messages and route them to the channel itself */
+  g_hash_table_insert(ht, GUINT_TO_POINTER(id), chan);
+
+  /* annoying, we want to send along two pieces of information to the
+     weak event, but we can only pass one */
+  mem = g_new0(gpointer, 2);
+  mem[0] = s;
+  mem[1] = GUINT_TO_POINTER(id);
+  g_object_weak_ref(G_OBJECT(chan), mw_channel_weak_cb, mem);
+
+  /* catch channel outgoing data so we can queue it up for sending */
+  g_signal_connect(chan, "outgoing", G_CALLBACK(mw_channel_outgoing), s);
+}
+
+
+static void mw_compose_auth_PLAIN(MwSession *s, MwMsgLogin *ml,
+				  MwMsgHandshakeAck *mha) {
+  gchar *pass = NULL;
+
+  g_object_get(G_OBJECT(s), "auth-password", &pass, NULL);
+
+  ml->auth_data.data = (guchar *) pass;
+  ml->auth_data.len = strlen(pass);
+}
+
+
+static void mw_compose_auth_TOKEN(MwSession *s, MwMsgLogin *ml,
+				  MwMsgHandshakeAck *mha) {
+  MwOpaque *tok = NULL;
+
+  g_object_get(G_OBJECT(s), "auth-token", &tok, NULL);
+
+  ml->auth_data.data = tok->data;
+  ml->auth_data.len = tok->len;
+}
+
+
+static void mw_compose_auth_RC2(MwSession *s, MwMsgLogin *ml,
+				MwMsgHandshakeAck *mha) {
+  gchar *id, *pass = NULL;
+  MwOpaque plain;
+  MwRC2Cipher *ci;
+
+  id = ml->name;
+  g_object_get(G_OBJECT(s), "auth-password", &pass, NULL);
+
+  plain.data = (guchar *) pass;
+  plain.len = strlen(pass);
+
+  /* encrypt plain with id (yes, really) */
+  ci = g_object_new(MW_TYPE_RC2_CIPHER, NULL);
+  MwRC2Cipher_setEncryptKey(ci, (guchar *) id, 5);
+  MwCipher_encrypt(MW_CIPHER(ci), &plain, &ml->auth_data);
+  
+  mw_gobject_unref(ci);
+
+  g_free(pass);
+}
+
+
+static void mw_compose_auth_DH_RC2(MwSession *s, MwMsgLogin *ml,
+				   MwMsgHandshakeAck *mha) {
+  gchar *pass = NULL;
+  MwCipher *ci;
+  MwPutBuffer *p;
+  MwOpaque a, b, c;
+  
+  if(! mha->data.len) {
+    /* there's no DH public key being offered, fall back to the
+       crappier RC2 method */
+
+    g_debug("falling back to RC2 authentication");
+
+    ml->auth_type = mw_auth_type_RC2;
+    mw_compose_auth_RC2(s, ml, mha);
+    return;
   }
 
-  h = s->handler;
-  if(h && h->clear) h->clear(s);
-  s->handler = NULL;
+  g_object_get(G_OBJECT(s), "auth-password", &pass, NULL);
 
-  session_buf_free(s);
+  ci = g_object_new(MW_TYPE_DH_RC2_CIPHER, NULL);
 
-  mwChannelSet_free(s->channels);
-  g_hash_table_destroy(s->services);
-  g_hash_table_destroy(s->ciphers);
-  g_hash_table_destroy(s->attributes);
+  /* assemble the unencrypted auth data from the magic value and the
+     password, put it in (a) */
+  p = MwPutBuffer_new();
+  mw_uint32_put(p, mha->magic);
+  mw_str_put(p, pass);
+  MwPutBuffer_free(p, &a);
 
-  mwLoginInfo_clear(&s->login);
-  mwUserStatus_clear(&s->status);
-  mwPrivacyInfo_clear(&s->privacy);
+  /* setup the cipher with the remote public key, and put the local
+     public key in (b) */
+  MwCipher_offered(ci, &mha->data);
+  MwCipher_accept(ci, &b);
 
-  g_free(s);
+  /* encrypt the password (a), put the result in (c) */
+  MwCipher_encrypt(ci, &a, &c);
+
+  /* assemble the final auth data from the encrypted data (c) and the
+     local public key (b) and put it in the login message */
+  p = MwPutBuffer_new();
+  mw_uint16_put(p, 0x0001);
+  MwOpaque_put(p, &b);
+  MwOpaque_put(p, &c);
+  MwPutBuffer_free(p, &ml->auth_data);
+
+  /* clean up after ourselves */
+  g_free(pass);
+  mw_gobject_unref(ci);
+  MwOpaque_clear(&a);
+  MwOpaque_clear(&b);
+  MwOpaque_clear(&c);
 }
 
 
-/** write data to the session handler */
-static int io_write(struct mwSession *s, const guchar *buf, gsize len) {
-  g_return_val_if_fail(s != NULL, -1);
-  g_return_val_if_fail(s->handler != NULL, -1);
-  g_return_val_if_fail(s->handler->io_write != NULL, -1);
+static void recv_HANDSHAKE_ACK(MwSession *s, MwMsgHandshakeAck *m) {
+  MwSessionPrivate *priv;
+  MwMsgLogin *msglogin;
+  guint auth_type, client_type;
+  gchar *user;
 
-  return s->handler->io_write(s, buf, len);
-}
+  g_return_if_fail(mw_session_get_state(s) == mw_session_HANDSHAKE);
+  
+  g_return_if_fail(s->private != NULL);
+  priv = s->private;
 
+  priv->prop_server_ver_major = m->major;
+  priv->prop_server_ver_minor = m->minor;
 
-/** close the session handler */
-static void io_close(struct mwSession *s) {
-  g_return_if_fail(s != NULL);
-  g_return_if_fail(s->handler != NULL);
-  g_return_if_fail(s->handler->io_close != NULL);
+  mw_session_set_state(s, mw_session_HANDSHAKE_ACK, NULL, NULL);
 
-  s->handler->io_close(s);
-}
+  msglogin = MwMessage_new(mw_message_LOGIN);
 
+  g_object_get(G_OBJECT(s),
+	       "client-type", &client_type,
+	       "auth-type", &auth_type,
+	       "auth-user", &user,
+	       NULL);
 
-static void state(struct mwSession *s, enum mwSessionState state,
-		  gpointer info) {
+  msglogin->client_type = client_type;
+  msglogin->auth_type = auth_type;
+  msglogin->name = user;
 
-  struct mwSessionHandler *sh;
-
-  g_return_if_fail(s != NULL);
-  g_return_if_fail(s->handler != NULL);
-
-  if(mwSession_isState(s, state)) return;
-
-  s->state = state;
-  s->state_info = info;
-
-  switch(state) {
-  case mwSession_STOPPING:
-  case mwSession_STOPPED:
-    g_message("session state: %s (0x%08x)", state_str(state),
-	      GPOINTER_TO_UINT(info));
+  switch(auth_type) {
+  case mw_auth_type_PLAIN:
+    mw_compose_auth_PLAIN(s, msglogin, m);
     break;
-
-  case mwSession_LOGIN_REDIR:
-    g_message("session state: %s (%s)", state_str(state),
-	      (char *)info);
+  case mw_auth_type_TOKEN:
+    mw_compose_auth_TOKEN(s, msglogin, m);
     break;
-
+  case mw_auth_type_RC2:
+    mw_compose_auth_RC2(s, msglogin, m);
+    break;
+  case mw_auth_type_DH_RC2:
+    mw_compose_auth_DH_RC2(s, msglogin, m);
+    break;
   default:
-    g_message("session state: %s", state_str(state));
+    g_warning("unknown session auth-type, 0x%x", auth_type);
   }
 
-  sh = s->handler;
-  if(sh && sh->on_stateChange)
-    sh->on_stateChange(s, state, info);
+  MwSession_sendMessage(s, MW_MESSAGE(msglogin));
+
+  msglogin->name = NULL;
+  MwMessage_free(MW_MESSAGE(msglogin));
+
+  mw_session_set_state(s, mw_session_LOGIN, NULL, NULL);
 }
 
 
-void mwSession_start(struct mwSession *s) {
-  struct mwMsgHandshake *msg;
-  int ret;
+static void recv_LOGIN_REDIRECT(MwSession *s, MwMsgLoginRedirect *m) {
 
-  g_return_if_fail(s != NULL);
-  g_return_if_fail(mwSession_isStopped(s));
-
-  if(mwSession_isStarted(s) || mwSession_isStarting(s)) {
-    g_debug("attempted to start session that is already started/starting");
-    return;
-  }
+  g_return_if_fail(mw_session_get_state(s) == mw_session_LOGIN);
   
-  state(s, mwSession_STARTING, 0);
-
-  msg = (struct mwMsgHandshake *) mwMessage_new(mwMessage_HANDSHAKE);
-  msg->major = GUINT(property_get(s, mwSession_CLIENT_VER_MAJOR));
-  msg->minor = GUINT(property_get(s, mwSession_CLIENT_VER_MINOR));
-  msg->login_type = GUINT(property_get(s, mwSession_CLIENT_TYPE_ID));
-
-  msg->loclcalc_addr = GUINT(property_get(s, mwSession_CLIENT_IP));
-
-  if(msg->major >= 0x001e && msg->minor >= 0x001d) {
-    msg->unknown_a = 0x0100;
-    msg->local_host = property_get(s, mwSession_CLIENT_HOST);
-  }
-
-  ret = mwSession_send(s, MW_MESSAGE(msg));
-  mwMessage_free(MW_MESSAGE(msg));
-
-  if(ret) {
-    mwSession_stop(s, CONNECTION_BROKEN);
-  } else {
-    state(s, mwSession_HANDSHAKE, 0);
-  }
+  mw_session_set_state(s, mw_session_LOGIN_REDIRECT,
+		       g_strdup(m->host), g_free);
 }
 
 
-void mwSession_stop(struct mwSession *s, guint32 reason) {
-  GList *list, *l = NULL;
-  struct mwMsgChannelDestroy *msg;
+static void recv_LOGIN_ACK(MwSession *s, MwMsgLoginAck *m) {
+  MwSessionClass *klass;
+  MwSessionPrivate *priv;
 
-  g_return_if_fail(s != NULL);
+  g_return_if_fail(mw_session_get_state(s) == mw_session_LOGIN ||
+		   mw_session_get_state(s) == mw_session_LOGIN_FORCE);
+
+  klass = MW_SESSION_GET_CLASS(s);
+
+  g_return_if_fail(s->private != NULL);
+  priv = s->private;
+
+  MwLogin_clone(&priv->login, &m->login, TRUE);
+  MwPrivacy_clone(&priv->privacy, &m->privacy, TRUE);
+  MwStatus_clone(&priv->status, &m->status, TRUE);
+
+  g_signal_emit(s, klass->signal_got_status, 0, NULL);
+  g_signal_emit(s, klass->signal_got_privacy, 0, NULL);
   
-  if(mwSession_isStopped(s) || mwSession_isStopping(s)) {
-    g_debug("attempted to stop session that is already stopped/stopping");
-    return;
-  }
+  mw_session_set_state(s, mw_session_LOGIN_ACK, NULL, NULL);
 
-  state(s, mwSession_STOPPING, GUINT_TO_POINTER(reason));
-
-  for(list = l = mwSession_getServices(s); l; l = l->next)
-    mwService_stop(MW_SERVICE(l->data));
-  g_list_free(list);
-
-  msg = (struct mwMsgChannelDestroy *)
-    mwMessage_new(mwMessage_CHANNEL_DESTROY);
-
-  msg->head.channel = MW_MASTER_CHANNEL_ID;
-  msg->reason = reason;
-
-  /* don't care if this fails, we're closing the connection anyway */
-  mwSession_send(s, MW_MESSAGE(msg));
-  mwMessage_free(MW_MESSAGE(msg));
-
-  session_buf_free(s);
-
-  /* close the connection */
-  io_close(s);
-
-  state(s, mwSession_STOPPED, GUINT_TO_POINTER(reason));
+  mw_session_set_state(s, mw_session_STARTED, NULL, NULL);
 }
 
 
-/** compose authentication information into an opaque based on the
-    password, encrypted via RC2/40 */
-static void compose_auth_rc2_40(struct mwOpaque *auth, const char *pass) {
-  guchar iv[8], key[5];
-  struct mwOpaque a, b, z;
-  struct mwPutBuffer *p;
+static void recv_CHANNEL_CREATE(MwSession *s, MwMsgChannelCreate *m) {
+  MwChannel *chan;
+  guint sig;
+  gboolean wanted = FALSE;
 
-  /* get an IV and a random five-byte key */
-  mwIV_init(iv);
-  mwKeyRandom(key, 5);
+  mw_debug_enter();
 
-  /* the opaque with the key */
-  a.len = 5;
-  a.data = key;
+  chan = g_object_new(MW_TYPE_CHANNEL, "session", s, NULL);
+  MwChannel_feed(chan, MW_MESSAGE(m));
 
-  /* the opaque to receive the encrypted pass */
-  b.len = 0;
-  b.data = NULL;
+  mw_chan_setup(s, chan);
 
-  /* the plain-text pass dressed up as an opaque */
-  z.len = strlen(pass);
-  z.data = (guchar *) pass;
+  sig = MW_SESSION_GET_CLASS(s)->signal_channel;
+  g_signal_emit(s, sig, 0, chan, &wanted);
 
-  /* the opaque with the encrypted pass */
-  mwEncrypt(a.data, a.len, iv, &z, &b);
+  mw_gobject_unref(chan);
 
-  /* an opaque containing the other two opaques */
-  p = mwPutBuffer_new();
-  mwOpaque_put(p, &a);
-  mwOpaque_put(p, &b);
-  mwPutBuffer_finalize(auth, p);
-
-  /* this is the only one to clear, as the other uses a static buffer */
-  mwOpaque_clear(&b);
+  mw_debug_exit();
 }
 
 
-static void compose_auth_rc2_128(struct mwOpaque *auth, const char *pass,
-				 guint32 magic, struct mwOpaque *rkey) {
-
-  guchar iv[8];
-  struct mwOpaque a, b, c;
-  struct mwPutBuffer *p;
-
-  struct mwMpi *private, *public;
-  struct mwMpi *remote;
-  struct mwMpi *shared;
-
-  private = mwMpi_new();
-  public = mwMpi_new();
-  remote = mwMpi_new();
-  shared = mwMpi_new();
-
-  mwIV_init(iv);
-
-  mwMpi_randDHKeypair(private, public);
-  mwMpi_import(remote, rkey);
-  mwMpi_calculateDHShared(shared, remote, private);
-
-  /* put the password in opaque a */
-  p = mwPutBuffer_new();
-  guint32_put(p, magic);
-  mwString_put(p, pass);
-  mwPutBuffer_finalize(&a, p);
-
-  /* put the shared key in opaque b */
-  mwMpi_export(shared, &b);
-
-  /* encrypt the password (a) using the shared key (b), put the result
-     in opaque c */
-  mwEncrypt(b.data+(b.len-16), 16, iv, &a, &c);
-
-  /* don't need the shared key anymore, re-use opaque (b) as the
-     export of the public key */
-  mwOpaque_clear(&b);
-  mwMpi_export(public, &b);
-
-  p = mwPutBuffer_new();
-  guint16_put(p, 0x0001);  /* XXX: unknown */
-  mwOpaque_put(p, &b);
-  mwOpaque_put(p, &c);
-  mwPutBuffer_finalize(auth, p);
-
-  mwOpaque_clear(&a);
-  mwOpaque_clear(&b);
-  mwOpaque_clear(&c);
-
-  mwMpi_free(private);
-  mwMpi_free(public);
-  mwMpi_free(remote);
-  mwMpi_free(shared);
+static void recv_CHANNEL_CLOSE(MwSession *s, MwMsgChannelClose *m) {
+  MwChannel *chan = MwSession_getChannel(s, m->head.channel);
+  MwChannel_feed(chan, MW_MESSAGE(m));
 }
 
 
-/** handle the receipt of a handshake_ack message by sending the login
-    message */
-static void HANDSHAKE_ACK_recv(struct mwSession *s,
-			       struct mwMsgHandshakeAck *msg) {
-  struct mwMsgLogin *log;
-  int ret;
-			       
-  g_return_if_fail(s != NULL);
-  g_return_if_fail(msg != NULL);
-  g_return_if_fail(mwSession_isState(s, mwSession_HANDSHAKE) ||
-		   mwSession_isState(s, mwSession_LOGIN_CONT));
-
-  if(mwSession_isState(s, mwSession_LOGIN_CONT)) {
-    /* this is a login continuation, don't re-send the login. We
-       should receive a login ack in a moment */
-
-    state(s, mwSession_HANDSHAKE_ACK, 0);
-    state(s, mwSession_LOGIN, 0);
-    return;
-
-  } else {
-    state(s, mwSession_HANDSHAKE_ACK, 0);
-  }
-
-  /* record the major/minor versions from the server */
-  property_set(s, mwSession_SERVER_VER_MAJOR, GPOINTER(msg->major), NULL);
-  property_set(s, mwSession_SERVER_VER_MINOR, GPOINTER(msg->minor), NULL);
-
-  /* compose the login message */
-  log = (struct mwMsgLogin *) mwMessage_new(mwMessage_LOGIN);
-  log->login_type = GUINT(property_get(s, mwSession_CLIENT_TYPE_ID));
-  log->name = g_strdup(property_get(s, mwSession_AUTH_USER_ID));
-
-  /** @todo default to password for now. later use token optionally */
-  {
-    const char *pw;
-    pw = property_get(s, mwSession_AUTH_PASSWORD);
-   
-    if(msg->data.len >= 64) {
-      /* good login encryption */
-      log->auth_type = mwAuthType_RC2_128;
-      compose_auth_rc2_128(&log->auth_data, pw, msg->magic, &msg->data);
-
-    } else {
-      /* BAD login encryption */
-      log->auth_type = mwAuthType_RC2_40;
-      compose_auth_rc2_40(&log->auth_data, pw);
-    }
-  }
-  
-  /* send the login message */
-  ret = mwSession_send(s, MW_MESSAGE(log));
-  mwMessage_free(MW_MESSAGE(log));
-
-  if(! ret) {
-    /* sent login OK, set state appropriately */
-    state(s, mwSession_LOGIN, 0);
-  }
+static void recv_CHANNEL_SEND(MwSession *s, MwMsgChannelSend *m) {
+  MwChannel *chan = MwSession_getChannel(s, m->head.channel);
+  MwChannel_feed(chan, MW_MESSAGE(m));
 }
 
 
-/** handle the receipt of a login_ack message. This completes the
-    startup sequence for the session */
-static void LOGIN_ACK_recv(struct mwSession *s,
-			   struct mwMsgLoginAck *msg) {
-  GList *ll, *l;
-
-  g_return_if_fail(s != NULL);
-  g_return_if_fail(msg != NULL);
-  g_return_if_fail(mwSession_isState(s, mwSession_LOGIN));
-
-  /* store the login information in the session */
-  mwLoginInfo_clear(&s->login);
-  mwLoginInfo_clone(&s->login, &msg->login);
-
-  state(s, mwSession_LOGIN_ACK, 0);
-
-  /* start up our services */
-  for(ll = l = mwSession_getServices(s); l; l = l->next) {
-    mwService_start(l->data);
-  }
-  g_list_free(ll);
-
-  /* @todo any further startup stuff? */
-
-  state(s, mwSession_STARTED, 0);
+static void recv_CHANNEL_ACCEPT(MwSession *s, MwMsgChannelAccept *m) {
+  MwChannel *chan = MwSession_getChannel(s, m->head.channel);
+  MwChannel_feed(chan, MW_MESSAGE(m));
 }
 
 
-static void CHANNEL_CREATE_recv(struct mwSession *s,
-				struct mwMsgChannelCreate *msg) {
-  struct mwChannel *chan;
-  chan = mwChannel_newIncoming(s->channels, msg->channel);
+static void recv_STATUS(MwSession *s, MwMsgStatus *m) {
+  MwSessionClass *klass;
+  MwSessionPrivate *priv;
 
-  /* hand off to channel */
-  mwChannel_recvCreate(chan, msg);
+  mw_debug_enter();
+
+  klass = MW_SESSION_GET_CLASS(s);
+  priv = s->private;
+
+  MwStatus_clone(&priv->status, &m->status, TRUE);
+  g_signal_emit(s, klass->signal_got_status, 0, NULL);
+
+  mw_debug_exit();
 }
 
 
-static void CHANNEL_ACCEPT_recv(struct mwSession *s,
-				struct mwMsgChannelAccept *msg) {
-  struct mwChannel *chan;
-  chan = mwChannel_find(s->channels, msg->head.channel);
+static void recv_PRIVACY(MwSession *s, MwMsgPrivacy *m) {
+  MwSessionClass *klass;
+  MwSessionPrivate *priv;
 
-  g_return_if_fail(chan != NULL);
+  mw_debug_enter();
 
-  /* hand off to channel */
-  mwChannel_recvAccept(chan, msg);
+  klass = MW_SESSION_GET_CLASS(s);
+  priv = s->private;
+
+  MwPrivacy_clone(&priv->privacy, &m->privacy, TRUE);
+  g_signal_emit(s, klass->signal_got_privacy, 0, NULL);
+
+  mw_debug_exit();
 }
 
 
-static void CHANNEL_DESTROY_recv(struct mwSession *s,
-				 struct mwMsgChannelDestroy *msg) {
-
-  /* the server can indicate that we should close the session by
-     destroying the zero channel */
-  if(msg->head.channel == MW_MASTER_CHANNEL_ID) {
-    mwSession_stop(s, msg->reason);
-
-  } else {
-    struct mwChannel *chan;
-    chan = mwChannel_find(s->channels, msg->head.channel);
-
-    /* we don't have any such channel... so I guess we destroyed it.
-       This is to remove a warning from timing errors when two clients
-       both try to close a channel at about the same time. */
-    if(! chan) return;
-    
-    /* hand off to channel */
-    mwChannel_recvDestroy(chan, msg);
-  }
+static void recv_SENSE_SERVICE(MwSession *s, MwMsgSenseService *m) {
+  MwSessionClass *klass = MW_SESSION_GET_CLASS(s);
+  g_signal_emit(s, klass->signal_got_sense_service, 0,
+		m->service);
 }
 
 
-static void CHANNEL_SEND_recv(struct mwSession *s,
-			      struct mwMsgChannelSend *msg) {
-  struct mwChannel *chan;
-  chan = mwChannel_find(s->channels, msg->head.channel);
-
-  /* if we don't have any such channel, we're certainly not going to
-     accept data from it */
-  if(! chan) return;
-
-  /* hand off to channel */
-  mwChannel_recv(chan, msg);
+static void recv_ADMIN(MwSession *s, MwMsgAdmin *m) {
+  MwSessionClass *klass = MW_SESSION_GET_CLASS(s);
+  g_signal_emit(s, klass->signal_got_admin, 0, m->text);
 }
 
 
-static void SET_PRIVACY_LIST_recv(struct mwSession *s,
-				  struct mwMsgSetPrivacyList *msg) {
-  struct mwSessionHandler *sh = s->handler;
-
-  g_info("SET_PRIVACY_LIST");
-
-  mwPrivacyInfo_clear(&s->privacy);
-  mwPrivacyInfo_clone(&s->privacy, &msg->privacy);
-
-  if(sh && sh->on_setPrivacyInfo)
-    sh->on_setPrivacyInfo(s);
+static void recv_ANNOUNCE(MwSession *s, MwMsgAnnounce *m) {
+  MwSessionClass *klass = MW_SESSION_GET_CLASS(s);
+  g_signal_emit(s, klass->signal_got_announce, 0,
+		m->may_reply, m->sender, m->text);
 }
 
 
-static void SET_USER_STATUS_recv(struct mwSession *s,
-				 struct mwMsgSetUserStatus *msg) {
-  struct mwSessionHandler *sh = s->handler;
+static void recv_msg(MwParser *parser,
+		     const guchar *buf, gsize len,
+		     gpointer data) {
 
-  mwUserStatus_clear(&s->status);
-  mwUserStatus_clone(&s->status, &msg->status);
+  MwSession *session = data;
+  MwOpaque o = { .data = (guchar *) buf, .len = len };
+  MwGetBuffer *b;
+  MwMessage *msg;
 
-  if(sh && sh->on_setUserStatus)
-    sh->on_setUserStatus(s);
-}
+  mw_debug_enter();
 
+  g_return_if_fail(session != NULL);
 
-static void SENSE_SERVICE_recv(struct mwSession *s,
-			       struct mwMsgSenseService *msg) {
-  struct mwService *srvc;
-
-  srvc = mwSession_getService(s, msg->service);
-  if(srvc) mwService_start(srvc);
-}
-
-
-static void ADMIN_recv(struct mwSession *s, struct mwMsgAdmin *msg) {
-  struct mwSessionHandler *sh = s->handler;
-
-  if(sh && sh->on_admin)
-    sh->on_admin(s, msg->text);
-}
-
-
-static void ANNOUNCE_recv(struct mwSession *s, struct mwMsgAnnounce *msg) {
-  struct mwSessionHandler *sh = s->handler;
-
-  if(sh && sh->on_announce)
-    sh->on_announce(s, &msg->sender, msg->may_reply, msg->text);
-}
-
-
-static void LOGIN_REDIRECT_recv(struct mwSession *s,
-				struct mwMsgLoginRedirect *msg) {
-
-  state(s, mwSession_LOGIN_REDIR, msg->host);
-}
-
-
-#define CASE(var, type) \
-case mwMessage_ ## var: \
-  var ## _recv(s, (struct type *) msg); \
-  break;
-
-
-static void session_process(struct mwSession *s,
-			    const guchar *buf, gsize len) {
-
-  struct mwOpaque o = { .len = len, .data = (guchar *) buf };
-  struct mwGetBuffer *b;
-  struct mwMessage *msg;
-
-  g_return_if_fail(s != NULL);
-  g_return_if_fail(buf != NULL);
-
-  /* ignore zero-length messages */
-  if(len == 0) return;
-
-  /* wrap up buf */
-  b = mwGetBuffer_wrap(&o);
-
-  /* attempt to parse the message. */
-  msg = mwMessage_get(b);
-
-  if(mwGetBuffer_error(b)) {
-    mw_mailme_opaque(&o, "parsing of message failed");
-  }
-
-  mwGetBuffer_free(b);
+  b = MwGetBuffer_wrap(&o);
+  msg = MwMessage_get(b);
+  MwGetBuffer_free(b);
 
   g_return_if_fail(msg != NULL);
 
-  /* handle each of the appropriate incoming types of mwMessage */
   switch(msg->type) {
-    CASE(HANDSHAKE_ACK, mwMsgHandshakeAck);
-    CASE(LOGIN_REDIRECT, mwMsgLoginRedirect);
-    CASE(LOGIN_ACK, mwMsgLoginAck);
-    CASE(CHANNEL_CREATE, mwMsgChannelCreate);
-    CASE(CHANNEL_DESTROY, mwMsgChannelDestroy);
-    CASE(CHANNEL_SEND, mwMsgChannelSend);
-    CASE(CHANNEL_ACCEPT, mwMsgChannelAccept);
-    CASE(SET_PRIVACY_LIST, mwMsgSetPrivacyList);
-    CASE(SET_USER_STATUS, mwMsgSetUserStatus);
-    CASE(SENSE_SERVICE, mwMsgSenseService);
-    CASE(ADMIN, mwMsgAdmin);
-    CASE(ANNOUNCE, mwMsgAnnounce);
+  case mw_message_HANDSHAKE_ACK:
+    recv_HANDSHAKE_ACK(session, (MwMsgHandshakeAck *) msg);
+    break;
+  case mw_message_LOGIN_REDIRECT:
+    recv_LOGIN_REDIRECT(session, (MwMsgLoginRedirect *) msg);
+    break;
+  case mw_message_LOGIN_ACK:
+    recv_LOGIN_ACK(session, (MwMsgLoginAck *) msg);
+    break;
+
+  case mw_message_CHANNEL_CREATE:
+    recv_CHANNEL_CREATE(session, (MwMsgChannelCreate *) msg);
+    break;
+  case mw_message_CHANNEL_CLOSE:
+    recv_CHANNEL_CLOSE(session, (MwMsgChannelClose *) msg);
+    break;
+  case mw_message_CHANNEL_SEND:
+    recv_CHANNEL_SEND(session, (MwMsgChannelSend *) msg);
+    break;
+  case mw_message_CHANNEL_ACCEPT:
+    recv_CHANNEL_ACCEPT(session, (MwMsgChannelAccept *) msg);
+    break;
+    
+  case mw_message_STATUS:
+    recv_STATUS(session, (MwMsgStatus *) msg);
+    break;
+  case mw_message_PRIVACY:
+    recv_PRIVACY(session, (MwMsgPrivacy *) msg);
+    break;
+
+  case mw_message_SENSE_SERVICE:
+    recv_SENSE_SERVICE(session, (MwMsgSenseService *) msg);
+    break;
+  case mw_message_ADMIN:
+    recv_ADMIN(session, (MwMsgAdmin *) msg);
+    break;
+  case mw_message_ANNOUNCE:
+    recv_ANNOUNCE(session, (MwMsgAnnounce *) msg);
+    break;
     
   default:
-    g_warning("unknown message type 0x%04x, no handler", msg->type);
+    ; /* todo: log it */
   }
 
-  mwMessage_free(msg);
+  MwMessage_free(msg);
+  
+  mw_debug_exit();
 }
 
 
-#undef CASE
+static void mw_start(MwSession *self) {
+  MwMsgHandshake *msg;
+  guint major = 0, minor = 0, type = 0;
+  gchar *local_host = NULL;
 
+  mw_session_set_state(self, mw_session_STARTING, NULL, NULL);
 
-#define ADVANCE(b, n, count) { b += count; n -= count; }
+  g_object_get(G_OBJECT(self),
+	       "client-ver-major", &major,
+	       "client-ver-minor", &minor,
+	       "client-type", &type,
+	       "client-host", &local_host,
+	       NULL);
 
+  msg = MwMessage_new(mw_message_HANDSHAKE);
 
-/* handle input to complete an existing buffer */
-static gsize session_recv_cont(struct mwSession *s,
-			       const guchar *b, gsize n) {
+  msg->major = major;
+  msg->minor = minor;
+  msg->client_type = type;
 
-  /* determine how many bytes still required */
-  gsize x = s->buf_len - s->buf_used;
-
-  /* g_message(" session_recv_cont: session = %p, b = %p, n = %u",
-	    s, b, n); */
-  
-  if(n < x) {
-    /* not quite enough; still need some more */
-    memcpy(s->buf+s->buf_used, b, n);
-    s->buf_used += n;
-    return 0;
-    
-  } else {
-    /* enough to finish the buffer, at least */
-    memcpy(s->buf+s->buf_used, b, x);
-    ADVANCE(b, n, x);
-    
-    if(s->buf_len == 4) {
-      /* if only the length bytes were being buffered, we'll now try
-       to complete an actual message */
-
-      struct mwOpaque o = { 4, s->buf };
-      struct mwGetBuffer *gb = mwGetBuffer_wrap(&o);
-      x = guint32_peek(gb);
-      mwGetBuffer_free(gb);
-
-      if(n < x) {
-	/* there isn't enough to meet the demands of the length, so
-	   we'll buffer it for next time */
-
-	guchar *t;
-	x += 4;
-	t = (guchar *) g_malloc(x);
-	memcpy(t, s->buf, 4);
-	memcpy(t+4, b, n);
-	
-	session_buf_free(s);
-	
-	s->buf = t;
-	s->buf_len = x;
-	s->buf_used = n + 4;
-	return 0;
-	
-      } else {
-	/* there's enough (maybe more) for a full message. don't need
-	   the old session buffer (which recall, was only the length
-	   bytes) any more */
-	
-	session_buf_free(s);
-	session_process(s, b, x);
-	ADVANCE(b, n, x);
-      }
-      
-    } else {
-      /* process the now-complete buffer. remember to skip the first
-	 four bytes, since they're just the size count */
-      session_process(s, s->buf+4, s->buf_len-4);
-      session_buf_free(s);
-    }
+  /* these values are just guestimates */
+  if(major >= 0x001e && minor >= 0x001d) {
+    msg->unknown_a = 0x0100;
+    msg->local_host = local_host;
   }
 
-  return n;
+  MwSession_sendMessage(self, MW_MESSAGE(msg));
+  MwMessage_free(MW_MESSAGE(msg));
+
+  mw_session_set_state(self, mw_session_HANDSHAKE, NULL, NULL);
 }
 
 
-/* handle input when there's nothing previously buffered */
-static gsize session_recv_empty(struct mwSession *s,
-				const guchar *b, gsize n) {
+static void mw_stop(MwSession *self, guint32 reason) {
+  MwSessionPrivate *priv;
+  gpointer code = GUINT_TO_POINTER(reason);
 
-  struct mwOpaque o = { n, (guchar *) b };
-  struct mwGetBuffer *gb;
-  gsize x;
+  mw_debug_enter();
 
-  if(n < 4) {
-    /* uh oh. less than four bytes means we've got an incomplete
-       length indicator. Have to buffer to get the rest of it. */
-    s->buf = (guchar *) g_malloc0(4);
-    memcpy(s->buf, b, n);
-    s->buf_len = 4;
-    s->buf_used = n;
-    return 0;
-  }
+  priv = self->private;
+
+  /* todo: clean out the outgoing buffers, close all channels */
+
+  /* unref outgoing queue */
+  MwMetaQueue_scour(priv->chan_queue);
+
+  mw_session_set_state(self, mw_session_STOPPING, code, NULL);
+  mw_session_set_state(self, mw_session_STOPPED, code, NULL);
+
+  mw_debug_exit();
+}
+
+
+static void mw_feed(MwSession *self, const guchar *buf, gsize len) {
+  MwParser *parser;
+
+  g_return_if_fail(self->private != NULL);
   
-  /* peek at the length indicator. if it's a zero length message,
-     don't process, just skip it */
-  gb = mwGetBuffer_wrap(&o);
-  x = guint32_peek(gb);
-  mwGetBuffer_free(gb);
-  if(! x) return n - 4;
+  parser = self->private->parser;
+  MwParser_feed(parser, buf, len);
+}
 
-  if(n < (x + 4)) {
-    /* if the total amount of data isn't enough to cover the length
-       bytes and the length indicated by those bytes, then we'll need
-       to buffer. This is where the DOS mentioned below in
-       session_recv takes place */
 
-    x += 4;
-    s->buf = (guchar *) g_malloc(x);
-    memcpy(s->buf, b, n);
-    s->buf_len = x;
-    s->buf_used = n;
-    return 0;
-    
-  } else {
-    /* advance past length bytes */
-    ADVANCE(b, n, 4);
-    
-    /* process and advance */
-    session_process(s, b, x);
-    ADVANCE(b, n, x);
+static guint mw_pending(MwSession *self) {
+  MwQueue *q;
+  MwMetaQueue *mq;
+  guint a, b, c;
+  
+  g_return_val_if_fail(self->private != NULL, FALSE);
 
-    /* return left-over count */
-    return n;
+  q = self->private->queue;
+  mq = self->private->chan_queue;
+
+  a = MwQueue_size(q);
+  b = MwMetaQueue_size(mq);
+  c = a + b;
+
+  g_debug("session queue: %u, channel queue: %u, total %u", a, b, c);
+
+  return c;
+}
+
+
+static void mw_flush(MwSession *self) {
+  MwSessionPrivate *priv;
+  MwQueue *q;
+  MwMetaQueue *mq;
+  MwOpaque *o;
+  
+  g_return_if_fail(self->private != NULL);
+  priv = self->private;
+  q = priv->queue;
+  mq = priv->chan_queue;
+
+  /* get the next session message */
+  o = MwQueue_next(q);
+
+  /* ... or the next channel message */
+  if(!o) o = MwMetaQueue_next(mq);
+
+  if(o) {
+    gint sig = MW_SESSION_GET_CLASS(self)->signal_write;
+    g_signal_emit(self, sig, 0, o->data, o->len, NULL);
+    MwOpaque_clear(o);
   }
 }
 
 
-static gsize session_recv(struct mwSession *s,
-			  const guchar *b, gsize n) {
-
-  /* This is messy and kind of confusing. I'd like to simplify it at
-     some point, but the constraints are as follows:
-
-      - buffer up to a single full message on the session buffer
-      - buffer must contain the four length bytes
-      - the four length bytes indicate how much we'll need to buffer
-      - the four length bytes might not arrive all at once, so it's
-        possible that we'll need to buffer to get them.
-      - since our buffering includes the length bytes, we know we
-        still have an incomplete length if the buffer length is only
-        four. */
+static void mw_send_message(MwSession *self, MwMessage *msg) {
+  MwQueue *q;
+  MwOpaque tmp;
+  MwPutBuffer *pb;
+  gint sig;
+  gboolean ret = FALSE;
   
-  /** @todo we should allow a compiled-in upper limit to message
-     sizes, and just drop messages over that size. However, to do that
-     we'd need to keep track of the size of a message and keep
-     dropping bytes until we'd fulfilled the entire length. eg: if we
-     receive a message size of 10MB, we need to pass up exactly 10MB
-     before it's safe to start processing the rest as a new
-     message. As it stands, a malicious packet from the server can run
-     us out of memory by indicating it's going to send us some
-     obscenely long message (even if it never actually sends it) */
+  g_return_if_fail(self->private != NULL);
+  q = self->private->queue;
   
-  /* g_message(" session_recv: session = %p, b = %p, n = %u",
-	    s, b, n); */
-  
-  if(s->buf_len == 0) {
-    while(n && (*b & 0x80)) {
-      /* keep-alive and series bytes are ignored */
-      ADVANCE(b, n, 1);
-    }
-  }
+  /* render the message */
+  pb = MwPutBuffer_new();
+  MwMessage_put(pb, msg);
+  MwPutBuffer_free(pb, &tmp);
 
-  if(n == 0) {
-    return 0;
+  /* prepending the length this time */
+  pb = MwPutBuffer_new();
+  MwOpaque_put(pb, &tmp);
+  MwPutBuffer_free(pb, MwQueue_push(q));
 
-  } else if(s->buf_len > 0) {
-    return session_recv_cont(s, b, n);
-
-  } else {
-    return session_recv_empty(s, b, n);
-  }
+  sig = MW_SESSION_GET_CLASS(self)->signal_pending;
+  g_signal_emit(self, sig, 0, &ret);
 }
 
 
-#undef ADVANCE
+static void mw_send_keepalive(MwSession *self) {
+  guchar poke = 0x80;
+  MwQueue *q;
+  MwOpaque *o;
+  gint sig;
+  gboolean ret = FALSE;
 
+  g_return_if_fail(self->private != NULL);
 
-void mwSession_recv(struct mwSession *s, const guchar *buf, gsize n) {
-  guchar *b = (guchar *) buf;
-  gsize remain = 0;
+  q = self->private->queue;
+  o = MwQueue_push(q);
 
-  g_return_if_fail(s != NULL);
+  o->len = 1;
+  o->data = g_memdup(&poke, 1);
 
-  while(n > 0) {
-    remain = session_recv(s, b, n);
-    b += (n - remain);
-    n = remain;
-  }
+  sig = MW_SESSION_GET_CLASS(self)->signal_pending;
+  g_signal_emit(self, sig, 0, &ret);
 }
 
 
-int mwSession_send(struct mwSession *s, struct mwMessage *msg) {
-  struct mwPutBuffer *b;
-  struct mwOpaque o;
-  int ret = 0;
+static void mw_send_announce(MwSession *self, gboolean may_reply,
+			     const GList *rcpt, const gchar *text) {
+  MwMsgAnnounce *msg;
+  guint32 i = 0;
 
-  g_return_val_if_fail(s != NULL, -1);
-
-  /* writing nothing is easy */
-  if(! msg) return 0;
-
-  /* first we render the message into an opaque */
-  b = mwPutBuffer_new();
-  mwMessage_put(b, msg);
-  mwPutBuffer_finalize(&o, b);
-
-  /* then we render the opaque into... another opaque! */
-  b = mwPutBuffer_new();
-  mwOpaque_put(b, &o);
-  mwOpaque_clear(&o);
-  mwPutBuffer_finalize(&o, b);
-
-  /* then we use that opaque's data and length to write to the socket */
-  ret = io_write(s, o.data, o.len);
-  mwOpaque_clear(&o);
-
-  /* ensure we could actually write the message */
-  if(! ret) {
-
-    /* special case, as the server doesn't always respond to user
-       status messages. Thus, we trigger the event when we send the
-       messages as well as when we receive them */
-    if(msg->type == mwMessage_SET_USER_STATUS) {
-      SET_USER_STATUS_recv(s, (struct mwMsgSetUserStatus *) msg);
-    }
-  }
-
-  return ret;
-}
-
-
-int mwSession_sendKeepalive(struct mwSession *s) {
-  const guchar b = 0x80;
-
-  g_return_val_if_fail(s != NULL, -1);
-  return io_write(s, &b, 1);
-}
-
-
-int mwSession_forceLogin(struct mwSession *s) {
-  struct mwMsgLoginContinue *msg;
-  int ret;
-
-  g_return_val_if_fail(s != NULL, -1);
-  g_return_val_if_fail(mwSession_isState(s, mwSession_LOGIN_REDIR), -1);
-  
-  state(s, mwSession_LOGIN_CONT, 0x00);
-
-  msg = (struct mwMsgLoginContinue *)
-    mwMessage_new(mwMessage_LOGIN_CONTINUE);
-
-  ret = mwSession_send(s, MW_MESSAGE(msg));
-  mwMessage_free(MW_MESSAGE(msg));
-  
-  return ret;
-}
-
-
-int mwSession_sendAnnounce(struct mwSession *s, gboolean may_reply,
-			   const char *text, const GList *recipients) {
-
-  struct mwMsgAnnounce *msg;
-  int ret;
-
-  g_return_val_if_fail(s != NULL, -1);
-  g_return_val_if_fail(mwSession_isStarted(s), -1);
-  
-  msg = (struct mwMsgAnnounce *) mwMessage_new(mwMessage_ANNOUNCE);
-
-  msg->recipients = (GList *) recipients;
+  msg = MwMessage_new(mw_message_ANNOUNCE);
   msg->may_reply = may_reply;
-  msg->text = g_strdup(text);
+  msg->text = (gchar *) text;
 
-  ret = mwSession_send(s, MW_MESSAGE(msg));
+  msg->rcpt_count = g_list_length((GList *) rcpt);
+  msg->recipients = g_new(gchar *, msg->rcpt_count);
 
-  msg->recipients = NULL;  /* don't kill our recipients param */
-  mwMessage_free(MW_MESSAGE(msg));
+  for(; rcpt; rcpt = rcpt->next) {
+    msg->recipients[i++] = rcpt->data;
+  }
 
-  return ret;
+  /* send our newly composed message */
+  MwSession_sendMessage(self, MW_MESSAGE(msg));
+  
+  /* didn't make a copy, so steal it back before freeing msg */
+  msg->text = NULL;
+
+  /* didn't make a deep copy, so steal it back */
+  g_free(msg->recipients);
+  msg->recipients = NULL;
+
+  MwMessage_free(MW_MESSAGE(msg));
 }
 
 
-struct mwSessionHandler *mwSession_getHandler(struct mwSession *s) {
-  g_return_val_if_fail(s != NULL, NULL);
-  return s->handler;
+static void mw_force_login(MwSession *self) {
+  MwSessionPrivate *priv;
+  MwMsgLoginForce *msg;
+
+  g_return_if_fail(self->private != NULL);
+
+  priv = self->private;
+  g_return_if_fail(priv->state == mw_session_LOGIN_REDIRECT);
+
+  msg = MwMessage_new(mw_message_LOGIN_FORCE);
+
+  MwSession_sendMessage(self, MW_MESSAGE(msg));
+
+  MwMessage_free(MW_MESSAGE(msg));  
+
+  mw_session_set_state(self, mw_session_LOGIN_FORCE, NULL, NULL);
 }
 
 
-struct mwLoginInfo *mwSession_getLoginInfo(struct mwSession *s) {
-  g_return_val_if_fail(s != NULL, NULL);
-  return &s->login;
+static void mw_sense_service(MwSession *self, guint32 id) {
+  MwMsgSenseService *msg;
+  
+  msg = MwMessage_new(mw_message_SENSE_SERVICE);
+  msg->service = id;
+
+  MwSession_sendMessage(self, MW_MESSAGE(msg));
+
+  MwMessage_free(MW_MESSAGE(msg));
 }
 
 
-int mwSession_setPrivacyInfo(struct mwSession *s,
-			     struct mwPrivacyInfo *privacy) {
-
-  struct mwMsgSetPrivacyList *msg;
-  int ret;
-
-  g_return_val_if_fail(s != NULL, -1);
-  g_return_val_if_fail(privacy != NULL, -1);
-
-  msg = (struct mwMsgSetPrivacyList *)
-    mwMessage_new(mwMessage_SET_PRIVACY_LIST);
-
-  mwPrivacyInfo_clone(&msg->privacy, privacy);
-
-  ret = mwSession_send(s, MW_MESSAGE(msg));
-  mwMessage_free(MW_MESSAGE(msg));
-
-  return ret;
+static guint32 mw_next_channel_id(guint32 *cur) {
+  guint32 c = *cur;
+  c = (c + 1) % 0x80000000;
+  return (*cur = c);
 }
 
 
-struct mwPrivacyInfo *mwSession_getPrivacyInfo(struct mwSession *s) {
-  g_return_val_if_fail(s != NULL, NULL);
-  return &s->privacy;
+static MwChannel *mw_new_channel(MwSession *self) {
+  MwSessionPrivate *priv;
+  MwChannel *chan;
+  guint32 id;
+
+  g_return_val_if_fail(self->private != NULL, NULL);
+  priv = self->private;
+  
+  id = mw_next_channel_id(&priv->channel_counter);
+  chan = g_object_new(MW_TYPE_CHANNEL, "session", self, "id", id, NULL);
+
+  mw_chan_setup(self, chan);
+
+  return chan;
 }
 
 
-int mwSession_setUserStatus(struct mwSession *s,
-			    struct mwUserStatus *stat) {
+static MwChannel *mw_get_channel(MwSession *self, guint32 id) {
+  MwSessionPrivate *priv;
+  GHashTable *ht;
 
-  struct mwMsgSetUserStatus *msg;
-  int ret;
+  priv = self->private;
+  ht = priv->channels;
 
-  g_return_val_if_fail(s != NULL, -1);
-  g_return_val_if_fail(stat != NULL, -1);
-
-  msg = (struct mwMsgSetUserStatus *)
-    mwMessage_new(mwMessage_SET_USER_STATUS);
-
-  mwUserStatus_clone(&msg->status, stat);
-
-  ret = mwSession_send(s, MW_MESSAGE(msg));
-  mwMessage_free(MW_MESSAGE(msg));
-
-  return ret;
+  return g_hash_table_lookup(ht, GUINT_TO_POINTER(id));
 }
 
 
-struct mwUserStatus *mwSession_getUserStatus(struct mwSession *s) {
-  g_return_val_if_fail(s != NULL, NULL);
-  return &s->status;
+static GList *mw_get_channels(MwSession *self) {
+  MwSessionPrivate *priv;
+  GHashTable *ht;
+
+  priv = self->private;
+  ht = priv->channels;
+
+  return mw_map_collect_values(ht);
 }
 
 
-enum mwSessionState mwSession_getState(struct mwSession *s) {
-  g_return_val_if_fail(s != NULL, mwSession_UNKNOWN);
-  return s->state;
-}
+static gboolean mw_add_cipher(MwSession *self, MwCipherClass *klass) {
+  MwSessionPrivate *priv;
+  GHashTable *htid, *htpol;
+  guint id, pol;
 
+  priv = self->private;
 
-gpointer mwSession_getStateInfo(struct mwSession *s) {
-  g_return_val_if_fail(s != NULL, 0);
-  return s->state_info;
-}
+  htid = priv->ciphers;
+  htpol = priv->ciphers_by_pol;
 
+  pol = MwCipherClass_getPolicy(klass);
+  id = MwCipherClass_getIdentifier(klass);
 
-struct mwChannelSet *mwSession_getChannels(struct mwSession *session) {
-  g_return_val_if_fail(session != NULL, NULL);
-  return session->channels;
-}
-
-
-gboolean mwSession_addService(struct mwSession *s, struct mwService *srv) {
-  g_return_val_if_fail(s != NULL, FALSE);
-  g_return_val_if_fail(srv != NULL, FALSE);
-  g_return_val_if_fail(s->services != NULL, FALSE);
-
-  if(map_guint_lookup(s->services, SERVICE_KEY(srv))) {
+  if(g_hash_table_lookup(htid, GUINT_TO_POINTER(id)))
     return FALSE;
 
-  } else {
-    map_guint_insert(s->services, SERVICE_KEY(srv), srv);
-    if(mwSession_isState(s, mwSession_STARTED))
-      mwSession_senseService(s, mwService_getType(srv));
-    return TRUE;
-  }
-}
-
-
-struct mwService *mwSession_getService(struct mwSession *s, guint32 srv) {
-  g_return_val_if_fail(s != NULL, NULL);
-  g_return_val_if_fail(s->services != NULL, NULL);
-
-  return map_guint_lookup(s->services, srv);
-}
-
-
-struct mwService *mwSession_removeService(struct mwSession *s, guint32 srv) {
-  struct mwService *svc;
-
-  g_return_val_if_fail(s != NULL, NULL);
-  g_return_val_if_fail(s->services != NULL, NULL);
-
-  svc = map_guint_lookup(s->services, srv);
-  if(svc) map_guint_remove(s->services, srv);
-  return svc;
-}
-
-
-GList *mwSession_getServices(struct mwSession *s) {
-  g_return_val_if_fail(s != NULL, NULL);
-  g_return_val_if_fail(s->services != NULL, NULL);
-
-  return map_collect_values(s->services);
-}
-
-
-void mwSession_senseService(struct mwSession *s, guint32 srvc) {
-  struct mwMsgSenseService *msg;
-
-  g_return_if_fail(s != NULL);
-  g_return_if_fail(srvc != 0x00);
-  g_return_if_fail(mwSession_isStarted(s));
-
-  msg = (struct mwMsgSenseService *)
-    mwMessage_new(mwMessage_SENSE_SERVICE);
-  msg->service = srvc;
-
-  mwSession_send(s, MW_MESSAGE(msg));
-  mwMessage_free(MW_MESSAGE(msg));
-}
-
-
-gboolean mwSession_addCipher(struct mwSession *s, struct mwCipher *c) {
-  g_return_val_if_fail(s != NULL, FALSE);
-  g_return_val_if_fail(c != NULL, FALSE);
-  g_return_val_if_fail(s->ciphers != NULL, FALSE);
-
-  if(map_guint_lookup(s->ciphers, mwCipher_getType(c))) {
-    g_message("cipher %s is already added, apparently",
-	      NSTR(mwCipher_getName(c)));
+  if(g_hash_table_lookup(htpol, GUINT_TO_POINTER(pol)))
     return FALSE;
+  
+  g_debug("making available cipher by id 0x%x and policy 0x%x", id, pol);
 
-  } else {
-    g_message("adding cipher %s", NSTR(mwCipher_getName(c)));
-    map_guint_insert(s->ciphers, mwCipher_getType(c), c);
-    return TRUE;
+  g_hash_table_insert(htid, GUINT_TO_POINTER(id), klass);
+  g_hash_table_insert(htpol, GUINT_TO_POINTER(pol), klass);
+
+  return TRUE;
+}
+
+
+static MwCipherClass *mw_get_cipher(MwSession *self, guint16 id) {
+  MwSessionPrivate *priv;
+  GHashTable *ht;
+  guint key = (guint) id;
+  MwCipherClass *cc;
+
+  g_debug("looking for cipher id 0x%x", key);
+
+  priv = self->private;
+  ht = priv->ciphers;
+
+  cc = g_hash_table_lookup(ht, GUINT_TO_POINTER(key));
+  g_debug("found cipher %p", cc);
+
+  return cc;
+}
+
+
+static MwCipherClass *mw_get_cipher_by_pol(MwSession *self, guint16 pol) {
+  MwSessionPrivate *priv;
+  GHashTable *ht;
+  guint key = (guint) pol;
+
+  priv = self->private;
+  ht = priv->ciphers_by_pol;
+
+  return g_hash_table_lookup(ht, GUINT_TO_POINTER(key));
+}
+
+
+static gint mw_cipher_comp(MwCipherClass *a, MwCipherClass *b) {
+  gint a_id, b_id;
+  a_id = (gint) MwCipherClass_getIdentifier(a);
+  b_id = (gint) MwCipherClass_getIdentifier(b);
+  return a_id - b_id;
+}
+
+
+static GList *mw_get_ciphers(MwSession *self) {
+  MwSessionPrivate *priv;
+  GHashTable *ht;
+  GList *l;
+
+  priv = self->private;
+  ht = priv->ciphers;
+  
+  l = mw_map_collect_values(ht);
+  l = g_list_sort(l, (GCompareFunc) mw_cipher_comp);
+  
+  return l;
+}
+
+
+static void mw_remove_cipher(MwSession *self, MwCipherClass *klass) {
+  MwSessionPrivate *priv;
+  GHashTable *htid, *htpol;
+  guint id, pol;
+
+  priv = self->private;
+
+  htid = priv->ciphers;
+  htpol = priv->ciphers_by_pol;
+
+  id = MwCipherClass_getPolicy(klass);
+  pol = MwCipherClass_getIdentifier(klass);
+  
+  if(g_hash_table_lookup(htid, GUINT_TO_POINTER(id)))
+    g_hash_table_remove(htid, GUINT_TO_POINTER(id));
+  
+  if(g_hash_table_lookup(htpol, GUINT_TO_POINTER(pol)))
+    g_hash_table_remove(htpol, GUINT_TO_POINTER(pol));
+}
+
+
+static GObject *
+mw_session_constructor(GType type, guint props_count,
+		       GObjectConstructParam *props) {
+
+  MwSessionClass *klass;
+
+  GObject *obj;
+  MwSession *self;
+  MwSessionPrivate *priv;
+  
+  klass = MW_SESSION_CLASS(g_type_class_peek(MW_TYPE_SESSION));
+
+  obj = parent_class->constructor(type, props_count, props);
+  self = (MwSession *) obj;
+
+  /* this is allocated in mw_session_init */
+  g_return_val_if_fail(self->private != NULL, NULL);
+  priv = self->private;
+
+  /* start out stopped */
+  priv->state = mw_session_STOPPED;
+  priv->state_info = NULL;
+  
+
+  priv->channel_counter = 0x00;
+  priv->channels = g_hash_table_new(g_direct_hash, g_direct_equal);
+
+  priv->ciphers = g_hash_table_new(g_direct_hash, g_direct_equal);
+  priv->ciphers_by_pol = g_hash_table_new(g_direct_hash, g_direct_equal);
+
+  /* queues for outgoing */
+  priv->queue = MwQueue_new(sizeof(MwOpaque), 8);
+  priv->chan_queue = MwMetaQueue_new(sizeof(MwOpaque), 8);
+
+  /* parser for incoming */
+  priv->parser = MwParser_new(recv_msg, self);
+
+  /* set initial values for properties */
+  g_object_set(obj,
+	       "auth-type", mw_auth_type_DH_RC2,
+	       "client-ver-major", MW_PROTOCOL_VERSION_MAJOR,
+	       "client-ver-minor", MW_PROTOCOL_VERSION_MINOR,
+	       "client-type", mw_client_MEANWHILE,
+	       NULL);
+
+  return obj;
+}
+
+
+static void mw_set_property(GObject *object,
+			    guint property_id, const GValue *value,
+			    GParamSpec *pspec) {
+
+  MwSession *self = MW_SESSION(object);
+  MwSessionPrivate *priv;
+
+  g_return_if_fail(self->private != NULL);
+  priv = self->private;
+
+  switch(property_id) {
+  case property_auth_user:
+    g_free(priv->login.id.user);
+    priv->login.id.user = g_value_dup_string(value);
+    break;
+  case property_auth_type:
+    priv->prop_auth_type = g_value_get_uint(value);
+    break;
+  case property_auth_password:
+    g_free(priv->prop_auth_password);
+    priv->prop_auth_password = g_value_dup_string(value);
+    break;
+  case property_auth_token:
+    g_boxed_free(MW_TYPE_OPAQUE, priv->prop_auth_token);
+    priv->prop_auth_token = g_value_dup_boxed(value);
+    break;
+  case property_client_type:
+    priv->login.client = g_value_get_uint(value);
+    break;
+  case property_client_host:
+    g_free(priv->prop_client_host);
+    priv->prop_client_host = g_value_dup_string(value);
+    break;
+  case property_client_ver_major:
+    priv->prop_client_ver_major = g_value_get_uint(value);
+    break;
+  case property_client_ver_minor:
+    priv->prop_client_ver_minor = g_value_get_uint(value);
+    break;
   }
+
 }
 
 
-struct mwCipher *mwSession_getCipher(struct mwSession *s, guint16 c) {
-  g_return_val_if_fail(s != NULL, NULL);
-  g_return_val_if_fail(s->ciphers != NULL, NULL);
+static void mw_get_property(GObject *object,
+			    guint property_id, GValue *value,
+			    GParamSpec *pspec) {
 
-  return map_guint_lookup(s->ciphers, c);
+  MwSession *self = MW_SESSION(object);
+  MwSessionPrivate *priv;
+
+  g_return_if_fail(self->private != NULL);
+  priv = self->private;
+
+  switch(property_id) {
+  case property_state:
+    g_value_set_uint(value, priv->state);
+    break;
+  case property_state_info:
+    g_value_set_pointer(value, priv->state_info);
+    break;
+
+  case property_auth_user:
+    g_value_set_string(value, priv->login.id.user);
+    break;
+  case property_auth_type:
+    g_value_set_uint(value, priv->prop_auth_type);
+    break;
+  case property_auth_password:
+    g_value_set_string(value, priv->prop_auth_password);
+    break;
+  case property_auth_token:
+    g_value_set_boxed(value, priv->prop_auth_token);
+    break;
+
+  case property_login_community:
+    g_value_set_string(value, priv->login.id.community);
+    break;
+  case property_login_name:
+    g_value_set_string(value, priv->login.name);
+    break;
+  case property_login_id:
+    g_value_set_string(value, priv->login.login_id);
+    break;
+  case property_login_desc:
+    g_value_set_string(value, priv->login.desc);
+    break;
+  case property_login_ip:
+    g_value_set_uint(value, priv->login.ip_addr);
+    break;
+
+  case property_status:
+    g_value_set_uint(value, priv->status.status);
+    break;
+  case property_status_idle:
+    g_value_set_uint(value, priv->status.time);
+    break;
+  case property_status_desc:
+    g_value_set_string(value, priv->status.desc);
+    break;
+
+  case property_client_type:
+    g_value_set_uint(value, priv->login.client);
+    break;
+  case property_client_host:
+    g_value_set_string(value, priv->prop_client_host);
+    break;
+  case property_client_ver_major:
+    g_value_set_uint(value, priv->prop_client_ver_major);
+    break;
+  case property_client_ver_minor:
+    g_value_set_uint(value, priv->prop_client_ver_minor);
+    break;
+
+  case property_server_id:
+    g_value_set_string(value, priv->login.server_id);
+    break;
+  case property_server_ver_major:
+    g_value_set_uint(value, priv->prop_server_ver_major);
+    break;
+  case property_server_ver_minor:
+    g_value_set_uint(value, priv->prop_server_ver_minor);
+    break;
+  }
+
 }
 
 
-struct mwCipher *mwSession_removeCipher(struct mwSession *s, guint16 c) {
-  struct mwCipher *ciph;
+static void mw_session_dispose(GObject *obj) {
+  MwSession *self = (MwSession *) obj;
+  MwSessionPrivate *priv;
 
-  g_return_val_if_fail(s != NULL, NULL);
-  g_return_val_if_fail(s->ciphers != NULL, NULL);
+  mw_debug_enter();
 
-  ciph = map_guint_lookup(s->ciphers, c);
-  if(ciph) map_guint_remove(s->ciphers, c);
-  return ciph;
+  priv = self->private;
+  self->private = NULL;
+
+  if(priv) {
+    g_hash_table_destroy(priv->channels);
+    g_hash_table_destroy(priv->ciphers);
+    MwQueue_free(priv->queue);
+    MwMetaQueue_free(priv->chan_queue);
+    MwParser_free(priv->parser);
+    
+    g_free(priv);
+  }
+
+  parent_class->dispose(obj);
+
+  mw_debug_exit();
 }
 
 
-GList *mwSession_getCiphers(struct mwSession *s) {
-  g_return_val_if_fail(s != NULL, NULL);
-  g_return_val_if_fail(s->ciphers != NULL, NULL);
-
-  return map_collect_values(s->ciphers);
+static guint mw_signal_pending() {
+  return g_signal_new("pending",
+		      MW_TYPE_SESSION,
+		      G_SIGNAL_RUN_LAST,
+		      G_STRUCT_OFFSET(MwSessionClass, handle_pending),
+		      g_signal_accumulator_true_handled, NULL,
+		      mw_marshal_BOOLEAN__VOID,
+		      G_TYPE_BOOLEAN,
+		      0);
 }
 
 
-void mwSession_setProperty(struct mwSession *s, const char *key,
-			   gpointer val, GDestroyNotify clean) {
-
-  g_return_if_fail(s != NULL);
-  g_return_if_fail(s->attributes != NULL);
-  g_return_if_fail(key != NULL);
-
-  property_set(s, key, val, clean);
+static guint mw_signal_write() {
+  return g_signal_new("write",
+		      MW_TYPE_SESSION,
+		      0,
+		      0,
+		      NULL, NULL,
+		      mw_marshal_VOID__POINTER_UINT,
+		      G_TYPE_NONE,
+		      2,
+		      G_TYPE_POINTER,
+		      G_TYPE_UINT);
 }
 
 
-gpointer mwSession_getProperty(struct mwSession *s, const char *key) {
- 
-  g_return_val_if_fail(s != NULL, NULL);
-  g_return_val_if_fail(s->attributes != NULL, NULL);
-  g_return_val_if_fail(key != NULL, NULL);
-
-  return property_get(s, key);
+static guint mw_signal_state_changed() {
+  return g_signal_new("state-changed",
+		      MW_TYPE_SESSION,
+		      0,
+		      0,
+		      NULL, NULL,
+		      mw_marshal_VOID__VOID,
+		      G_TYPE_NONE,
+		      0);
 }
 
 
-void mwSession_removeProperty(struct mwSession *s, const char *key) {
-  g_return_if_fail(s != NULL);
-  g_return_if_fail(s->attributes != NULL);
-  g_return_if_fail(key != NULL);
-
-  property_del(s, key);
+static guint mw_signal_channel() {
+  return g_signal_new("channel",
+		      MW_TYPE_SESSION,
+		      G_SIGNAL_RUN_LAST,
+		      G_STRUCT_OFFSET(MwSessionClass, handle_channel),
+		      g_signal_accumulator_true_handled, NULL,
+		      mw_marshal_BOOLEAN__POINTER,
+		      G_TYPE_BOOLEAN,
+		      1,
+		      G_TYPE_POINTER);
 }
 
 
-void mwSession_setClientData(struct mwSession *session,
-			     gpointer data, GDestroyNotify clear) {
-
-  g_return_if_fail(session != NULL);
-  mw_datum_set(&session->client_data, data, clear);
+static guint mw_signal_got_status() {
+  return g_signal_new("got-status",
+		      MW_TYPE_SESSION,
+		      0,
+		      0,
+		      NULL, NULL,
+		      mw_marshal_VOID__VOID,
+		      G_TYPE_NONE,
+		      0);
 }
 
 
-gpointer mwSession_getClientData(struct mwSession *session) {
+static guint mw_signal_got_privacy() {
+  return g_signal_new("got-privacy",
+		      MW_TYPE_SESSION,
+		      0,
+		      0,
+		      NULL, NULL,
+		      mw_marshal_VOID__VOID,
+		      G_TYPE_NONE,
+		      0); 
+}
+
+
+static guint mw_signal_got_admin() {
+  return g_signal_new("got-admin",
+		      MW_TYPE_SESSION,
+		      0,
+		      0,
+		      NULL, NULL,
+		      mw_marshal_VOID__POINTER,
+		      G_TYPE_NONE,
+		      0);
+}
+
+
+static guint mw_signal_got_announce() {
+  return g_signal_new("got-announce",
+		      MW_TYPE_SESSION,
+		      0,
+		      0,
+		      NULL, NULL,
+		      mw_marshal_VOID__BOOLEAN_POINTER_POINTER,
+		      G_TYPE_NONE,
+		      3,
+		      G_TYPE_BOOLEAN,
+		      G_TYPE_POINTER,
+		      G_TYPE_POINTER);
+}
+
+
+static guint mw_signal_got_sense_service() {
+  return g_signal_new("got-sense-service",
+		      MW_TYPE_SESSION,
+		      0,
+		      0,
+		      NULL, NULL,
+		      mw_marshal_VOID__UINT,
+		      G_TYPE_NONE,
+		      1,
+		      G_TYPE_UINT);
+}
+
+
+static void mw_session_class_init(gpointer g_class, gpointer g_class_data) {
+  GObjectClass *gobject_class;
+  MwSessionClass *klass;
+
+  gobject_class = G_OBJECT_CLASS(g_class);
+  klass = MW_SESSION_CLASS(g_class);
+
+  parent_class = g_type_class_peek_parent(gobject_class);
+  
+  gobject_class->constructor = mw_session_constructor;
+  gobject_class->dispose = mw_session_dispose;
+  gobject_class->set_property = mw_set_property;
+  gobject_class->get_property = mw_get_property;
+
+  mw_prop_uint(gobject_class, property_state,
+	       "state", "get session state",
+	       G_PARAM_READABLE);
+
+  mw_prop_ptr(gobject_class, property_state_info,
+	      "state-info", "get session state info",
+	      G_PARAM_READABLE);
+  
+  mw_prop_str(gobject_class, property_auth_user,
+	      "auth-user", "get/set authentication user id",
+	      G_PARAM_READWRITE);
+
+  mw_prop_uint(gobject_class, property_auth_type,
+	       "auth-type", "get/set authentication type",
+	       G_PARAM_READWRITE);
+  
+  mw_prop_str(gobject_class, property_auth_password,
+	      "auth-password", "get/set authentication password",
+	      G_PARAM_READWRITE);
+  
+  mw_prop_boxed(gobject_class, property_auth_token,
+		"auth-token", "get/set authentication token Opaque",
+		MW_TYPE_OPAQUE, G_PARAM_READWRITE);  
+  
+  mw_prop_str(gobject_class, property_login_community,
+	      "login-community", "get session community",
+	      G_PARAM_READABLE);
+
+  mw_prop_str(gobject_class, property_login_name,
+	      "login-name", "get session full name",
+	      G_PARAM_READABLE);
+  
+  mw_prop_str(gobject_class, property_login_id,
+	      "login-id", "get session identifier ",
+	      G_PARAM_READABLE);
+
+  mw_prop_str(gobject_class, property_login_desc,
+	      "login-desc", "get session description",
+	      G_PARAM_READABLE);
+
+  mw_prop_uint(gobject_class, property_login_ip,
+	       "login-ip", "get session login IP address ",
+	       G_PARAM_READABLE);
+
+  mw_prop_uint(gobject_class, property_status,
+	       "status", "get session status",
+	       G_PARAM_READABLE);
+
+  mw_prop_uint(gobject_class, property_status_idle,
+	       "status-idle-since", "get session idle timestamp in seconds",
+	       G_PARAM_READABLE);
+
+  mw_prop_str(gobject_class, property_status_desc,
+	      "status-message", "get session status message",
+	      G_PARAM_READABLE);
+
+  mw_prop_uint(gobject_class, property_client_type,
+	       "client-type", "get/set client type identifier number",
+	       G_PARAM_READWRITE);
+  
+  mw_prop_str(gobject_class, property_client_host,
+	      "client-host", "get/set client hostname",
+	      G_PARAM_READWRITE);
+
+  mw_prop_uint(gobject_class, property_client_ver_major,
+	       "client-ver-major", "get/set client major version number",
+	       G_PARAM_READWRITE);
+
+  mw_prop_uint(gobject_class, property_client_ver_minor,
+	       "client-ver-minor", "get/set client minor version number",
+	       G_PARAM_READWRITE);
+
+  mw_prop_str(gobject_class, property_server_id,
+	      "server-id", "get server identifier",
+	      G_PARAM_READABLE);
+
+  mw_prop_uint(gobject_class, property_server_ver_major,
+	       "server-ver-major", "get server major version number",
+	       G_PARAM_READABLE);
+
+  mw_prop_uint(gobject_class, property_server_ver_minor,
+	       "server-ver-minor", "get server minor version number",
+	       G_PARAM_READABLE);
+
+  klass->signal_pending = mw_signal_pending();
+  klass->signal_write = mw_signal_write();
+  klass->signal_state_changed = mw_signal_state_changed();
+  klass->signal_channel = mw_signal_channel();
+  klass->signal_got_status = mw_signal_got_status();
+  klass->signal_got_privacy = mw_signal_got_privacy();
+  klass->signal_got_admin = mw_signal_got_admin();
+  klass->signal_got_announce = mw_signal_got_announce();
+  klass->signal_got_sense_service = mw_signal_got_sense_service();
+
+  klass->handle_pending = MwSession_handlePending;
+  klass->handle_channel = MwSession_handleChannel;
+  
+  klass->start = mw_start;
+  klass->stop = mw_stop;
+  klass->feed = mw_feed;
+  klass->pending = mw_pending;
+  klass->flush = mw_flush;
+  klass->send_message = mw_send_message;
+  klass->send_keepalive = mw_send_keepalive;
+  klass->send_announce = mw_send_announce;
+  klass->force_login = mw_force_login;
+  klass->sense_service = mw_sense_service;
+
+  klass->new_channel = mw_new_channel;
+  klass->get_channel = mw_get_channel;
+  klass->get_channels = mw_get_channels;
+  
+  klass->add_cipher = mw_add_cipher;
+  klass->get_cipher = mw_get_cipher;
+  klass->get_cipher_by_pol = mw_get_cipher_by_pol;
+  klass->get_ciphers = mw_get_ciphers;
+  klass->remove_cipher = mw_remove_cipher;
+}
+
+
+static void mw_session_init(GTypeInstance *instance, gpointer g_class) {
+  MwSession *self;
+  
+  self = (MwSession *) instance;
+  self->private = g_new0(MwSessionPrivate, 1);;
+}
+
+
+static const GTypeInfo info = {
+  .class_size = sizeof(MwSessionClass),
+  .base_init = NULL,
+  .base_finalize = NULL,
+  .class_init = mw_session_class_init,
+  .class_finalize = NULL,
+  .class_data = NULL,
+  .instance_size = sizeof(MwSession),
+  .n_preallocs = 0,
+  .instance_init = mw_session_init,
+  .value_table = NULL,
+};
+
+
+GType MwSession_getType() {
+  static GType type = 0;
+
+  if(type == 0) {
+    type = g_type_register_static(MW_TYPE_OBJECT, "MwSessionType",
+				  &info, 0);
+  }
+
+  return type;
+}
+
+
+MwSession *MwSession_new() {
+  return g_object_new(MwSession_getType(), NULL);
+}
+
+
+enum mw_session_state MwSession_getState(MwSession *session) {
+  g_return_val_if_fail(session != NULL, mw_session_UNKNOWN);
+  g_return_val_if_fail(session->private != NULL, mw_session_UNKNOWN);
+  return session->private->state;
+}
+
+
+gpointer MwSession_getStateInfo(MwSession *session) {
   g_return_val_if_fail(session != NULL, NULL);
-  return mw_datum_get(&session->client_data);
+  g_return_val_if_fail(session->private != NULL, NULL);
+  return session->private->state_info;
 }
 
 
-void mwSession_removeClientData(struct mwSession *session) {
+void MwSession_start(MwSession *session) {
+  void (*fn)(MwSession *);
+  
   g_return_if_fail(session != NULL);
-  mw_datum_clear(&session->client_data);
+
+  fn = MW_SESSION_GET_CLASS(session)->start;
+  fn(session);
 }
 
+
+void MwSession_stop(MwSession *session, guint32 info) {
+  void (*fn)(MwSession *, guint32);
+
+  g_return_if_fail(session != NULL);
+
+  fn = MW_SESSION_GET_CLASS(session)->stop;
+  fn(session, info);
+}
+
+
+void MwSession_feed(MwSession *session, const guchar *buf, gsize len) {
+  void (*fn)(MwSession *, const guchar *, gsize);
+
+  g_return_if_fail(session != NULL);
+  if(! buf || ! len) return;
+
+  fn = MW_SESSION_GET_CLASS(session)->feed;
+  fn(session, buf, len);
+}
+
+
+guint MwSession_pending(MwSession *session) {
+  guint (*fn)(MwSession *);
+
+  g_return_val_if_fail(session != NULL, 0);
+
+  fn = MW_SESSION_GET_CLASS(session)->pending;
+  return fn(session);
+}
+
+
+void MwSession_flush(MwSession *session) {
+  void (*fn)(MwSession *);
+
+  g_return_if_fail(session != NULL);
+
+  fn = MW_SESSION_GET_CLASS(session)->flush;
+  fn(session);
+}
+
+
+void MwSession_sendMessage(MwSession *session, MwMessage *msg) {
+  void (*fn)(MwSession *, MwMessage *);
+
+  g_return_if_fail(session != NULL);
+  g_return_if_fail(msg != NULL);
+
+  fn = MW_SESSION_GET_CLASS(session)->send_message;
+  fn(session, msg);
+}
+
+
+void MwSession_sendKeepalive(MwSession *session) {
+  void (*fn)(MwSession *);
+
+  g_return_if_fail(session != NULL);
+
+  fn = MW_SESSION_GET_CLASS(session)->send_keepalive;
+  fn(session);
+}
+
+
+void MwSession_sendAnnounce(MwSession *session, gboolean may_reply,
+			    const GList *rcpt, const gchar *text) {
+
+  void (*fn)(MwSession *, gboolean, const GList *, const gchar *);
+
+  g_return_if_fail(session != NULL);
+
+  fn = MW_SESSION_GET_CLASS(session)->send_announce;
+  fn(session, may_reply, rcpt, text);
+}
+
+
+void MwSession_forceLogin(MwSession *session) {
+  void (*fn)(MwSession *);
+
+  g_return_if_fail(session != NULL);
+
+  fn = MW_SESSION_GET_CLASS(session)->force_login;
+  fn(session);
+}
+
+
+void MwSession_senseService(MwSession *session, guint32 id) {
+  void (*fn)(MwSession *, guint32);
+
+  g_return_if_fail(session != NULL);
+
+  fn = MW_SESSION_GET_CLASS(session)->sense_service;
+  fn(session, id);
+}
+
+
+MwChannel *MwSession_newChannel(MwSession *session) {
+  MwChannel *(*fn)(MwSession *);
+
+  g_return_val_if_fail(session != NULL, NULL);
+
+  fn = MW_SESSION_GET_CLASS(session)->new_channel;
+  return fn(session);
+}
+
+
+MwChannel *MwSession_getChannel(MwSession *session, guint32 id) {
+  MwChannel *(*fn)(MwSession *, guint32);
+
+  g_return_val_if_fail(session != NULL, NULL);
+
+  fn = MW_SESSION_GET_CLASS(session)->get_channel;
+  return fn(session, id);
+}
+
+
+GList *MwSession_getChannels(MwSession *session) {
+  GList *(*fn)(MwSession *);
+
+  g_return_val_if_fail(session != NULL, NULL);
+
+  fn = MW_SESSION_GET_CLASS(session)->get_channels;
+  return fn(session);
+}
+
+
+gboolean MwSession_addCipher(MwSession *session, MwCipherClass *klass) {
+  gboolean (*fn)(MwSession *, MwCipherClass *);
+
+  g_return_val_if_fail(session != NULL, FALSE);
+  g_return_val_if_fail(klass != NULL, FALSE);
+
+  fn = MW_SESSION_GET_CLASS(session)->add_cipher;
+  return fn(session, klass);
+}
+
+
+MwCipherClass *MwSession_getCipher(MwSession *session, guint16 id) {
+  MwCipherClass *(*fn)(MwSession *, guint16);
+
+  g_return_val_if_fail(session != NULL, NULL);
+
+  fn = MW_SESSION_GET_CLASS(session)->get_cipher;
+  return fn(session, id);
+}
+
+
+MwCipherClass *MwSession_getCipherByPolicy(MwSession *session,
+					   guint16 policy) {
+
+  MwCipherClass *(*fn)(MwSession *, guint16);
+
+  g_return_val_if_fail(session != NULL, NULL);
+
+  fn = MW_SESSION_GET_CLASS(session)->get_cipher_by_pol;
+  return fn(session, policy);
+}
+
+
+GList *MwSession_getCiphers(MwSession *session) {
+  GList *(*fn)(MwSession *);
+
+  g_return_val_if_fail(session != NULL, NULL);
+
+  fn = MW_SESSION_GET_CLASS(session)->get_ciphers;
+  return fn(session);
+}
+
+
+void MwSession_removeCipher(MwSession *session, MwCipherClass *klass) {
+  void (*fn)(MwSession *, MwCipherClass *);
+
+  g_return_if_fail(session != NULL);
+  g_return_if_fail(klass != NULL);
+
+  fn = MW_SESSION_GET_CLASS(session)->remove_cipher;
+  fn(session, klass);
+}
+
+
+const MwLogin *MwSession_getLogin(MwSession *session) {
+  MwSessionPrivate *priv;
+  g_return_val_if_fail(session != NULL, NULL);
+  g_return_val_if_fail(session->private != NULL, NULL);
+  priv = session->private;
+  return &priv->login;
+}
+
+
+void MwSession_setLogin(MwSession *session, const MwLogin *login) {
+  MwSessionPrivate *priv;
+  MwLogin interim;
+
+  g_return_if_fail(session != NULL);
+  g_return_if_fail(session->private != NULL);
+  priv = session->private;
+
+  MwLogin_clone(&interim, login, TRUE);
+  MwLogin_clear(&priv->login, TRUE);
+  MwLogin_clone(&priv->login, &interim, FALSE);
+}
+
+
+const MwPrivacy *MwSession_getPrivacy(MwSession *session) {
+  MwSessionPrivate *priv;
+  g_return_val_if_fail(session != NULL, NULL);
+  g_return_val_if_fail(session->private != NULL, NULL);
+  priv = session->private;
+  return &priv->privacy;
+}
+
+
+void MwSession_setPrivacy(MwSession *session, const MwPrivacy *privacy) {
+  MwMsgPrivacy *msg;
+
+  g_return_if_fail(session != NULL);
+
+  msg = MwMessage_new(mw_message_PRIVACY);
+  MwPrivacy_clone(&msg->privacy, privacy, FALSE);
+  MwSession_sendMessage(session, MW_MESSAGE(msg));
+  MwPrivacy_clear(&msg->privacy, FALSE);
+  MwMessage_free(MW_MESSAGE(msg));
+}
+
+
+void MwSession_setStatus(MwSession *session, const MwStatus *status) {
+  MwMsgStatus *msg;
+
+  g_return_if_fail(session != NULL);
+
+  msg = MwMessage_new(mw_message_STATUS);
+  MwStatus_clone(&msg->status, status, FALSE);
+  MwSession_sendMessage(session, MW_MESSAGE(msg));
+  MwStatus_clear(&msg->status, FALSE);
+  MwMessage_free(MW_MESSAGE(msg));
+}
+
+
+gboolean MwSession_handlePending(MwSession *session) {
+  mw_debug_enter();
+  MwSession_flush(session);
+  mw_debug_return_val(FALSE);
+}
+
+
+gboolean MwSession_handleChannel(MwSession *session, MwChannel *chan) {
+  mw_debug_enter();
+  MwChannel_close(chan, ERR_SERVICE_NO_SUPPORT, NULL);
+  mw_debug_return_val(FALSE);
+}
+
+
+/* The end. */

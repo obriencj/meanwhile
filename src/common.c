@@ -1,4 +1,3 @@
-
 /*
   Meanwhile - Unofficial Lotus Sametime Community Client Library
   Copyright (C) 2004  Christopher (siege) O'Brien
@@ -18,10 +17,12 @@
   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
+
 #include <glib.h>
 #include <string.h>
 
 #include "mw_common.h"
+#include "mw_config.h"
 
 
 /** @todo the *_get functions should make sure to clear their
@@ -52,7 +53,7 @@
   val = val | (*(b)++ & 0xff);
 
 
-struct mwPutBuffer {
+struct mw_put_buffer {
   guchar *buf;  /**< head of buffer */
   gsize len;    /**< length of buffer */
 
@@ -61,7 +62,7 @@ struct mwPutBuffer {
 };
 
 
-struct mwGetBuffer {
+struct mw_get_buffer {
   guchar *buf;  /**< head of buffer */
   gsize len;    /**< length of buffer */
 
@@ -79,17 +80,18 @@ struct mwGetBuffer {
 
 /** ensure that there's at least enough space remaining in the put
     buffer to fit needed. */
-static void ensure_buffer(struct mwPutBuffer *b, gsize needed) {
+static void ensure_buffer(MwPutBuffer *b, gsize needed) {
   if(b->rem < needed) {
     gsize len = b->len, use = BUFFER_USED(b);
     guchar *buf;
 
     /* newly created buffers are empty until written to, and then they
        have 1024 available */
-    if(! len) len = 1024;
+    if(! len) len = MW_DEFAULT_BUFLEN;
 
-    /* double len until it's large enough to fit needed */
-    while( (len - use) < needed ) len = len << 1;
+    /* increase len until it's large enough to fit needed */
+    while( (len - use) < needed )
+      len += MW_DEFAULT_BUFLEN;
 
     /* create the new buffer. if there was anything in the old buffer,
        copy it into the new buffer and free the old copy */
@@ -113,18 +115,18 @@ static void ensure_buffer(struct mwPutBuffer *b, gsize needed) {
     left in the buffer
 
     @returns true if there's enough data, false if not */
-static gboolean check_buffer(struct mwGetBuffer *b, gsize needed) {
+static gboolean check_buffer(MwGetBuffer *b, gsize needed) {
   if(! b->error)  b->error = (b->rem < needed);
   return ! b->error;
 }
 
 
-struct mwPutBuffer *mwPutBuffer_new() {
-  return g_new0(struct mwPutBuffer, 1);
+MwPutBuffer *MwPutBuffer_new() {
+  return g_new0(MwPutBuffer, 1);
 }
 
 
-void mwPutBuffer_write(struct mwPutBuffer *b, gpointer data, gsize len) {
+void MwPutBuffer_write(MwPutBuffer *b, gconstpointer data, gsize len) {
   g_return_if_fail(b != NULL);
   g_return_if_fail(data != NULL);
 
@@ -137,26 +139,23 @@ void mwPutBuffer_write(struct mwPutBuffer *b, gpointer data, gsize len) {
 }
 
 
-void mwPutBuffer_free(struct mwPutBuffer *b) {
-  if(! b) return;
-  g_free(b->buf);
+void MwPutBuffer_free(MwPutBuffer *b, MwOpaque *o) {
+  g_return_if_fail(b != NULL);
+
+  if(o) {
+    o->len = BUFFER_USED(b);
+    o->data = b->buf;
+
+  } else {
+    g_free(b->buf);
+  }
+
   g_free(b);
 }
 
 
-void mwPutBuffer_finalize(struct mwOpaque *to, struct mwPutBuffer *from) {
-  g_return_if_fail(to != NULL);
-  g_return_if_fail(from != NULL);
-
-  to->len = BUFFER_USED(from);
-  to->data = from->buf;
-
-  g_free(from);
-}
-
-
-struct mwGetBuffer *mwGetBuffer_new(struct mwOpaque *o) {
-  struct mwGetBuffer *b = g_new0(struct mwGetBuffer, 1);
+MwGetBuffer *MwGetBuffer_new(const MwOpaque *o) {
+  MwGetBuffer *b = g_new0(MwGetBuffer, 1);
 
   if(o && o->len) {
     b->buf = b->ptr = g_memdup(o->data, o->len);
@@ -167,8 +166,8 @@ struct mwGetBuffer *mwGetBuffer_new(struct mwOpaque *o) {
 }
 
 
-struct mwGetBuffer *mwGetBuffer_wrap(const struct mwOpaque *o) {
-  struct mwGetBuffer *b = g_new0(struct mwGetBuffer, 1);
+MwGetBuffer *MwGetBuffer_wrap(const MwOpaque *o) {
+  MwGetBuffer *b = g_new0(MwGetBuffer, 1);
 
   if(o && o->len) {
     b->buf = b->ptr = o->data;
@@ -180,7 +179,7 @@ struct mwGetBuffer *mwGetBuffer_wrap(const struct mwOpaque *o) {
 }
 
 
-gsize mwGetBuffer_read(struct mwGetBuffer *b, gpointer data, gsize len) {
+gsize MwGetBuffer_read(MwGetBuffer *b, gpointer data, gsize len) {
   g_return_val_if_fail(b != NULL, 0);
   g_return_val_if_fail(data != NULL, 0);
 
@@ -198,7 +197,7 @@ gsize mwGetBuffer_read(struct mwGetBuffer *b, gpointer data, gsize len) {
 }
 
 
-gsize mwGetBuffer_advance(struct mwGetBuffer *b, gsize len) {
+gsize MwGetBuffer_skip(MwGetBuffer *b, gsize len) {
   g_return_val_if_fail(b != NULL, 0);
 
   if(b->error) return 0;
@@ -214,7 +213,7 @@ gsize mwGetBuffer_advance(struct mwGetBuffer *b, gsize len) {
 }
 
 
-void mwGetBuffer_reset(struct mwGetBuffer *b) {
+void MwGetBuffer_reset(MwGetBuffer *b) {
   g_return_if_fail(b != NULL);
 
   b->rem = b->len;
@@ -223,111 +222,134 @@ void mwGetBuffer_reset(struct mwGetBuffer *b) {
 }
 
 
-gsize mwGetBuffer_remaining(struct mwGetBuffer *b) {
+gsize MwGetBuffer_remaining(MwGetBuffer *b) {
   g_return_val_if_fail(b != NULL, 0);
   return b->rem;
 }
 
 
-gboolean mwGetBuffer_error(struct mwGetBuffer *b) {
-  g_return_val_if_fail(b != NULL, TRUE);
+gboolean MwGetBuffer_error(MwGetBuffer *b) {
+  g_return_val_if_fail(b != NULL, FALSE);
   return b->error;
 }
 
 
-void mwGetBuffer_free(struct mwGetBuffer *b) {
+void MwGetBuffer_free(MwGetBuffer *b) {
   if(! b) return;
   if(! b->wrap) g_free(b->buf);
   g_free(b);
 }
 
 
-#define guint16_buflen()  2
+#define mw_uint16_len  2
 
 
-void guint16_put(struct mwPutBuffer *b, guint16 val) {
+void mw_uint16_put(MwPutBuffer *b, guint16 val) {
   g_return_if_fail(b != NULL);
 
-  ensure_buffer(b, guint16_buflen());
+  ensure_buffer(b, mw_uint16_len);
   MW16_PUT(b->ptr, val);
-  b->rem -= guint16_buflen();
+  b->rem -= mw_uint16_len;
 }
 
 
-void guint16_get(struct mwGetBuffer *b, guint16 *val) {
+void mw_uint16_get(MwGetBuffer *b, guint16 *val) {
   g_return_if_fail(b != NULL);
+  g_return_if_fail(val != NULL);
 
   if(b->error) return;
-  g_return_if_fail(check_buffer(b, guint16_buflen()));
+  g_return_if_fail(check_buffer(b, mw_uint16_len));
 
   MW16_GET(b->ptr, *val);
-  b->rem -= guint16_buflen();
+  b->rem -= mw_uint16_len;
 }
 
 
-guint16 guint16_peek(struct mwGetBuffer *b) {
-  guchar *buf = b->buf;
+guint16 mw_uint16_peek(MwGetBuffer *b) {
+  guchar *buf;
   guint16 r = 0;
   
-  if(b->rem >= guint16_buflen())
+  g_return_val_if_fail(b != NULL, 0);
+
+  buf = b->buf;
+
+  if(b->rem >= mw_uint16_len)
     MW16_GET(buf, r);
 
   return r;
 }
 
 
-#define guint32_buflen()  4
-
-
-void guint32_put(struct mwPutBuffer *b, guint32 val) {
+void mw_uint16_skip(MwGetBuffer *b) {
   g_return_if_fail(b != NULL);
-
-  ensure_buffer(b, guint32_buflen());
-  MW32_PUT(b->ptr, val);
-  b->rem -= guint32_buflen();
+  MwGetBuffer_skip(b, mw_uint16_len);
 }
 
 
-void guint32_get(struct mwGetBuffer *b, guint32 *val) {
+#define mw_uint32_len  4
+
+
+void mw_uint32_put(MwPutBuffer *b, guint32 val) {
   g_return_if_fail(b != NULL);
+
+  ensure_buffer(b, mw_uint32_len);
+  MW32_PUT(b->ptr, val);
+  b->rem -= mw_uint32_len;
+}
+
+
+void mw_uint32_get(MwGetBuffer *b, guint32 *val) {
+  g_return_if_fail(b != NULL);
+  g_return_if_fail(val != NULL);
 
   if(b->error) return;
-  g_return_if_fail(check_buffer(b, guint32_buflen()));
+  g_return_if_fail(check_buffer(b, mw_uint32_len));
 
   MW32_GET(b->ptr, *val);
-  b->rem -= guint32_buflen();
+  b->rem -= mw_uint32_len;
 }
 
 
-guint32 guint32_peek(struct mwGetBuffer *b) {
-  guchar *buf = b->buf;
+guint32 mw_uint32_peek(MwGetBuffer *b) {
+  guchar *buf;
   guint32 r = 0;
 
-  if(b->rem >= guint32_buflen())
+  g_return_val_if_fail(b != NULL, 0);
+
+  buf = b->buf;
+
+  if(b->rem >= mw_uint32_len)
     MW32_GET(buf, r);
 
   return r;
 }
 
 
-#define gboolean_buflen()  1
+void mw_uint32_skip(MwGetBuffer *b) {
+  g_return_if_fail(b != NULL);
+  MwGetBuffer_skip(b, mw_uint32_len);
+}
 
 
-void gboolean_put(struct mwPutBuffer *b, gboolean val) {
+#define mw_boolean_len  1
+
+
+void mw_boolean_put(MwPutBuffer *b, gboolean val) {
   g_return_if_fail(b != NULL);
 
-  ensure_buffer(b, gboolean_buflen());
+  ensure_buffer(b, mw_boolean_len);
   *(b->ptr) = !! val;
   b->ptr++;
   b->rem--;
 }
 
 
-void gboolean_get(struct mwGetBuffer *b, gboolean *val) {
+void mw_boolean_get(MwGetBuffer *b, gboolean *val) {
   g_return_if_fail(b != NULL);
+  g_return_if_fail(val != NULL);
 
   if(b->error) return;
-  g_return_if_fail(check_buffer(b, gboolean_buflen()));
+  g_return_if_fail(check_buffer(b, mw_boolean_len));
 
   *val = !! *(b->ptr);
   b->ptr++;
@@ -335,40 +357,46 @@ void gboolean_get(struct mwGetBuffer *b, gboolean *val) {
 }
 
 
-gboolean gboolean_peek(struct mwGetBuffer *b) {
+gboolean mw_boolean_peek(MwGetBuffer *b) {
   gboolean v = FALSE;
 
-  if(b->rem >= gboolean_buflen())
+  g_return_val_if_fail(b != NULL, FALSE);
+
+  if(b->rem >= mw_boolean_len)
     v = !! *(b->ptr);
 
   return v;
 }
 
 
-static gboolean mw_streq(const char *a, const char *b) {
-  return (a == b) || (a && b && !strcmp(a, b));
+void mw_boolean_skip(MwGetBuffer *b) {
+  g_return_if_fail(b != NULL);
+  MwGetBuffer_skip(b, mw_boolean_len);
 }
 
 
-void mwString_put(struct mwPutBuffer *b, const char *val) {
+void mw_str_put(MwPutBuffer *b, const char *val) {
   gsize len = 0;
+  if(val) len = strlen(val);
+  mw_str_putn(b, val, len);
+}
 
+
+void mw_str_putn(MwPutBuffer *b, const gchar *str, gsize len) {
   g_return_if_fail(b != NULL);
 
-  if(val) len = strlen(val);
-
-  guint16_put(b, (guint16) len);
+  mw_uint16_put(b, (guint16) len);
 
   if(len) {
     ensure_buffer(b, len);
-    memcpy(b->ptr, val, len);
+    memcpy(b->ptr, str, len);
     b->ptr += len;
     b->rem -= len;
   }
 }
 
 
-void mwString_get(struct mwGetBuffer *b, char **val) {
+void mw_str_get(MwGetBuffer *b, char **val) {
   guint16 len = 0;
 
   g_return_if_fail(b != NULL);
@@ -377,7 +405,7 @@ void mwString_get(struct mwGetBuffer *b, char **val) {
   *val = NULL;
 
   if(b->error) return;
-  guint16_get(b, &len);
+  mw_uint16_get(b, &len);
 
   g_return_if_fail(check_buffer(b, (gsize) len));
 
@@ -390,13 +418,34 @@ void mwString_get(struct mwGetBuffer *b, char **val) {
 }
 
 
-void mwOpaque_put(struct mwPutBuffer *b, const struct mwOpaque *o) {
+void mw_str_skip(MwGetBuffer *b) {
+  guint16 len = 0;
+
+  g_return_if_fail(b != NULL);
+
+  mw_uint16_get(b, &len);
+  MwGetBuffer_skip(b, len);
+}
+
+
+gboolean mw_str_equal(const gchar *a, const gchar *b) {
+  return (a == b) || (a && b && !strcmp(a, b));
+}
+
+
+/** simple macro for deep/shallow clones of a string */
+#define mw_str_dup(str, copy) \
+  ((copy)? (g_strdup((str))): (str))
+
+
+void MwOpaque_put(MwPutBuffer *b, const MwOpaque *o) {
   gsize len;
 
   g_return_if_fail(b != NULL);
 
   if(! o) {
-    guint32_put(b, 0x00);
+    /* treat a null opaque the same as an empty one */
+    mw_uint32_put(b, 0x00);
     return;
   }
 
@@ -404,7 +453,7 @@ void mwOpaque_put(struct mwPutBuffer *b, const struct mwOpaque *o) {
   if(len)
     g_return_if_fail(o->data != NULL);
   
-  guint32_put(b, (guint32) len);
+  mw_uint32_put(b, (guint32) len);
 
   if(len) {
     ensure_buffer(b, len);
@@ -415,7 +464,7 @@ void mwOpaque_put(struct mwPutBuffer *b, const struct mwOpaque *o) {
 }
 
 
-void mwOpaque_get(struct mwGetBuffer *b, struct mwOpaque *o) {
+void MwOpaque_get(MwGetBuffer *b, MwOpaque *o) {
   guint32 tmp = 0;
 
   g_return_if_fail(b != NULL);
@@ -425,7 +474,7 @@ void mwOpaque_get(struct mwGetBuffer *b, struct mwOpaque *o) {
   o->data = NULL;
   
   if(b->error) return;
-  guint32_get(b, &tmp);
+  mw_uint32_get(b, &tmp);
 
   g_return_if_fail(check_buffer(b, (gsize) tmp));
 
@@ -438,7 +487,17 @@ void mwOpaque_get(struct mwGetBuffer *b, struct mwOpaque *o) {
 }
 
 
-void mwOpaque_clear(struct mwOpaque *o) {
+void MwOpaque_skip(MwGetBuffer *b) {
+  guint32 len = 0;
+
+  g_return_if_fail(b != NULL);
+
+  mw_uint32_get(b, &len);
+  MwGetBuffer_skip(b, len);
+}
+
+
+void MwOpaque_clear(MwOpaque *o) {
   if(! o) return;
   g_free(o->data);
   o->data = NULL;
@@ -446,14 +505,14 @@ void mwOpaque_clear(struct mwOpaque *o) {
 }
 
 
-void mwOpaque_free(struct mwOpaque *o) {
+void MwOpaque_free(MwOpaque *o) {
   if(! o) return;
   g_free(o->data);
   g_free(o);
 }
 
 
-void mwOpaque_clone(struct mwOpaque *to, const struct mwOpaque *from) {
+void MwOpaque_clone(MwOpaque *to, const MwOpaque *from) {
   g_return_if_fail(to != NULL);
 
   to->len = 0;
@@ -467,173 +526,273 @@ void mwOpaque_clone(struct mwOpaque *to, const struct mwOpaque *from) {
 }
 
 
-/* 8.2 Common Structures */
-/* 8.2.1 Login Info block */
+MwOpaque *MwOpaque_copy(const MwOpaque *o) {
+  MwOpaque *ret;
+
+  if(! o) return NULL;
+
+  ret = g_new(MwOpaque, 1);
+  MwOpaque_clone(ret, o);
+  return ret;
+}
 
 
-void mwLoginInfo_put(struct mwPutBuffer *b, const struct mwLoginInfo *login) {
+GType MwOpaque_getType() {
+  static GType type = 0;
+
+  if(type == 0) {
+    type = g_boxed_type_register_static("MwOpaqueType",
+					(GBoxedCopyFunc) MwOpaque_copy,
+					(GBoxedFreeFunc) MwOpaque_free);
+  }
+
+  return type;
+}
+
+
+void MwIdentity_put(MwPutBuffer *b, const MwIdentity *id) {
+  g_return_if_fail(b != NULL);
+  g_return_if_fail(id != NULL);
+
+  mw_str_put(b, id->user);
+  mw_str_put(b, id->community);
+}
+
+
+void MwIdentity_get(MwGetBuffer *b, MwIdentity *id) {
+  g_return_if_fail(b != NULL);
+  g_return_if_fail(id != NULL);
+
+  id->user = NULL;
+  id->community = NULL;
+  
+  if(b->error) return;
+
+  mw_str_get(b, &id->user);
+  mw_str_get(b, &id->community);
+}
+
+
+void MwIdentity_clear(MwIdentity *id, gboolean deep) {
+  if(! id) return;
+
+  if(deep) {
+    g_free(id->user);
+    g_free(id->community);
+  }
+
+  id->user = NULL;
+  id->community = NULL;
+}
+
+
+void MwIdentity_free(MwIdentity *id, gboolean deep) {
+  if(! id) return;
+  MwIdentity_clear(id, deep);
+  g_free(id);
+}
+
+
+void MwIdentity_clone(MwIdentity *to, const MwIdentity *from, gboolean deep) {
+  g_return_if_fail(to != NULL);
+  g_return_if_fail(from != NULL);
+
+  to->user = mw_str_dup(from->user, deep);
+  to->community = mw_str_dup(from->community, deep);
+}
+
+
+MwIdentity *MwIdentity_copy(const MwIdentity *orig) {
+  MwIdentity *id;
+
+  if(! orig) return NULL;
+
+  id = g_new(MwIdentity, 1);
+  MwIdentity_clone(id, orig, TRUE);
+  return id;
+}
+
+
+guint MwIdentity_hash(const MwIdentity *idb) {
+  return (idb)? g_str_hash(idb->user): 0;
+}
+
+
+gboolean MwIdentity_equal(const MwIdentity *a, const MwIdentity *b) {
+
+  return ( (a == b) ||
+	   (a && b &&
+	    (mw_str_equal(a->user, b->user)) &&
+	    (mw_str_equal(a->community, b->community))) );
+}
+
+
+
+GType MwIdentity_getType() {
+  static GType type = 0;
+
+  if(type == 0) {
+    type = g_boxed_type_register_static("MwIdentityType",
+					(GBoxedCopyFunc) MwIdentity_copy,
+					(GBoxedFreeFunc) MwIdentity_free);
+  }
+
+  return type;
+}
+
+
+void MwLogin_put(MwPutBuffer *b, const MwLogin *login) {
   g_return_if_fail(b != NULL);
   g_return_if_fail(login != NULL);
 
-  mwString_put(b, login->login_id);
-  guint16_put(b, login->type);
-  mwString_put(b, login->user_id);
-  mwString_put(b, login->user_name);
-  mwString_put(b, login->community);
-  gboolean_put(b, login->full);
+  mw_str_put(b, login->login_id);
+  mw_uint16_put(b, login->client);
+  mw_str_put(b, login->id.user);
+  mw_str_put(b, login->name);
+  mw_str_put(b, login->id.community);
+  mw_boolean_put(b, login->full);
 
   if(login->full) {
-    mwString_put(b, login->desc);
-    guint32_put(b, login->ip_addr);
-    mwString_put(b, login->server_id);
+    mw_str_put(b, login->desc);
+    mw_uint32_put(b, login->ip_addr);
+    mw_str_put(b, login->server_id);
   }
 }
 
 
-void mwLoginInfo_get(struct mwGetBuffer *b, struct mwLoginInfo *login) {
+void MwLogin_get(MwGetBuffer *b, MwLogin *login) {
   g_return_if_fail(b != NULL);
   g_return_if_fail(login != NULL);
+
+  login->id.user = NULL;
+  login->id.community = NULL;
+  login->name = NULL;
+  login->login_id = NULL;
+  login->client = 0;
+  login->full = FALSE;
+  login->desc = NULL;
+  login->ip_addr = 0;
+  login->server_id = NULL;
 
   if(b->error) return;
 
-  mwString_get(b, &login->login_id);
-  guint16_get(b, &login->type);
-  mwString_get(b, &login->user_id);
-  mwString_get(b, &login->user_name);
-  mwString_get(b, &login->community);
-  gboolean_get(b, &login->full);
+  mw_str_get(b, &login->login_id);
+  mw_uint16_get(b, &login->client);
+  mw_str_get(b, &login->id.user);
+  mw_str_get(b, &login->name);
+  mw_str_get(b, &login->id.community);
+  mw_boolean_get(b, &login->full);
   
   if(login->full) {
-    mwString_get(b, &login->desc);
-    guint32_get(b, &login->ip_addr);
-    mwString_get(b, &login->server_id);
+    mw_str_get(b, &login->desc);
+    mw_uint32_get(b, &login->ip_addr);
+    mw_str_get(b, &login->server_id);
   }
 }
 
 
-void mwLoginInfo_clear(struct mwLoginInfo *login) {
+void MwLogin_clear(MwLogin *login, gboolean deep) {
   if(! login) return;
 
-  g_free(login->login_id);
-  g_free(login->user_id);
-  g_free(login->user_name);
-  g_free(login->community);
-  g_free(login->desc);
-  g_free(login->server_id);
+  MwIdentity_clear(&login->id, deep);
 
-  memset(login, 0x00, sizeof(struct mwLoginInfo));
+  if(deep) {
+    g_free(login->name);
+    g_free(login->login_id);
+    g_free(login->desc);
+    g_free(login->server_id);
+  }
+
+  login->name = NULL;
+  login->login_id = NULL;
+  login->client = 0;
+  login->desc = NULL;
+  login->ip_addr = 0;
+  login->server_id = NULL;
 }
 
 
-void mwLoginInfo_clone(struct mwLoginInfo *to,
-		       const struct mwLoginInfo *from) {
-
+void MwLogin_clone(MwLogin *to, const MwLogin *from, gboolean deep) {
   g_return_if_fail(to != NULL);
   g_return_if_fail(from != NULL);
 
-  to->login_id= g_strdup(from->login_id);
-  to->type = from->type;
-  to->user_id = g_strdup(from->user_id);
-  to->user_name = g_strdup(from->user_name);
-  to->community = g_strdup(from->community);
+  MwIdentity_clone(&to->id, &from->id, deep);
+
+  to->name = mw_str_dup(from->name, deep);
+
+  to->login_id= mw_str_dup(from->login_id, deep);
+  to->client = from->client;
 
   if( (to->full = from->full) ) {
-    to->desc = g_strdup(from->desc);
+    to->desc = mw_str_dup(from->desc, deep);
     to->ip_addr = from->ip_addr;
-    to->server_id = g_strdup(from->server_id);
+    to->server_id = mw_str_dup(from->server_id, deep);
   }
 }
 
 
-/* 8.2.2 Private Info Block */
-
-
-void mwUserItem_put(struct mwPutBuffer *b, const struct mwUserItem *user) {
-  g_return_if_fail(b != NULL);
-  g_return_if_fail(user != NULL);
-
-  gboolean_put(b, user->full);
-  mwString_put(b, user->id);
-  mwString_put(b, user->community);
-  
-  if(user->full)
-    mwString_put(b, user->name);
-}
-
-
-void mwUserItem_get(struct mwGetBuffer *b, struct mwUserItem *user) {
-  g_return_if_fail(b != NULL);
-  g_return_if_fail(user != NULL);
-
-  if(b->error) return;
-
-  gboolean_get(b, &user->full);
-  mwString_get(b, &user->id);
-  mwString_get(b, &user->community);
-
-  if(user->full)
-    mwString_get(b, &user->name);
-}
-
-
-void mwUserItem_clear(struct mwUserItem *user) {
-  if(! user) return;
-
-  g_free(user->id);
-  g_free(user->community);
-  g_free(user->name);
-
-  memset(user, 0x00, sizeof(struct mwUserItem));
-}
-
-
-void mwUserItem_clone(struct mwUserItem *to,
-		      const struct mwUserItem *from) {
-
-  g_return_if_fail(to != NULL);
-  g_return_if_fail(from != NULL);
-
-  to->full = from->full;
-  to->id = g_strdup(from->id);
-  to->community = g_strdup(from->community);
-  to->name = (to->full)? g_strdup(from->name): NULL;
-}
-
-
-void mwPrivacyInfo_put(struct mwPutBuffer *b,
-		       const struct mwPrivacyInfo *info) {
+void MwPrivacy_put(MwPutBuffer *b, const MwPrivacy *info) {
   guint32 c;
 
   g_return_if_fail(b != NULL);
   g_return_if_fail(info != NULL);
 
-  gboolean_put(b, info->deny);
-  guint32_put(b, info->count);
+  mw_boolean_put(b, info->deny);
+  mw_uint32_put(b, info->count);
 
-  for(c = info->count; c--; ) mwUserItem_put(b, info->users + c);
-}
-
-
-void mwPrivacyInfo_get(struct mwGetBuffer *b, struct mwPrivacyInfo *info) {
-  g_return_if_fail(b != NULL);
-  g_return_if_fail(info != NULL);
-
-  if(b->error) return;
-
-  gboolean_get(b, &info->deny);
-  guint32_get(b, &info->count);
-
-  if(info->count) {
-    guint32 c = info->count;
-    info->users = g_new0(struct mwUserItem, c);
-    while(c--) mwUserItem_get(b, info->users + c);
+  for(c = info->count; c--; ) {
+    mw_boolean_put(b, FALSE);
+    MwIdentity_put(b, info->users + c);
   }
 }
 
 
-void mwPrivacyInfo_clone(struct mwPrivacyInfo *to,
-			 const struct mwPrivacyInfo *from) {
+void MwPrivacy_get(MwGetBuffer *b, MwPrivacy *info) {
+  g_return_if_fail(b != NULL);
+  g_return_if_fail(info != NULL);
 
+  info->deny = FALSE;
+  info->count = 0;
+  info->users = NULL;
+
+  if(b->error) return;
+
+  mw_boolean_get(b, &info->deny);
+  mw_uint32_get(b, &info->count);
+
+  if(info->count) {
+    guint32 c = info->count;
+    info->users = g_new0(MwIdentity, c);
+
+    while(c--) {
+      gboolean f = FALSE;
+      mw_boolean_get(b, &f);
+      MwIdentity_get(b, info->users + c);
+      if(f) mw_str_skip(b);
+    }
+  }
+}
+
+
+void MwPrivacy_clear(MwPrivacy *info, gboolean deep) {
+  guint32 c;
+
+  g_return_if_fail(info != NULL);
+
+  for(c = info->count; c--; ) {
+    MwIdentity_clear(info->users + c, deep);
+  }
+
+  if(deep) {
+    g_free(info->users);
+  }
+
+  info->users = NULL;
+  info->count = 0;
+}
+
+
+void MwPrivacy_clone(MwPrivacy *to, const MwPrivacy *from, gboolean deep) {
   guint32 c;
 
   g_return_if_fail(to != NULL);
@@ -642,286 +801,85 @@ void mwPrivacyInfo_clone(struct mwPrivacyInfo *to,
   to->deny = from->deny;
   c = to->count = from->count;
 
-  to->users = g_new0(struct mwUserItem, c);
-  while(c--) mwUserItem_clone(to->users+c, from->users+c);
+  to->users = g_new0(MwIdentity, c);
+
+  while(c--) {
+    MwIdentity_clone(to->users+c, from->users+c, deep);
+  }
 }
 
 
-void mwPrivacyInfo_clear(struct mwPrivacyInfo *info) {
-  struct mwUserItem *u;
-  guint32 c;
-
-  g_return_if_fail(info != NULL);
-
-  u = info->users;
-  c = info->count;
-
-  while(c--) mwUserItem_clear(u + c);
-  g_free(u);
-
-  info->count = 0;
-  info->users = NULL;
-}
-
-
-/* 8.2.3 User Status Block */
-
-
-void mwUserStatus_put(struct mwPutBuffer *b,
-		      const struct mwUserStatus *stat) {
-
+void MwStatus_put(MwPutBuffer *b, const MwStatus *stat) {
   g_return_if_fail(b != NULL);
   g_return_if_fail(stat != NULL);
 
-  guint16_put(b, stat->status);
-  guint32_put(b, stat->time);
-  mwString_put(b, stat->desc);
+  mw_uint16_put(b, stat->status);
+  mw_uint32_put(b, stat->time);
+  mw_str_put(b, stat->desc);
 }
 
 
-void mwUserStatus_get(struct mwGetBuffer *b, struct mwUserStatus *stat) {
+void MwStatus_get(MwGetBuffer *b, MwStatus *stat) {
   g_return_if_fail(b != NULL);
   g_return_if_fail(stat != NULL);
+
+  stat->status = 0;
+  stat->time = 0;
+  stat->desc = NULL;
 
   if(b->error) return;
 
-  guint16_get(b, &stat->status);
-  guint32_get(b, &stat->time);
-  mwString_get(b, &stat->desc);
+  mw_uint16_get(b, &stat->status);
+  mw_uint32_get(b, &stat->time);
+  mw_str_get(b, &stat->desc);
 }
 
 
-void mwUserStatus_clear(struct mwUserStatus *stat) {
+void MwStatus_clear(MwStatus *stat, gboolean deep) {
   if(! stat) return;
-  g_free(stat->desc);
-  memset(stat, 0x00, sizeof(struct mwUserStatus));
+
+  if(deep) {
+    g_free(stat->desc);
+  }
+
+  stat->status = 0;
+  stat->time = 0;
+  stat->desc = NULL;
 }
 
 
-void mwUserStatus_clone(struct mwUserStatus *to,
-			const struct mwUserStatus *from) {
-
+void MwStatus_clone(MwStatus *to, const MwStatus *from, gboolean deep) {
   g_return_if_fail(to != NULL);
   g_return_if_fail(from != NULL);
 
   to->status = from->status;
   to->time = from->time;
-  to->desc = g_strdup(from->desc);
+  to->desc = mw_str_dup(from->desc, deep);
 }
 
 
-/* 8.2.4 ID Block */
-
-
-void mwIdBlock_put(struct mwPutBuffer *b, const struct mwIdBlock *id) {
-  g_return_if_fail(b != NULL);
-  g_return_if_fail(id != NULL);
-
-  mwString_put(b, id->user);
-  mwString_put(b, id->community);
+const gchar *mw_version() {
+  return MW_VERSION "-" MW_VER_RELEASE;
 }
 
 
-void mwIdBlock_get(struct mwGetBuffer *b, struct mwIdBlock *id) {
-  g_return_if_fail(b != NULL);
-  g_return_if_fail(id != NULL);
-
-  if(b->error) return;
-
-  mwString_get(b, &id->user);
-  mwString_get(b, &id->community);
+guint mw_version_major() {
+  return MW_VER_MAJOR;
 }
 
 
-void mwIdBlock_clear(struct mwIdBlock *id) {
-  if(! id) return;
-
-  g_free(id->user);
-  id->user = NULL;
-
-  g_free(id->community);
-  id->community = NULL;
+guint mw_version_minor() {
+  return MW_VER_MINOR;
 }
 
 
-void mwIdBlock_clone(struct mwIdBlock *to, const struct mwIdBlock *from) {
-  g_return_if_fail(to != NULL);
-  g_return_if_fail(from != NULL);
-
-  to->user = g_strdup(from->user);
-  to->community = g_strdup(from->community);
+guint mw_version_micro() {
+  return MW_VER_MICRO;
 }
 
 
-guint mwIdBlock_hash(const struct mwIdBlock *idb) {
-  return (idb)? g_str_hash(idb->user): 0;
+const gchar *mw_version_release() {
+  return MW_VER_RELEASE;
 }
 
-
-gboolean mwIdBlock_equal(const struct mwIdBlock *a,
-			 const struct mwIdBlock *b) {
-
-  g_return_val_if_fail(a != NULL, FALSE);
-  g_return_val_if_fail(b != NULL, FALSE);
-
-  return ( mw_streq(a->user, b->user) &&
-	   mw_streq(a->community, b->community) );
-}
-
-
-/* 8.2.5 Encryption Block */
-
-/** @todo I think this can be put into cipher */
-
-void mwEncryptItem_put(struct mwPutBuffer *b,
-		       const struct mwEncryptItem *ei) {
-
-  g_return_if_fail(b != NULL);
-  g_return_if_fail(ei != NULL);
-  
-  guint16_put(b, ei->id);
-  mwOpaque_put(b, &ei->info);
-
-}
-
-
-void mwEncryptItem_get(struct mwGetBuffer *b, struct mwEncryptItem *ei) {
-  g_return_if_fail(b != NULL);
-  g_return_if_fail(ei != NULL);
-
-  if(b->error) return;
-
-  guint16_get(b, &ei->id);
-  mwOpaque_get(b, &ei->info);
-}
-
-
-void mwEncryptItem_clear(struct mwEncryptItem *ei) {
-  if(! ei) return;
-  ei->id = 0x0000;
-  mwOpaque_clear(&ei->info);
-}
-
-
-void mwEncryptItem_free(struct mwEncryptItem *ei) {
-  mwEncryptItem_clear(ei);
-  g_free(ei);
-}
-
-
-/* 8.4.2.1 Awareness ID Block */
-
-
-/** @todo move this into srvc_aware */
-
-void mwAwareIdBlock_put(struct mwPutBuffer *b,
-			const struct mwAwareIdBlock *idb) {
-
-  g_return_if_fail(b != NULL);
-  g_return_if_fail(idb != NULL);
-
-  guint16_put(b, idb->type);
-  mwString_put(b, idb->user);
-  mwString_put(b, idb->community);
-}
-
-
-void mwAwareIdBlock_get(struct mwGetBuffer *b, struct mwAwareIdBlock *idb) {
-  g_return_if_fail(b != NULL);
-  g_return_if_fail(idb != NULL);
-
-  if(b->error) return;
-
-  guint16_get(b, &idb->type);
-  mwString_get(b, &idb->user);
-  mwString_get(b, &idb->community);
-}
-
-
-void mwAwareIdBlock_clone(struct mwAwareIdBlock *to,
-			  const struct mwAwareIdBlock *from) {
-
-  g_return_if_fail(to != NULL);
-  g_return_if_fail(from != NULL);
-
-  to->type = from->type;
-  to->user = g_strdup(from->user);
-  to->community = g_strdup(from->community);
-}
-
-
-void mwAwareIdBlock_clear(struct mwAwareIdBlock *idb) {
-  if(! idb) return;
-  g_free(idb->user);
-  g_free(idb->community);
-  memset(idb, 0x00, sizeof(struct mwAwareIdBlock));
-}
-
-
-guint mwAwareIdBlock_hash(const struct mwAwareIdBlock *a) {
-  return (a)? g_str_hash(a->user): 0;
-}
-
-
-gboolean mwAwareIdBlock_equal(const struct mwAwareIdBlock *a,
-			      const struct mwAwareIdBlock *b) {
-
-  g_return_val_if_fail(a != NULL, FALSE);
-  g_return_val_if_fail(b != NULL, FALSE);
-  
-  return ( (a->type == b->type) &&
-	   mw_streq(a->user, b->user) &&
-	   mw_streq(a->community, b->community) );
-}
-
-
-/* 8.4.2.4 Snapshot */
-
-void mwAwareSnapshot_get(struct mwGetBuffer *b, struct mwAwareSnapshot *idb) {
-  guint32 junk;
-  char *empty = NULL;
-
-  g_return_if_fail(b != NULL);
-  g_return_if_fail(idb != NULL);
-
-  guint32_get(b, &junk);
-  mwAwareIdBlock_get(b, &idb->id);
-  mwString_get(b, &idb->group);
-  gboolean_get(b, &idb->online);
-
-  g_free(empty);
-
-  if(idb->online) {
-    mwString_get(b, &idb->alt_id);
-    mwUserStatus_get(b, &idb->status);
-    mwString_get(b, &idb->name);
-  }
-}
-
-
-void mwAwareSnapshot_clone(struct mwAwareSnapshot *to,
-			   const struct mwAwareSnapshot *from) {
-
-  g_return_if_fail(to != NULL);
-  g_return_if_fail(from != NULL);
-
-  mwAwareIdBlock_clone(&to->id, &from->id);
-  if( (to->online = from->online) ) {
-    to->alt_id = g_strdup(from->alt_id);
-    mwUserStatus_clone(&to->status, &from->status);
-    to->name = g_strdup(from->name);
-    to->group = g_strdup(from->group);
-  }
-}
-
-
-void mwAwareSnapshot_clear(struct mwAwareSnapshot *idb) {
-  if(! idb) return;
-  mwAwareIdBlock_clear(&idb->id);
-  mwUserStatus_clear(&idb->status);
-  g_free(idb->alt_id);
-  g_free(idb->name);
-  g_free(idb->group);
-  memset(idb, 0x00, sizeof(struct mwAwareSnapshot));
-}
 

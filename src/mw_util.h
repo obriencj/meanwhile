@@ -27,38 +27,38 @@
 #include <glib/glist.h>
 
 
-#define map_guint_new() \
+#define mw_map_guint_new() \
   g_hash_table_new(g_direct_hash, g_direct_equal)
 
 
-#define map_guint_new_full(valfree) \
+#define mw_map_guint_new_full(valfree) \
   g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, (valfree))
 
 
-#define map_guint_insert(ht, key, val) \
+#define mw_map_guint_insert(ht, key, val) \
   g_hash_table_insert((ht), GUINT_TO_POINTER((guint)(key)), (val))
 
 
-#define map_guint_replace(ht, key, val) \
+#define mw_map_guint_replace(ht, key, val) \
   g_hash_table_replace((ht), GUINT_TO_POINTER((guint)(key)), (val))
 
 
-#define map_guint_lookup(ht, key) \
+#define mw_map_guint_lookup(ht, key) \
   g_hash_table_lookup((ht), GUINT_TO_POINTER((guint)(key)))
 
 
-#define map_guint_remove(ht, key) \
+#define mw_map_guint_remove(ht, key) \
   g_hash_table_remove((ht), GUINT_TO_POINTER((guint)(key)))
 
 
-#define map_guint_steal(ht, key) \
+#define mw_map_guint_steal(ht, key) \
   g_hash_table_steal((ht), GUINT_TO_POINTER((guint)(key)))
 
 
-GList *map_collect_keys(GHashTable *ht);
+GList *mw_map_collect_keys(GHashTable *ht);
 
 
-GList *map_collect_values(GHashTable *ht);
+GList *mw_map_collect_values(GHashTable *ht);
 
 
 struct mw_datum {

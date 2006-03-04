@@ -1,4 +1,3 @@
-
 /*
   Meanwhile - Unofficial Lotus Sametime Community Client Library
   Copyright (C) 2004  Christopher (siege) O'Brien
@@ -17,6 +16,7 @@
   License along with this library; if not, write to the Free
   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
+
 
 
 #include <glib/gstring.h>
@@ -78,7 +78,7 @@ static void pretty_print(GString *str, const guchar *buf, gsize len) {
 
 
 void mw_debug_datav(const guchar *buf, gsize len,
-		    const char *msg, va_list args) {
+		    const gchar *msg, va_list args) {
   GString *str;
 
   g_return_if_fail(buf != NULL || len == 0);
@@ -86,7 +86,7 @@ void mw_debug_datav(const guchar *buf, gsize len,
   str = g_string_new(NULL);
 
   if(msg) {
-    char *txt = g_strdup_vprintf(msg, args);
+    gchar *txt = g_strdup_vprintf(msg, args);
     g_string_append_printf(str, "%s\n", txt);
     g_free(txt);
   }
@@ -99,7 +99,7 @@ void mw_debug_datav(const guchar *buf, gsize len,
 
 
 void mw_debug_data(const guchar *buf, gsize len,
-		   const char *msg, ...) {
+		   const gchar *msg, ...) {
   va_list args;
   
   g_return_if_fail(buf != NULL || len == 0);
@@ -111,14 +111,14 @@ void mw_debug_data(const guchar *buf, gsize len,
 
 
 
-void mw_debug_opaquev(struct mwOpaque *o, const char *txt, va_list args) {
+void mw_debug_opaquev(const MwOpaque *o, const gchar *txt, va_list args) {
   g_return_if_fail(o != NULL);
   mw_debug_datav(o->data, o->len, txt, args);
 }
 
 
 
-void mw_debug_opaque(struct mwOpaque *o, const char *txt, ...) {
+void mw_debug_opaque(const MwOpaque *o, const gchar *txt, ...) {
   va_list args;
 
   g_return_if_fail(o != NULL);
@@ -130,11 +130,11 @@ void mw_debug_opaque(struct mwOpaque *o, const char *txt, ...) {
 
 
 void mw_mailme_datav(const guchar *buf, gsize len,
-		     const char *info, va_list args) {
+		     const gchar *info, va_list args) {
 
 #if MW_MAILME
   GString *str;
-  char *txt;
+  gchar *txt;
 
   str = g_string_new(MW_MAILME_MESSAGE "\n"
 		     "  Please send mail to: " MW_MAILME_ADDRESS "\n"
@@ -161,7 +161,7 @@ void mw_mailme_datav(const guchar *buf, gsize len,
 
 
 void mw_mailme_data(const guchar *buf, gsize len,
-		    const char *info, ...) {
+		    const gchar *info, ...) {
   va_list args;
   va_start(args, info);
   mw_mailme_datav(buf, len, info, args);
@@ -170,13 +170,13 @@ void mw_mailme_data(const guchar *buf, gsize len,
 
 
 
-void mw_mailme_opaquev(struct mwOpaque *o, const char *info, va_list args) {
+void mw_mailme_opaquev(const MwOpaque *o, const gchar *info, va_list args) {
   mw_mailme_datav(o->data, o->len, info, args);
 }
 
 
 
-void mw_mailme_opaque(struct mwOpaque *o, const char *info, ...) {
+void mw_mailme_opaque(const MwOpaque *o, const gchar *info, ...) {
   va_list args;
   va_start(args, info);
   mw_mailme_opaquev(o, info, args);

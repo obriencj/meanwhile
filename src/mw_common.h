@@ -1,3 +1,6 @@
+#ifndef _MW_COMMON_H
+#define _MW_COMMON_H
+
 
 /*
   Meanwhile - Unofficial Lotus Sametime Community Client Library
@@ -17,9 +20,6 @@
   License along with this library; if not, write to the Free
   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
-
-#ifndef _MW_COMMON_H
-#define _MW_COMMON_H
 
 
 /** @file mw_common.h
@@ -59,30 +59,46 @@
 
 
 #include <glib.h>
+#include <glib-object.h>
 
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+G_BEGIN_DECLS
+
+
+typedef struct mw_put_buffer MwPutBuffer;
 
 
 /** @struct mwPutBuffer
     buffer to be written to */
-struct mwPutBuffer;
+struct mw_put_buffer;
+
+
+typedef struct mw_get_buffer MwGetBuffer;
+
 
 /** @struct mwGetBuffer
     buffer to be read from */
-struct mwGetBuffer;
+struct mw_get_buffer;
+
+
+typedef struct mw_opaque MwOpaque;
 
 
 /** A length of binary data, not null-terminated. */
-struct mwOpaque {
+struct mw_opaque {
   gsize len;     /**< length of data. */
   guchar *data;  /**< data, normally with no NULL termination */
 };
 
 
-/* 8.3.6 Login Types */
+typedef struct mw_identity MwIdentity;
+
+
+struct mw_identity {
+  gchar *user;
+  gchar *community;
+};
+
 
 /** The type of login. Normally meaning the type of client code being
     used to login with.
@@ -90,157 +106,115 @@ struct mwOpaque {
     If you know of any additional client identifiers, please add them
     below or submit an RFE to the meanwhile tracker.
 */
-enum mwLoginType {
-  mwLogin_LIB           = 0x1000,  /**< official Lotus binary library */
-  mwLogin_JAVA_WEB      = 0x1001,  /**< official Lotus Java applet */
-  mwLogin_BINARY        = 0x1002,  /**< official Lotus binary application */
-  mwLogin_JAVA_APP      = 0x1003,  /**< official Lotus Java application */
-  mwLogin_LINKS         = 0x100a,  /**< official Sametime Links toolkit */
+enum mw_client_type {
+  mw_client_LIB           = 0x1000,  /**< official Lotus binary library */
+  mw_client_JAVA_WEB      = 0x1001,  /**< official Lotus Java applet */
+  mw_client_BINARY        = 0x1002,  /**< official Lotus binary application */
+  mw_client_JAVA_APP      = 0x1003,  /**< official Lotus Java application */
+  mw_client_LINKS         = 0x100a,  /**< official Sametime Links toolkit */
 
   /* now we're getting crazy */
-  mwLogin_NOTES_6_5        = 0x1200,
-  mwLogin_NOTES_6_5_3      = 0x1203,
-  mwLogin_NOTES_7_0_beta   = 0x1210,
-  mwLogin_NOTES_7_0        = 0x1214,
-  mwLogin_ICT              = 0x1300,
-  mwLogin_ICT_1_7_8_2      = 0x1302,
-  mwLogin_ICT_SIP          = 0x1303,
-  mwLogin_NOTESBUDDY_4_14  = 0x1400,  /**< 0xff00 mask? */
-  mwLogin_NOTESBUDDY_4_15  = 0x1405,
-  mwLogin_NOTESBUDDY_4_16  = 0x1406,
-  mwLogin_SANITY           = 0x1600,
-  mwLogin_ST_PERL          = 0x1625,
-  mwLogin_PMR_ALERT        = 0x1650,
-  mwLogin_TRILLIAN         = 0x16aa,  /**< http://sf.net/st-plugin/ */
-  mwLogin_TRILLIAN_IBM     = 0x16bb,
-  mwLogin_MEANWHILE        = 0x1700,  /**< Meanwhile library */
+  mw_client_NOTES_6_5        = 0x1200,
+  mw_client_NOTES_6_5_3      = 0x1203,
+  mw_client_NOTES_7_0_beta   = 0x1210,
+  mw_client_NOTES_7_0        = 0x1214,
+  mw_client_ICT              = 0x1300,
+  mw_client_ICT_1_7_8_2      = 0x1302,
+  mw_client_ICT_SIP          = 0x1303,
+  mw_client_NOTESBUDDY_4_14  = 0x1400,  /**< 0xff00 mask? */
+  mw_client_NOTESBUDDY_4_15  = 0x1405,
+  mw_client_NOTESBUDDY_4_16  = 0x1406,
+  mw_client_SANITY           = 0x1600,
+  mw_client_ST_PERL          = 0x1625,
+  mw_client_PMR_ALERT        = 0x1650,
+  mw_client_TRILLIAN         = 0x16aa,  /**< http://sf.net/st-plugin/ */
+  mw_client_TRILLIAN_IBM     = 0x16bb,
+  mw_client_MEANWHILE        = 0x1700,  /**< Meanwhile library */
 };
 
 
-/* 8.2 Common Structures */
-/* 8.2.1 Login Info block */
+typedef struct mw_login MwLogin;
 
-struct mwLoginInfo {
-  char *login_id;   /**< community-unique ID of the login */
-  guint16 type;     /**< @see mwLoginType */
-  char *user_id;    /**< community-unique ID of the user */
-  char *user_name;  /**< name of user (nick name, full name, etc) */
-  char *community;  /**< community name (usually domain name) */
-  gboolean full;    /**< if FALSE, following fields non-existant */
-  char *desc;       /**< implementation defined description */
-  guint32 ip_addr;  /**< ip addr of the login */
-  char *server_id;  /**< unique ID of login's server */
+
+struct mw_login {
+  MwIdentity id;     /**< identity */
+  gchar *name;       /**< user's full name */
+
+  gchar *login_id;   /**< community-unique ID of the login */
+  guint16 client;    /**< @see mw_client_type */
+
+  gboolean full;     /**< if FALSE, following fields non-existant */
+  gchar *desc;       /**< implementation defined description */
+  guint32 ip_addr;   /**< ip addr of the login */
+  gchar *server_id;  /**< unique ID of login's server */
 };
 
 
-/* 8.2.2 Private Info Block */
+typedef struct mw_privacy MwPrivacy;
 
-struct mwUserItem {
-  gboolean full;    /**< if FALSE, don't include name */
-  char *id;         /**< user id */
-  char *community;  /**< community */
-  char *name;       /**< user name */
+
+struct mw_privacy {
+  gboolean deny;      /**< deny (true) or allow (false) users */
+  guint32 count;      /**< count of users */
+  MwIdentity *users;  /**< the users list */
 };
 
 
-struct mwPrivacyInfo {
-  gboolean deny;             /**< deny (true) or allow (false) users */
-  guint32 count;             /**< count of users */
-  struct mwUserItem *users;  /**< the users list */
+enum mw_status_type {
+  mw_status_ACTIVE  = 0x0020,
+  mw_status_IDLE    = 0x0040,
+  mw_status_AWAY    = 0x0060,
+  mw_Status_BUSY    = 0x0080,
 };
 
 
-/* 8.3.5 User Status Types */
-
-enum mwStatusType {
-  mwStatus_ACTIVE  = 0x0020,
-  mwStatus_IDLE    = 0x0040,
-  mwStatus_AWAY    = 0x0060,
-  mwStatus_BUSY    = 0x0080,
-};
+typedef struct mw_status MwStatus;
 
 
-/* 8.2.3 User Status Block */
-
-struct mwUserStatus {
-  guint16 status;  /**< @see mwStatusType */
+struct mw_status {
+  guint16 status;  /**< @see mw_status_type */
   guint32 time;    /**< last status change time in seconds */
-  char *desc;      /**< status description */
+  gchar *desc;     /**< status description */
 };
 
 
-/* 8.2.4 ID Block */
+/** @name Reading and Writing Values for Output
 
-struct mwIdBlock {
-  char *user;       /**< user id (login id or empty for some services) */
-  char *community;  /**< community id (NULL for same community) */
-};
+    The commonly used structures specified in this header are normally
+    utilized in the construction of an outgoing Sametime message, or
+    are constructed from an incoming Sametime message. The MwPutBuffer
+    and MwGetBuffer types and their assorted functions provide this
+    functionality.
+    
+    Values which are intended to be written to a message can be fed into
+    a MwPutBuffer.
 
-
-/* 8.3.8.2 Awareness Presence Types */
-
-/* @todo move mwAwareType, mwAwareIdBlock and mwAwareSnapshot into the
-   aware service and out of common */
-
-/** type codes for mwAwareIdBlock */
-enum mwAwareType {
-  mwAware_USER    = 0x0002,  /**< a single user */
-  mwAware_GROUP   = 0x0003,  /**< a group */
-  mwAware_SERVER  = 0x0008,  /**< a server */
-};
-
-
-/* 8.4.2 Awareness Messages */
-/* 8.4.2.1 Awareness ID Block */
-
-struct mwAwareIdBlock {
-  guint16 type;     /**< @see mwAwareType */
-  char *user;       /**< user id */
-  char *community;  /**< community id (NULL for same community) */
-};
-
-
-/* 8.4.2.4 Snapshot */
-
-struct mwAwareSnapshot {
-  struct mwAwareIdBlock id;
-  char *group;                 /**< group this id belongs to */
-  gboolean online;             /**< is this user online? */
-  char *alt_id;                /**< alternate ID, often same as id.user */
-  struct mwUserStatus status;  /**< status of this user */
-  char *name;                  /**< Formatted version of ID */
-};
-
-
-/** encryption blocks */
-struct mwEncryptItem {
-  guint16 id;            /**< cipher identifier */
-  struct mwOpaque info;  /**< cipher information */
-};
-
-
-/** @name buffer utility functions */
+    Values can be read from message data via a MwGetBuffer.
+ */
 /*@{*/
 
 
 /** allocate a new empty buffer */
-struct mwPutBuffer *mwPutBuffer_new();
+MwPutBuffer *MwPutBuffer_new();
 
 
 /** write raw data to the put buffer */
-void mwPutBuffer_write(struct mwPutBuffer *b, gpointer data, gsize len);
+void MwPutBuffer_write(MwPutBuffer *b, gconstpointer data, gsize len);
 
 
-/** destroy the buffer */
-void mwPutBuffer_free(struct mwPutBuffer *b);
-
-
-/** move the buffer's data into an opaque, destroy the buffer */
-void mwPutBuffer_finalize(struct mwOpaque *to, struct mwPutBuffer *from);
+/** destroy @p b, moving its data into an opaque. If @p is NULL, the
+    internal buffer data will be free'd and lost. */
+void MwPutBuffer_free(MwPutBuffer *b, MwOpaque *o);
 
 
 /** allocate a new buffer with a copy of the given data */
-struct mwGetBuffer *mwGetBuffer_new(struct mwOpaque *data);
+MwGetBuffer *MwGetBuffer_new(const MwOpaque *data);
+
+
+/** allocate a new buffer backed by the given data. Calling
+    MwGetBuffer_free will NOT result in the underlying data being
+    free'd */
+MwGetBuffer *MwGetBuffer_wrap(const MwOpaque *data);
 
 
 /** read len bytes of raw data from the get buffer into mem. If len is
@@ -248,7 +222,7 @@ struct mwGetBuffer *mwGetBuffer_new(struct mwOpaque *data);
     buffer's error flag will NOT be set.
 
     @returns count of bytes successfully copied to mem */
-gsize mwGetBuffer_read(struct mwGetBuffer *b, gpointer mem, gsize len);
+gsize MwGetBuffer_read(MwGetBuffer *b, gpointer mem, gsize len);
 
 
 /** skip len bytes in the get buffer. If len is greater than the count
@@ -256,31 +230,25 @@ gsize mwGetBuffer_read(struct mwGetBuffer *b, gpointer mem, gsize len);
     be set.
 
     @returns count of bytes successfully skipped */
-gsize mwGetBuffer_advance(struct mwGetBuffer *b, gsize len);
-
-
-/** allocate a new buffer backed by the given data. Calling
-    mwGetBuffer_free will not result in the underlying data being
-    freed */
-struct mwGetBuffer *mwGetBuffer_wrap(const struct mwOpaque *data);
-
-
-/** destroy the buffer */
-void mwGetBuffer_free(struct mwGetBuffer *b);
+gsize MwGetBuffer_skip(MwGetBuffer *b, gsize len);
 
 
 /** reset the buffer to the very beginning. Also clears the buffer's
     error flag. */
-void mwGetBuffer_reset(struct mwGetBuffer *b);
+void MwGetBuffer_reset(MwGetBuffer *b);
 
 
 /** count of remaining available bytes */
-gsize mwGetBuffer_remaining(struct mwGetBuffer *b);
+gsize MwGetBuffer_remaining(MwGetBuffer *b);
 
 
 /** TRUE if an error occurred while reading a basic type from this
     buffer */
-gboolean mwGetBuffer_error(struct mwGetBuffer *b);
+gboolean MwGetBuffer_error(MwGetBuffer *b);
+
+
+/** destroy the buffer */
+void MwGetBuffer_free(MwGetBuffer *b);
 
 
 /*@}*/
@@ -292,41 +260,89 @@ gboolean mwGetBuffer_error(struct mwGetBuffer *b);
 /*@{*/
 
 
-void guint16_put(struct mwPutBuffer *b, guint16 val);
-
-void guint16_get(struct mwGetBuffer *b, guint16 *val);
-
-guint16 guint16_peek(struct mwGetBuffer *b);
+void mw_uint16_put(MwPutBuffer *b, guint16 val);
 
 
-void guint32_put(struct mwPutBuffer *b, guint32 val);
-
-void guint32_get(struct mwGetBuffer *b, guint32 *val);
-
-guint32 guint32_peek(struct mwGetBuffer *b);
+void mw_uint16_get(MwGetBuffer *b, guint16 *val);
 
 
-void gboolean_put(struct mwPutBuffer *b, gboolean val);
-
-void gboolean_get(struct mwGetBuffer *b, gboolean *val);
-
-gboolean gboolean_peek(struct mwGetBuffer *b);
+guint16 mw_uint16_peek(MwGetBuffer *b);
 
 
-void mwString_put(struct mwPutBuffer *b, const char *str);
-
-void mwString_get(struct mwGetBuffer *b, char **str);
+void mw_uint16_skip(MwGetBuffer *b);
 
 
-void mwOpaque_put(struct mwPutBuffer *b, const struct mwOpaque *o);
+void mw_uint32_put(MwPutBuffer *b, guint32 val);
 
-void mwOpaque_get(struct mwGetBuffer *b, struct mwOpaque *o);
 
-void mwOpaque_clear(struct mwOpaque *o);
+void mw_uint32_get(MwGetBuffer *b, guint32 *val);
 
-void mwOpaque_free(struct mwOpaque *o);
 
-void mwOpaque_clone(struct mwOpaque *to, const struct mwOpaque *from);
+guint32 mw_uint32_peek(MwGetBuffer *b);
+
+
+void mw_uint32_skip(MwGetBuffer *b);
+
+
+void mw_boolean_put(MwPutBuffer *b, gboolean val);
+
+
+void mw_boolean_get(MwGetBuffer *b, gboolean *val);
+
+
+gboolean mw_boolean_peek(MwGetBuffer *b);
+
+
+void mw_boolean_skip(MwGetBuffer *b);
+
+
+void mw_str_put(MwPutBuffer *b, const gchar *str);
+
+
+void mw_str_putn(MwPutBuffer *b, const gchar *str, gsize len);
+
+
+void mw_str_get(MwGetBuffer *b, gchar **str);
+
+
+void mw_str_skip(MwGetBuffer *b);
+
+
+/** tests for string equality, permitting NULL values */
+gboolean mw_str_equal(const gchar *stra, const gchar *strb);
+
+
+void MwOpaque_put(MwPutBuffer *b, const MwOpaque *o);
+
+
+void MwOpaque_get(MwGetBuffer *b, MwOpaque *o);
+
+
+void MwOpaque_skip(MwGetBuffer *b);
+
+
+/** free the contents of @p o and set the buffer pointer to NULL and
+    the length to zero */
+void MwOpaque_clear(MwOpaque *o);
+
+
+/** call MwOpaque_clear, and then g_free @p o */
+void MwOpaque_free(MwOpaque *o);
+
+
+/** duplicate the internal buffer from one opaque to another */
+void MwOpaque_clone(MwOpaque *to, const MwOpaque *from);
+
+
+/** allocate a new opaque and duplicate the internal buffer from @p o */
+MwOpaque *MwOpaque_copy(const MwOpaque *o);
+
+
+/** boxed type for MwOpaque */
+GType MwOpaque_getType();
+
+
+#define MW_TYPE_OPAQUE (MwOpaque_getType())
 
 
 /*@}*/
@@ -336,102 +352,109 @@ void mwOpaque_clone(struct mwOpaque *to, const struct mwOpaque *from);
 /*@{*/
 
 
-void mwLoginInfo_put(struct mwPutBuffer *b, const struct mwLoginInfo *info);
-
-void mwLoginInfo_get(struct mwGetBuffer *b, struct mwLoginInfo *info);
-
-void mwLoginInfo_clear(struct mwLoginInfo *info);
-
-void mwLoginInfo_clone(struct mwLoginInfo *to, const struct mwLoginInfo *from);
+void MwIdentity_put(MwPutBuffer *b, const MwIdentity *id);
 
 
-void mwUserItem_put(struct mwPutBuffer *b, const struct mwUserItem *user);
-
-void mwUserItem_get(struct mwGetBuffer *b, struct mwUserItem *user);
-
-void mwUserItem_clear(struct mwUserItem *user);
-
-void mwUserItem_clone(struct mwUserItem *to, const struct mwUserItem *from);
+void MwIdentity_get(MwGetBuffer *b, MwIdentity *id);
 
 
-void mwPrivacyInfo_put(struct mwPutBuffer *b,
-		       const struct mwPrivacyInfo *info);
-
-void mwPrivacyInfo_get(struct mwGetBuffer *b, struct mwPrivacyInfo *info);
-
-void mwPrivacyInfo_clear(struct mwPrivacyInfo *info);
-
-void mwPrivacyInfo_clone(struct mwPrivacyInfo *to,
-			 const struct mwPrivacyInfo *from);
+void MwIdentity_clear(MwIdentity *id, gboolean deep);
 
 
-void mwUserStatus_put(struct mwPutBuffer *b,
-		      const struct mwUserStatus *stat);
-
-void mwUserStatus_get(struct mwGetBuffer *b, struct mwUserStatus *stat);
-
-void mwUserStatus_clear(struct mwUserStatus *stat);
-
-void mwUserStatus_clone(struct mwUserStatus *to,
-			const struct mwUserStatus *from);
+void MwIdentity_free(MwIdentity *id, gboolean deep);
 
 
-void mwIdBlock_put(struct mwPutBuffer *b, const struct mwIdBlock *id);
-
-void mwIdBlock_get(struct mwGetBuffer *b, struct mwIdBlock *id);
-
-void mwIdBlock_clear(struct mwIdBlock *id);
-
-void mwIdBlock_clone(struct mwIdBlock *to,
-		     const struct mwIdBlock *from);
-
-guint mwIdBlock_hash(const struct mwIdBlock *idb);
-
-gboolean mwIdBlock_equal(const struct mwIdBlock *a,
-			 const struct mwIdBlock *b);
+void MwIdentity_clone(MwIdentity *to, const MwIdentity *from, gboolean deep);
 
 
-void mwAwareIdBlock_put(struct mwPutBuffer *b,
-			const struct mwAwareIdBlock *idb);
-
-void mwAwareIdBlock_get(struct mwGetBuffer *b, struct mwAwareIdBlock *idb);
-
-void mwAwareIdBlock_clear(struct mwAwareIdBlock *idb);
-
-void mwAwareIdBlock_clone(struct mwAwareIdBlock *to,
-			  const struct mwAwareIdBlock *from);
-
-guint mwAwareIdBlock_hash(const struct mwAwareIdBlock *a);
-
-gboolean mwAwareIdBlock_equal(const struct mwAwareIdBlock *a,
-			      const struct mwAwareIdBlock *b);
+MwIdentity *MwIdentity_copy(const MwIdentity *orig);
 
 
-void mwAwareSnapshot_get(struct mwGetBuffer *b,
-			 struct mwAwareSnapshot *idb);
-
-void mwAwareSnapshot_clear(struct mwAwareSnapshot *idb);
-
-void mwAwareSnapshot_clone(struct mwAwareSnapshot *to,
-			   const struct mwAwareSnapshot *from);
+guint MwIdentity_hash(const MwIdentity *id);
 
 
-void mwEncryptItem_put(struct mwPutBuffer *b,
-		       const struct mwEncryptItem *item);
+gboolean MwIdentity_equal(const MwIdentity *ida, const MwIdentity *idb);
 
-void mwEncryptItem_get(struct mwGetBuffer *b, struct mwEncryptItem *item);
 
-void mwEncryptItem_clear(struct mwEncryptItem *item);
+/** create a new GHashTable that can use a MwIdentity* for a key */
+#define MwIdentity_newTable(keyfree, valfree)			\
+  (g_hash_table_new_full(MwIdentity_hash, MwIdentity_equal,	\
+			 (keyfree), (valfree)))
 
-void mwEncryptItem_free(struct mwEncryptItem *item);
+
+/** boxed type for MwIdentity */
+GType MwIdentity_getType();
+
+
+#define MW_TYPE_IDENTITY (MwIdentity_getType())
+
+
+void MwLogin_put(MwPutBuffer *b, const MwLogin *login);
+
+
+void MwLogin_get(MwGetBuffer *b, MwLogin *login);
+
+
+void MwLogin_clear(MwLogin *login, gboolean deep);
+
+
+void MwLogin_clone(MwLogin *to, const MwLogin *from, gboolean deep);
+
+
+void MwPrivacy_put(MwPutBuffer *b, const MwPrivacy *info);
+
+
+void MwPrivacy_get(MwGetBuffer *b, MwPrivacy *info);
+
+
+void MwPrivacy_clear(MwPrivacy *info, gboolean deep);
+
+
+void MwPrivacy_clone(MwPrivacy *to, const MwPrivacy *from, gboolean deep);
+
+
+void MwStatus_put(MwPutBuffer *b, const MwStatus *stat);
+
+
+void MwStatus_get(MwGetBuffer *b, MwStatus *stat);
+
+
+void MwStatus_clear(MwStatus *stat, gboolean deep);
+
+
+void MwStatus_clone(MwStatus *to, const MwStatus *from, gboolean deep);
 
 
 /*@}*/
 
 
-#ifdef __cplusplus
-}
-#endif
+/** @section Library Version Information
+
+    The following functions can be used to get the version information
+    for the in-use version of the Meanwhile library.
+*/
+/* @{ */
+
+
+const gchar *mw_version();
+
+
+guint mw_version_major();
+
+
+guint mw_version_minor();
+
+
+guint mw_version_micro();
+
+
+const gchar *mw_version_release();
+
+
+/* @} */
+
+
+G_END_DECLS
 
 
 #endif /* _MW_COMMON_H */

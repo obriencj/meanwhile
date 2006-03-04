@@ -1,3 +1,5 @@
+#ifndef _MW_CIPHER_H
+#define _MW_CIPHER_H
 
 /*
   Meanwhile - Unofficial Lotus Sametime Community Client Library
@@ -18,22 +20,12 @@
   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
-#ifndef _MW_CIPHER_H
-#define _MW_CIPHER_H
-
 
 #include <glib.h>
 #include "mw_common.h"
 
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-
-/* place-holders */
-struct mwChannel;
-struct mwSession;
+G_BEGIN_DECLS
 
 
 /** @enum mwCipherType
@@ -41,6 +33,16 @@ struct mwSession;
 enum mwCipherType {
   mwCipher_RC2_40   = 0x0000,
   mwCipher_RC2_128  = 0x0001,
+};
+
+
+typedef struct mw_encrypt MwEncrypt;
+
+
+/** encryption blocks */
+struct mw_encrypt {
+  guint16 id;            /**< cipher identifier */
+  struct mwOpaque info;  /**< cipher information */
 };
 
 
@@ -182,6 +184,17 @@ int mwCipherInstance_decrypt(struct mwCipherInstance *ci,
 void mwCipherInstance_free(struct mwCipherInstance *ci);
 
 
+
+void MwEncryptItem_put(MwPutBuffer *b,
+		       const MwEncryptItem *item);
+
+void MwEncryptItem_get(MwGetBuffer *b, MwEncryptItem *item);
+
+void MwEncryptItem_clear(MwEncryptItem *item);
+
+void MwEncryptItem_free(MwEncryptItem *item);
+
+
 /**
   @section General Cipher Functions
 
@@ -289,9 +302,7 @@ void mwMpi_calculateDHShared(struct mwMpi *shared_key, struct mwMpi *remote_key,
 /* @} */
 
 
-#ifdef __cplusplus
-}
-#endif
+G_END_DECLS
 
 
 #endif /* _MW_CIPHER_H */

@@ -1,4 +1,3 @@
-
 /*
   Meanwhile - Unofficial Lotus Sametime Community Client Library
   Copyright (C) 2004  Christopher (siege) O'Brien
@@ -18,234 +17,211 @@
   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
-#include <glib.h>
 
+#include <glib.h>
+#include "mw_common.h"
 #include "mw_debug.h"
 #include "mw_message.h"
 
 
-/* 7.1 Layering and message encapsulation */
-/* 7.1.1 The Sametime Message Header */
-
-
-static void mwMessageHead_put(struct mwPutBuffer *b, struct mwMessage *msg) {
-  guint16_put(b, msg->type);
-  guint16_put(b, msg->options);
-  guint32_put(b, msg->channel);
+static void MwMessageHead_put(MwPutBuffer *b, const MwMessage *msg) {
+  mw_uint16_put(b, msg->type);
+  mw_uint16_put(b, msg->options);
+  mw_uint32_put(b, msg->channel);
   
-  if(msg->options & mwMessageOption_HAS_ATTRIBS)
-    mwOpaque_put(b, &msg->attribs);
+  if(msg->options & mw_message_option_ATTRIBS)
+    MwOpaque_put(b, &msg->attribs);
 }
 
 
-static void mwMessageHead_get(struct mwGetBuffer *b, struct mwMessage *msg) {
+static void MwMessageHead_get(MwGetBuffer *b, MwMessage *msg) {
 
-  if(mwGetBuffer_error(b)) return;
+  if(MwGetBuffer_error(b)) return;
 
-  guint16_get(b, &msg->type);
-  guint16_get(b, &msg->options);
-  guint32_get(b, &msg->channel);
+  mw_uint16_get(b, &msg->type);
+  mw_uint16_get(b, &msg->options);
+  mw_uint32_get(b, &msg->channel);
 
-  if(msg->options & mwMessageOption_HAS_ATTRIBS)
-    mwOpaque_get(b, &msg->attribs);
+  if(msg->options & mw_message_option_ATTRIBS)
+    MwOpaque_get(b, &msg->attribs);
 }
 
 
-static void mwMessageHead_clone(struct mwMessage *to,
-				struct mwMessage *from) {
+static void MwMessageHead_clone(MwMessage *to,
+				MwMessage *from) {
 
   to->type = from->type;
   to->options = from->options;
   to->channel = from->channel;
-  mwOpaque_clone(&to->attribs, &from->attribs);
+  MwOpaque_clone(&to->attribs, &from->attribs);
 }
 
 
-static void mwMessageHead_clear(struct mwMessage *msg) {
-  mwOpaque_clear(&msg->attribs);
+static void MwMessageHead_clear(MwMessage *msg) {
+  MwOpaque_clear(&msg->attribs);
 }
 
 
-/* 8.4 Messages */
-/* 8.4.1 Basic Community Messages */
-/* 8.4.1.1 Handshake */
-
-
-static void HANDSHAKE_put(struct mwPutBuffer *b, struct mwMsgHandshake *msg) {
-  guint16_put(b, msg->major);
-  guint16_put(b, msg->minor);
-  guint32_put(b, msg->head.channel);
-  guint32_put(b, msg->srvrcalc_addr);
-  guint16_put(b, msg->login_type);
-  guint32_put(b, msg->loclcalc_addr);
+static void MwMsgHandshake_put(MwPutBuffer *b, const MwMsgHandshake *msg) {
+  mw_uint16_put(b, msg->major);
+  mw_uint16_put(b, msg->minor);
+  mw_uint32_put(b, msg->head.channel);
+  mw_uint32_put(b, msg->srvrcalc_addr);
+  mw_uint16_put(b, msg->client_type);
+  mw_uint32_put(b, msg->loclcalc_addr);
   
   if(msg->major >= 0x001e && msg->minor >= 0x001d) {
-    guint16_put(b, msg->unknown_a);
-    guint32_put(b, msg->unknown_b);
-    mwString_put(b, msg->local_host);
+    mw_uint16_put(b, msg->unknown_a);
+    mw_uint32_put(b, msg->unknown_b);
+    mw_str_put(b, msg->local_host);
   }
 }
 
 
-static void HANDSHAKE_get(struct mwGetBuffer *b, struct mwMsgHandshake *msg) {
-  if(mwGetBuffer_error(b)) return;
+static void MwMsgHandshake_get(MwGetBuffer *b, MwMsgHandshake *msg) {
+  if(MwGetBuffer_error(b)) return;
 
-  guint16_get(b, &msg->major);
-  guint16_get(b, &msg->minor);
-  guint32_get(b, &msg->head.channel);
-  guint32_get(b, &msg->srvrcalc_addr);
-  guint16_get(b, &msg->login_type);
-  guint32_get(b, &msg->loclcalc_addr);
+  mw_uint16_get(b, &msg->major);
+  mw_uint16_get(b, &msg->minor);
+  mw_uint32_get(b, &msg->head.channel);
+  mw_uint32_get(b, &msg->srvrcalc_addr);
+  mw_uint16_get(b, &msg->client_type);
+  mw_uint32_get(b, &msg->loclcalc_addr);
 
   if(msg->major >= 0x001e && msg->minor >= 0x001d) {
-    guint16_get(b, &msg->unknown_a);
-    guint32_get(b, &msg->unknown_b);
-    mwString_get(b, &msg->local_host);
+    mw_uint16_get(b, &msg->unknown_a);
+    mw_uint32_get(b, &msg->unknown_b);
+    mw_str_get(b, &msg->local_host);
   }
 }
 
 
-static void HANDSHAKE_clear(struct mwMsgHandshake *msg) {
+static void MwMsgHandshake_clear(MwMsgHandshake *msg) {
   ; /* nothing to clean up */
 }
 
 
-/* 8.4.1.2 HandshakeAck */
+static void MwMsgHandshakeAck_get(MwGetBuffer *b,
+				  MwMsgHandshakeAck *msg) {
 
+  if(MwGetBuffer_error(b)) return;
 
-static void HANDSHAKE_ACK_get(struct mwGetBuffer *b,
-			      struct mwMsgHandshakeAck *msg) {
-
-  if(mwGetBuffer_error(b)) return;
-
-  guint16_get(b, &msg->major);
-  guint16_get(b, &msg->minor);
-  guint32_get(b, &msg->srvrcalc_addr);
+  mw_uint16_get(b, &msg->major);
+  mw_uint16_get(b, &msg->minor);
+  mw_uint32_get(b, &msg->srvrcalc_addr);
 
   /** @todo: get a better handle on what versions support what parts
       of this message. eg: minor version 0x0018 doesn't send the
       following */
   if(msg->major >= 0x1e && msg->minor > 0x18) {
-    guint32_get(b, &msg->magic);
-    mwOpaque_get(b, &msg->data);
+    mw_uint32_get(b, &msg->magic);
+    MwOpaque_get(b, &msg->data);
   }
 }
 
 
-static void HANDSHAKE_ACK_put(struct mwPutBuffer *b,
-			      struct mwMsgHandshakeAck *msg) {
+static void MwMsgHandshakeAck_put(MwPutBuffer *b,
+				  const MwMsgHandshakeAck *msg) {
 
-  guint16_put(b, msg->major);
-  guint16_put(b, msg->minor);
-  guint32_put(b, msg->srvrcalc_addr);
+  mw_uint16_put(b, msg->major);
+  mw_uint16_put(b, msg->minor);
+  mw_uint32_put(b, msg->srvrcalc_addr);
 
   if(msg->major >= 0x1e && msg->minor > 0x18) {
-    guint32_put(b, msg->magic);
-    mwOpaque_put(b, &msg->data);
+    mw_uint32_put(b, msg->magic);
+    MwOpaque_put(b, &msg->data);
   }
 }
 
 
-static void HANDSHAKE_ACK_clear(struct mwMsgHandshakeAck *msg) {
-  mwOpaque_clear(&msg->data);
+static void MwMsgHandshakeAck_clear(MwMsgHandshakeAck *msg) {
+  MwOpaque_clear(&msg->data);
 }
 
 
-/* 8.4.1.3 Login */
-
-
-static void LOGIN_put(struct mwPutBuffer *b, struct mwMsgLogin *msg) {
-  guint16_put(b, msg->login_type);
-  mwString_put(b, msg->name);
+static void MwMsgLogin_put(MwPutBuffer *b, const MwMsgLogin *msg) {
+  mw_uint16_put(b, msg->client_type);
+  mw_str_put(b, msg->name);
 
   /* ordering reversed from houri draft?? */
-  mwOpaque_put(b, &msg->auth_data);
-  guint16_put(b, msg->auth_type);
+  MwOpaque_put(b, &msg->auth_data);
+  mw_uint16_put(b, msg->auth_type);
 
-  guint16_put(b, 0x0000); /* unknown */
+  mw_uint16_put(b, 0x0000); /* unknown */
 }
 
 
-static void LOGIN_get(struct mwGetBuffer *b, struct mwMsgLogin *msg) {
-  if(mwGetBuffer_error(b)) return;
+static void MwMsgLogin_get(MwGetBuffer *b, MwMsgLogin *msg) {
+  if(MwGetBuffer_error(b)) return;
 
-  guint16_get(b, &msg->login_type);
-  mwString_get(b, &msg->name);
-  mwOpaque_get(b, &msg->auth_data);
-  guint16_get(b, &msg->auth_type);
+  mw_uint16_get(b, &msg->client_type);
+  mw_str_get(b, &msg->name);
+  MwOpaque_get(b, &msg->auth_data);
+  mw_uint16_get(b, &msg->auth_type);
 }
 
 
-static void LOGIN_clear(struct mwMsgLogin *msg) {
+static void MwMsgLogin_clear(MwMsgLogin *msg) {
   g_free(msg->name);  msg->name = NULL;
-  mwOpaque_clear(&msg->auth_data);
+  MwOpaque_clear(&msg->auth_data);
 }
 
 
-/* 8.4.1.4 LoginAck */
-
-
-static void LOGIN_ACK_get(struct mwGetBuffer *b, struct mwMsgLoginAck *msg) {
+static void MwMsgLoginAck_get(MwGetBuffer *b, MwMsgLoginAck *msg) {
   guint16 junk;
 
-  if(mwGetBuffer_error(b)) return;
+  if(MwGetBuffer_error(b)) return;
 
-  mwLoginInfo_get(b, &msg->login);
-  guint16_get(b, &junk);
-  mwPrivacyInfo_get(b, &msg->privacy);
-  mwUserStatus_get(b, &msg->status);
+  MwLogin_get(b, &msg->login);
+  mw_uint16_get(b, &junk);
+  MwPrivacy_get(b, &msg->privacy);
+  MwStatus_get(b, &msg->status);
 }
 
 
-static void LOGIN_ACK_clear(struct mwMsgLoginAck *msg) {
-  mwLoginInfo_clear(&msg->login);
-  mwPrivacyInfo_clear(&msg->privacy);
-  mwUserStatus_clear(&msg->status);
+static void MwMsgLoginAck_clear(MwMsgLoginAck *msg) {
+  MwLogin_clear(&msg->login, TRUE);
+  MwPrivacy_clear(&msg->privacy, TRUE);
+  MwStatus_clear(&msg->status, TRUE);
 }
 
 
-/* 8.4.1.5 LoginCont */
-
-
-static void LOGIN_CONTINUE_put(struct mwPutBuffer *b,
-			       struct mwMsgLoginContinue *msg) {
+static void MwMsgLoginForce_put(MwPutBuffer *b,
+				const MwMsgLoginForce *msg) {
 
   ; /* nothing but a message header */
 }
 
 
-static void LOGIN_CONTINUE_get(struct mwGetBuffer *b,
-			       struct mwMsgLoginContinue *msg) {
+static void MwMsgLoginForce_get(MwGetBuffer *b,
+				MwMsgLoginForce *msg) {
 
   ; /* nothing but a message header */
 }
 
 
-static void LOGIN_CONTINUE_clear(struct mwMsgLoginContinue *msg) {
+static void MwMsgLoginForce_clear(MwMsgLoginForce *msg) {
   ; /* this is a very simple message */
 }
 
 
-/* 8.4.1.6 AuthPassed */
+static void MwMsgLoginRedirect_get(MwGetBuffer *b,
+				   MwMsgLoginRedirect *msg) {
 
-
-static void LOGIN_REDIRECT_get(struct mwGetBuffer *b,
-			       struct mwMsgLoginRedirect *msg) {
-
-  if(mwGetBuffer_error(b)) return;
-  mwString_get(b, &msg->host);
-  mwString_get(b, &msg->server_id);  
+  if(MwGetBuffer_error(b)) return;
+  mw_str_get(b, &msg->host);
+  mw_str_get(b, &msg->server_id);  
 }
 
 
-static void LOGIN_REDIRECT_put(struct mwPutBuffer *b,
-			       struct mwMsgLoginRedirect *msg) {
-  mwString_put(b, msg->host);
-  mwString_put(b, msg->server_id);
+static void MwMsgLoginRedirect_put(MwPutBuffer *b,
+				   const MwMsgLoginRedirect *msg) {
+  mw_str_put(b, msg->host);
+  mw_str_put(b, msg->server_id);
 }
 
 
-static void LOGIN_REDIRECT_clear(struct mwMsgLoginRedirect *msg) {
+static void MwMsgLoginRedirect_clear(MwMsgLoginRedirect *msg) {
   g_free(msg->host);
   msg->host = NULL;
 
@@ -254,476 +230,465 @@ static void LOGIN_REDIRECT_clear(struct mwMsgLoginRedirect *msg) {
 }
 
 
-/* 8.4.1.7 CreateCnl */
+static void enc_offer_put(MwPutBuffer *b, const MwMsgChannelCreate *msg) {
+  mw_uint16_put(b, msg->enc_mode);
 
-
-static void enc_offer_put(struct mwPutBuffer *b, struct mwEncryptOffer *enc) {
-  guint16_put(b, enc->mode);
-
-  if(enc->items) {
-    guint32 count;
-    struct mwPutBuffer *p;
-    struct mwOpaque o;
-    GList *list;
+  if(msg->enc_mode && msg->enc_count) {
+    guint32 i, count;
+    MwPutBuffer *p;
+    MwOpaque o;
 
     /* write the count, items, extra, and flag into a tmp buffer,
        render that buffer into an opaque, and write it into b */
 
-    count = g_list_length(enc->items);
-    p = mwPutBuffer_new();
+    count = msg->enc_count;
+    mw_uint32_put(p, count);
 
-    guint32_put(p, count);
-    for(list = enc->items; list; list = list->next) {
-      mwEncryptItem_put(p, list->data);
+    p = MwPutBuffer_new();
+    for(i = 0; i < count; i++) {
+      MwEncItem *ei = msg->enc_items + i;
+      mw_uint16_put(p, ei->cipher);
+      MwOpaque_put(p, &ei->info);
     }
 
-    guint16_put(p, enc->extra);
-    gboolean_put(p, enc->flag);
+    mw_uint16_put(p, msg->enc_extra);
+    mw_boolean_put(p, msg->enc_flag);
 
-    mwPutBuffer_finalize(&o, p);
-    mwOpaque_put(b, &o);
-    mwOpaque_clear(&o);
+    MwPutBuffer_free(p, &o);
+    MwOpaque_put(b, &o);
+    MwOpaque_clear(&o);
   }
 }
 
 
-static void CHANNEL_CREATE_put(struct mwPutBuffer *b,
-			       struct mwMsgChannelCreate *msg) {
+static void MwMsgChannelCreate_put(MwPutBuffer *b,
+				   const MwMsgChannelCreate *msg) {
 
-  guint32_put(b, msg->reserved);
-  guint32_put(b, msg->channel);
-  mwIdBlock_put(b, &msg->target);
-  guint32_put(b, msg->service);
-  guint32_put(b, msg->proto_type);
-  guint32_put(b, msg->proto_ver);
-  guint32_put(b, msg->options);
-  mwOpaque_put(b, &msg->addtl);
-  gboolean_put(b, msg->creator_flag);
+  mw_uint32_put(b, msg->reserved);
+  mw_uint32_put(b, msg->channel);
+  MwIdentity_put(b, &msg->target);
+  mw_uint32_put(b, msg->service);
+  mw_uint32_put(b, msg->proto_type);
+  mw_uint32_put(b, msg->proto_ver);
+  mw_uint32_put(b, msg->options);
+  MwOpaque_put(b, &msg->addtl);
+  mw_boolean_put(b, msg->creator_flag);
 
   if(msg->creator_flag)
-    mwLoginInfo_put(b, &msg->creator);
+    MwLogin_put(b, &msg->creator);
 
-  enc_offer_put(b, &msg->encrypt);
+  enc_offer_put(b, msg);
 
-  guint32_put(b, 0x00);
-  guint32_put(b, 0x00);
-  guint16_put(b, 0x07);
+  mw_uint32_put(b, 0x00);
+  mw_uint32_put(b, 0x00);
+  mw_uint16_put(b, 0x07);
 }
 
 
-static void enc_offer_get(struct mwGetBuffer *b,
-			  struct mwEncryptOffer *enc) {
-  guint32 skip;
+static void enc_offer_get(MwGetBuffer *b,
+			  MwMsgChannelCreate *msg) {
 
-  if(mwGetBuffer_error(b)) return;
+  if(MwGetBuffer_error(b)) return;
 
-  guint16_get(b, &enc->mode);
-  guint32_get(b, &skip);
+  mw_uint16_get(b, &msg->enc_mode);
+  mw_uint32_skip(b);
 
-  if(skip >= 7) {
-    guint32 count;
+  if(msg->enc_mode) {
+    guint32 i, count;
 
-    guint32_get(b, &count);
+    mw_uint32_get(b, &count);
+    msg->enc_count = count;
 
-    while(count-- && (! mwGetBuffer_error(b))) {
-      struct mwEncryptItem *ei = g_new0(struct mwEncryptItem, 1);
-      mwEncryptItem_get(b, ei);
-      enc->items = g_list_append(enc->items, ei);
+    msg->enc_items = g_new0(MwEncItem, count);
+
+    for(i = 0; i < count; i++) {
+      MwEncItem *ei = msg->enc_items + i;
+      mw_uint16_get(b, &ei->cipher);
+      MwOpaque_get(b, &ei->info);
     }
 
-    guint16_get(b, &enc->extra);
-    gboolean_get(b, &enc->flag);
+    mw_uint16_get(b, &msg->enc_extra);
+    mw_boolean_get(b, &msg->enc_flag);
   }
 }
 
 
-static void CHANNEL_CREATE_get(struct mwGetBuffer *b,
-			       struct mwMsgChannelCreate *msg) {
+static void MwMsgChannelCreate_get(MwGetBuffer *b,
+				   MwMsgChannelCreate *msg) {
 
-  if(mwGetBuffer_error(b)) return;
+  if(MwGetBuffer_error(b)) return;
 
-  guint32_get(b, &msg->reserved);
-  guint32_get(b, &msg->channel);
-  mwIdBlock_get(b, &msg->target);
-  guint32_get(b, &msg->service);
-  guint32_get(b, &msg->proto_type);
-  guint32_get(b, &msg->proto_ver);
-  guint32_get(b, &msg->options);
-  mwOpaque_get(b, &msg->addtl);
-  gboolean_get(b, &msg->creator_flag);
+  mw_uint32_get(b, &msg->reserved);
+  mw_uint32_get(b, &msg->channel);
+  MwIdentity_get(b, &msg->target);
+  mw_uint32_get(b, &msg->service);
+  mw_uint32_get(b, &msg->proto_type);
+  mw_uint32_get(b, &msg->proto_ver);
+  mw_uint32_get(b, &msg->options);
+  MwOpaque_get(b, &msg->addtl);
+  mw_boolean_get(b, &msg->creator_flag);
   
   if(msg->creator_flag)
-    mwLoginInfo_get(b, &msg->creator);
+    MwLogin_get(b, &msg->creator);
   
-  enc_offer_get(b, &msg->encrypt);
+  enc_offer_get(b, msg);
 }
 
 
-static void CHANNEL_CREATE_clear(struct mwMsgChannelCreate *msg) {
-  GList *list;
+static void MwMsgChannelCreate_clear(MwMsgChannelCreate *msg) {
+  guint32 count;
 
-  mwIdBlock_clear(&msg->target);
-  mwOpaque_clear(&msg->addtl);
-  mwLoginInfo_clear(&msg->creator);
+  MwIdentity_clear(&msg->target, TRUE);
+  MwOpaque_clear(&msg->addtl);
+  MwLogin_clear(&msg->creator, TRUE);
   
-  for(list = msg->encrypt.items; list; list = list->next) {
-    mwEncryptItem_clear(list->data);
-    g_free(list->data);
+  count = msg->enc_count;
+  while(count--) {
+    MwEncItem *ei = msg->enc_items + count;
+    MwOpaque_clear(&ei->info);
   }
-  g_list_free(msg->encrypt.items);
+  g_free(msg->enc_items);
 }
 
 
-/* 8.4.1.8 AcceptCnl */
+static void enc_accept_put(MwPutBuffer *b,
+			   const MwMsgChannelAccept *msg) {
 
+  mw_uint16_put(b, msg->enc_mode);
 
-static void enc_accept_put(struct mwPutBuffer *b,
-			   struct mwEncryptAccept *enc) {
+  if(msg->enc_mode) {
+    MwPutBuffer *p;
+    MwOpaque o;
 
-  guint16_put(b, enc->mode);
+    p = MwPutBuffer_new();
 
-  if(enc->item) {
-    struct mwPutBuffer *p;
-    struct mwOpaque o;
+    mw_uint16_put(p, msg->enc_item.cipher);
+    MwOpaque_put(p, &msg->enc_item.info);
+    mw_uint16_put(p, msg->enc_extra);
+    mw_boolean_put(p, msg->enc_flag);
 
-    p = mwPutBuffer_new();
-
-    mwEncryptItem_put(p, enc->item);
-    guint16_put(p, enc->extra);
-    gboolean_put(p, enc->flag);
-
-    mwPutBuffer_finalize(&o, p);
-    mwOpaque_put(b, &o);
-    mwOpaque_clear(&o);
+    MwPutBuffer_free(p, &o);
+    MwOpaque_put(b, &o);
+    MwOpaque_clear(&o);
   }
 }
 
 
-static void CHANNEL_ACCEPT_put(struct mwPutBuffer *b,
-			       struct mwMsgChannelAccept *msg) {
+static void MwMsgChannelAccept_put(MwPutBuffer *b,
+				   const MwMsgChannelAccept *msg) {
   
-  guint32_put(b, msg->service);
-  guint32_put(b, msg->proto_type);
-  guint32_put(b, msg->proto_ver);
-  mwOpaque_put(b, &msg->addtl);
-  gboolean_put(b, msg->acceptor_flag);
+  mw_uint32_put(b, msg->service);
+  mw_uint32_put(b, msg->proto_type);
+  mw_uint32_put(b, msg->proto_ver);
+  MwOpaque_put(b, &msg->addtl);
+  mw_boolean_put(b, msg->acceptor_flag);
   
   if(msg->acceptor_flag)
-    mwLoginInfo_put(b, &msg->acceptor);
+    MwLogin_put(b, &msg->acceptor);
   
-  enc_accept_put(b, &msg->encrypt);
+  enc_accept_put(b, msg);
 
-  guint32_put(b, 0x00);
-  guint32_put(b, 0x00);
-  guint16_put(b, 0x07);
+  mw_uint32_put(b, 0x00);
+  mw_uint32_put(b, 0x00);
+  mw_uint16_put(b, 0x07);
 }
 
 
-static void enc_accept_get(struct mwGetBuffer *b,
-			   struct mwEncryptAccept *enc) {
-  guint32 skip;
+static void enc_accept_get(MwGetBuffer *b,
+			   MwMsgChannelAccept *msg) {
 
-  if(mwGetBuffer_error(b)) return;
+  if(MwGetBuffer_error(b)) return;
 
-  guint16_get(b, &enc->mode);
-  guint32_get(b, &skip);
+  mw_uint16_get(b, &msg->enc_mode);
+  mw_uint32_skip(b);
 
-  if(skip >= 6) {
-    enc->item = g_new0(struct mwEncryptItem, 1);
-    mwEncryptItem_get(b, enc->item);
-  }
-
-  if(skip >= 9) {
-    guint16_get(b, &enc->extra);
-    gboolean_get(b, &enc->flag);
+  if(msg->enc_mode) {
+    mw_uint16_get(b, &msg->enc_item.cipher);
+    MwOpaque_get(b, &msg->enc_item.info);
+    mw_uint16_get(b, &msg->enc_extra);
+    mw_boolean_get(b, &msg->enc_flag);
   }
 }
 
 
-static void CHANNEL_ACCEPT_get(struct mwGetBuffer *b,
-			       struct mwMsgChannelAccept *msg) {
+static void MwMsgChannelAccept_get(MwGetBuffer *b,
+				   MwMsgChannelAccept *msg) {
 
-  if(mwGetBuffer_error(b)) return;
+  if(MwGetBuffer_error(b)) return;
 
-  guint32_get(b, &msg->service);
-  guint32_get(b, &msg->proto_type);
-  guint32_get(b, &msg->proto_ver);
-  mwOpaque_get(b, &msg->addtl);
-  gboolean_get(b, &msg->acceptor_flag);
+  mw_uint32_get(b, &msg->service);
+  mw_uint32_get(b, &msg->proto_type);
+  mw_uint32_get(b, &msg->proto_ver);
+  MwOpaque_get(b, &msg->addtl);
+  mw_boolean_get(b, &msg->acceptor_flag);
 
   if(msg->acceptor_flag)
-    mwLoginInfo_get(b, &msg->acceptor);
+    MwLogin_get(b, &msg->acceptor);
 
-  enc_accept_get(b, &msg->encrypt);
+  enc_accept_get(b, msg);
 }
 
 
-static void CHANNEL_ACCEPT_clear(struct mwMsgChannelAccept *msg) {
-  mwOpaque_clear(&msg->addtl);
-  mwLoginInfo_clear(&msg->acceptor);
-
-  if(msg->encrypt.item) {
-    mwEncryptItem_clear(msg->encrypt.item);
-    g_free(msg->encrypt.item);
-  }
+static void MwMsgChannelAccept_clear(MwMsgChannelAccept *msg) {
+  MwOpaque_clear(&msg->addtl);
+  MwLogin_clear(&msg->acceptor, TRUE);
+  MwOpaque_clear(&msg->enc_item.info);
 }
 
 
-/* 8.4.1.9 SendOnCnl */
+static void MwMsgChannelSend_put(MwPutBuffer *b,
+				 const MwMsgChannelSend *msg) {
 
-
-static void CHANNEL_SEND_put(struct mwPutBuffer *b,
-			     struct mwMsgChannelSend *msg) {
-
-  guint16_put(b, msg->type);
-  mwOpaque_put(b, &msg->data);
+  mw_uint16_put(b, msg->type);
+  MwOpaque_put(b, &msg->data);
 }
 
 
-static void CHANNEL_SEND_get(struct mwGetBuffer *b,
-			     struct mwMsgChannelSend *msg) {
+static void MwMsgChannelSend_get(MwGetBuffer *b,
+				 MwMsgChannelSend *msg) {
 
-  if(mwGetBuffer_error(b)) return;
+  if(MwGetBuffer_error(b)) return;
 
-  guint16_get(b, &msg->type);
-  mwOpaque_get(b, &msg->data);
+  mw_uint16_get(b, &msg->type);
+  MwOpaque_get(b, &msg->data);
 }
 
 
-static void CHANNEL_SEND_clear(struct mwMsgChannelSend *msg) {
-  mwOpaque_clear(&msg->data);
+static void MwMsgChannelSend_clear(MwMsgChannelSend *msg) {
+  MwOpaque_clear(&msg->data);
 }
 
 
-/* 8.4.1.10 DestroyCnl */
-
-
-static void CHANNEL_DESTROY_put(struct mwPutBuffer *b,
-				struct mwMsgChannelDestroy *msg) {
-  guint32_put(b, msg->reason);
-  mwOpaque_put(b, &msg->data);
+static void MwMsgChannelClose_put(MwPutBuffer *b,
+				  const MwMsgChannelClose *msg) {
+  mw_uint32_put(b, msg->reason);
+  MwOpaque_put(b, &msg->data);
 }
 
 
-static void CHANNEL_DESTROY_get(struct mwGetBuffer *b,
-				struct mwMsgChannelDestroy *msg) {
+static void MwMsgChannelClose_get(MwGetBuffer *b,
+				  MwMsgChannelClose *msg) {
 
-  if(mwGetBuffer_error(b)) return;
+  if(MwGetBuffer_error(b)) return;
 
-  guint32_get(b, &msg->reason);
-  mwOpaque_get(b, &msg->data);
+  mw_uint32_get(b, &msg->reason);
+  MwOpaque_get(b, &msg->data);
 }
 
 
-static void CHANNEL_DESTROY_clear(struct mwMsgChannelDestroy *msg) {
-  mwOpaque_clear(&msg->data);
+static void MwMsgChannelClose_clear(MwMsgChannelClose *msg) {
+  MwOpaque_clear(&msg->data);
 }
 
 
-/* 8.4.1.11 SetUserStatus */
-
-
-static void SET_USER_STATUS_put(struct mwPutBuffer *b,
-				struct mwMsgSetUserStatus *msg) {
-  mwUserStatus_put(b, &msg->status);
+static void MwMsgStatus_put(MwPutBuffer *b,
+			    const MwMsgStatus *msg) {
+  MwStatus_put(b, &msg->status);
 }
 
 
-static void SET_USER_STATUS_get(struct mwGetBuffer *b,
-				struct mwMsgSetUserStatus *msg) {
+static void MwMsgStatus_get(MwGetBuffer *b,
+			    MwMsgStatus *msg) {
 
-  if(mwGetBuffer_error(b)) return;
-  mwUserStatus_get(b, &msg->status);
+  if(MwGetBuffer_error(b)) return;
+  MwStatus_get(b, &msg->status);
 }
 
 
-static void SET_USER_STATUS_clear(struct mwMsgSetUserStatus *msg) {
-  mwUserStatus_clear(&msg->status);
+static void MwMsgStatus_clear(MwMsgStatus *msg) {
+  MwStatus_clear(&msg->status, TRUE);
 }
 
 
-/* 8.4.1.12 SetPrivacyList */
-
-
-static void SET_PRIVACY_LIST_put(struct mwPutBuffer *b,
-				 struct mwMsgSetPrivacyList *msg) {
-  mwPrivacyInfo_put(b, &msg->privacy);
+static void MwMsgPrivacy_put(MwPutBuffer *b,
+			     const MwMsgPrivacy *msg) {
+  MwPrivacy_put(b, &msg->privacy);
 }
 
 
-static void SET_PRIVACY_LIST_get(struct mwGetBuffer *b,
-				 struct mwMsgSetPrivacyList *msg) {
+static void MwMsgPrivacy_get(MwGetBuffer *b,
+			     MwMsgPrivacy *msg) {
 
-  if(mwGetBuffer_error(b)) return;
-  mwPrivacyInfo_get(b, &msg->privacy);
+  if(MwGetBuffer_error(b)) return;
+  MwPrivacy_get(b, &msg->privacy);
 }
 
 
-static void SET_PRIVACY_LIST_clear(struct mwMsgSetPrivacyList *msg) {
-  mwPrivacyInfo_clear(&msg->privacy);
+static void MwMsgPrivacy_clear(MwMsgPrivacy *msg) {
+  MwPrivacy_clear(&msg->privacy, TRUE);
 }
 
 
-/* Sense Service messages */
-
-
-static void SENSE_SERVICE_put(struct mwPutBuffer *b,
-			      struct mwMsgSenseService *msg) {
-  guint32_put(b, msg->service);
+static void MwMsgSenseService_put(MwPutBuffer *b,
+				  const MwMsgSenseService *msg) {
+  mw_uint32_put(b, msg->service);
 }
 
 
-static void SENSE_SERVICE_get(struct mwGetBuffer *b,
-			      struct mwMsgSenseService *msg) {
+static void MwMsgSenseService_get(MwGetBuffer *b,
+				  MwMsgSenseService *msg) {
 
-  if(mwGetBuffer_error(b)) return;
-  guint32_get(b, &msg->service);
+  if(MwGetBuffer_error(b)) return;
+  mw_uint32_get(b, &msg->service);
 }
 
 
-static void SENSE_SERVICE_clear(struct mwMsgSenseService *msg) {
+static void MwMsgSenseService_clear(MwMsgSenseService *msg) {
   ;
 }
 
 
-/* Admin messages */
-
-
-static void ADMIN_get(struct mwGetBuffer *b, struct mwMsgAdmin *msg) {
-  mwString_get(b, &msg->text);
+static void MwMsgAdmin_get(MwGetBuffer *b, MwMsgAdmin *msg) {
+  mw_str_get(b, &msg->text);
 }
 
 
-static void ADMIN_clear(struct mwMsgAdmin *msg) {
+static void MwMsgAdmin_clear(MwMsgAdmin *msg) {
   g_free(msg->text);
   msg->text = NULL;
 }
 
 
-/* Announcement messages */
+static void MwMsgAnnounce_get(MwGetBuffer *b, MwMsgAnnounce *msg) {
+  MwOpaque o = { 0, 0 };
+  MwGetBuffer *gb;
+  guint32 i, count;
 
-
-static void ANNOUNCE_get(struct mwGetBuffer *b, struct mwMsgAnnounce *msg) {
-  struct mwOpaque o = { 0, 0 };
-  struct mwGetBuffer *gb;
-  guint32 count;
-
-  gboolean_get(b, &msg->sender_present);
-  if(msg->sender_present)
-    mwLoginInfo_get(b, &msg->sender);
-  guint16_get(b, &msg->unknown_a);
+  mw_boolean_get(b, &msg->sender_flag);
+  if(msg->sender_flag)
+    MwLogin_get(b, &msg->sender);
+  mw_uint16_get(b, &msg->unknown_a);
   
-  mwOpaque_get(b, &o);
-  gb = mwGetBuffer_wrap(&o);
+  MwOpaque_get(b, &o);
+  gb = MwGetBuffer_wrap(&o);
 
-  gboolean_get(gb, &msg->may_reply);
-  mwString_get(gb, &msg->text);
+  mw_boolean_get(gb, &msg->may_reply);
+  mw_str_get(gb, &msg->text);
 
-  mwGetBuffer_free(gb);
-  mwOpaque_clear(&o);
+  MwGetBuffer_free(gb);
+  MwOpaque_clear(&o);
 
-  guint32_get(b, &count);
-  while(count--) {
-    char *r = NULL;
-    mwString_get(b, &r);
-    msg->recipients = g_list_prepend(msg->recipients, r);
+  mw_uint32_get(b, &count);
+  msg->rcpt_count = count;
+  msg->recipients = g_new0(gchar *, count);
+
+  for(i = 0; i < count; i++) {
+    mw_str_get(b, msg->recipients + i);
   }
 }
 
 
-static void ANNOUNCE_put(struct mwPutBuffer *b, struct mwMsgAnnounce *msg) {
-  struct mwOpaque o = { 0, 0 };
-  struct mwPutBuffer *pb;
-  GList *l;
+static void MwMsgAnnounce_put(MwPutBuffer *b, const MwMsgAnnounce *msg) {
+  MwOpaque o = { 0, 0 };
+  MwPutBuffer *pb;
+  guint32 i, count;
   
-  gboolean_put(b, msg->sender_present);
-  if(msg->sender_present)
-    mwLoginInfo_put(b, &msg->sender);
-  guint16_put(b, msg->unknown_a);
+  mw_boolean_put(b, msg->sender_flag);
+  if(msg->sender_flag)
+    MwLogin_put(b, &msg->sender);
+  mw_uint16_put(b, msg->unknown_a);
 
-  pb = mwPutBuffer_new();
+  pb = MwPutBuffer_new();
   
-  gboolean_put(pb, msg->may_reply);
-  mwString_put(pb, msg->text);
+  mw_boolean_put(pb, msg->may_reply);
+  mw_str_put(pb, msg->text);
 
-  mwPutBuffer_finalize(&o, pb);
-  mwOpaque_put(b, &o);
-  mwOpaque_clear(&o);
+  MwPutBuffer_free(pb, &o);
+  MwOpaque_put(b, &o);
+  MwOpaque_clear(&o);
 
-  guint32_put(b, g_list_length(msg->recipients));
-  for(l = msg->recipients; l; l = l->next) {
-    mwString_put(b, l->data);
+  count = msg->rcpt_count;
+  mw_uint32_put(b, count);
+  for(i = 0; i < count; i++) {
+    mw_str_put(pb, msg->recipients[i]);
   }
 }
 
 
-static void ANNOUNCE_clear(struct mwMsgAnnounce *msg) {
-  mwLoginInfo_clear(&msg->sender);
+static void MwMsgAnnounce_clear(MwMsgAnnounce *msg) {
+  guint32 i;
+  
+  MwLogin_clear(&msg->sender, TRUE);
 
   g_free(msg->text);
   msg->text = NULL;
   
-  while(msg->recipients) {
-    g_free(msg->recipients->data);
-    msg->recipients = g_list_delete_link(msg->recipients, msg->recipients);
+  for(i = msg->rcpt_count; i--; ) {
+    g_free(msg->recipients + i);
   }
+  g_free(msg->recipients);
+  msg->recipients = NULL;
 }
 
 
 /* general functions */
 
 
-#define CASE(v, t) \
-case mwMessage_ ## v: \
-  msg = (struct mwMessage *) g_new0(struct t, 1); \
-  msg->type = type; \
-  break;
-
-
-struct mwMessage *mwMessage_new(enum mwMessageType type) {
-  struct mwMessage *msg = NULL;
+gpointer MwMessage_new(enum mw_message_type type) {
+  MwMessage *msg = NULL;
   
   switch(type) {
-    CASE(HANDSHAKE, mwMsgHandshake);
-    CASE(HANDSHAKE_ACK, mwMsgHandshakeAck);
-    CASE(LOGIN, mwMsgLogin);
-    CASE(LOGIN_REDIRECT, mwMsgLoginRedirect);
-    CASE(LOGIN_CONTINUE, mwMsgLoginContinue);
-    CASE(LOGIN_ACK, mwMsgLoginAck);
-    CASE(CHANNEL_CREATE, mwMsgChannelCreate);
-    CASE(CHANNEL_DESTROY, mwMsgChannelDestroy);
-    CASE(CHANNEL_SEND, mwMsgChannelSend);
-    CASE(CHANNEL_ACCEPT, mwMsgChannelAccept);
-    CASE(SET_USER_STATUS, mwMsgSetUserStatus);
-    CASE(SET_PRIVACY_LIST, mwMsgSetPrivacyList);
-    CASE(SENSE_SERVICE, mwMsgSenseService);
-    CASE(ADMIN, mwMsgAdmin);
-    CASE(ANNOUNCE, mwMsgAnnounce);
+  case mw_message_HANDSHAKE:
+    msg = MW_MESSAGE(g_new0(MwMsgHandshake, 1));
+    break;
+  case mw_message_HANDSHAKE_ACK:
+    msg = MW_MESSAGE(g_new0(MwMsgHandshakeAck, 1));
+    break;
+  case mw_message_LOGIN:
+    msg = MW_MESSAGE(g_new0(MwMsgLogin, 1));
+    break;
+  case mw_message_LOGIN_ACK:
+    msg = MW_MESSAGE(g_new0(MwMsgLoginAck, 1));
+    break;
+  case mw_message_LOGIN_REDIRECT:
+    msg = MW_MESSAGE(g_new0(MwMsgLoginRedirect, 1));
+    break;
+  case mw_message_LOGIN_FORCE:
+    msg = MW_MESSAGE(g_new0(MwMsgLoginForce, 1));
+    break;
+
+  case mw_message_CHANNEL_CREATE:
+    msg = MW_MESSAGE(g_new0(MwMsgChannelCreate, 1));
+    break;
+  case mw_message_CHANNEL_CLOSE:
+    msg = MW_MESSAGE(g_new0(MwMsgChannelClose, 1));
+    break;
+  case mw_message_CHANNEL_SEND:
+    msg = MW_MESSAGE(g_new0(MwMsgChannelSend, 1));
+    break;
+  case mw_message_CHANNEL_ACCEPT:
+    msg = MW_MESSAGE(g_new0(MwMsgChannelAccept, 1));
+    break;
+    
+  case mw_message_STATUS:
+    msg = MW_MESSAGE(g_new0(MwMsgStatus, 1));
+    break;
+  case mw_message_PRIVACY:
+    msg = MW_MESSAGE(g_new0(MwMsgPrivacy, 1));
+    break;
+  case mw_message_SENSE_SERVICE:
+    msg = MW_MESSAGE(g_new0(MwMsgSenseService, 1));
+    break;
+  case mw_message_ADMIN:
+    msg = MW_MESSAGE(g_new0(MwMsgAdmin, 1));
+    break;
+  case mw_message_ANNOUNCE:
+    msg = MW_MESSAGE(g_new0(MwMsgAnnounce, 1));
+    break;
     
   default:
     g_warning("unknown message type 0x%02x\n", type);
   }
   
+  if(msg) msg->type = type;
+    
   return msg;
 }
 
 
-#undef CASE
-
-
-/* each type needs to be passed to a specially named _get functions,
-   and cast to a specific subclass of mwMessage. */
-#define CASE(v, t) \
-case mwMessage_ ## v: \
-  msg = (struct mwMessage *) g_new0(struct t, 1); \
-  mwMessageHead_clone(msg, &head); \
-  v ## _get(b, (struct t *) msg); \
-  break;
-
-
-struct mwMessage *mwMessage_get(struct mwGetBuffer *b) {
-  struct mwMessage *msg = NULL;
-  struct mwMessage head;
+gpointer MwMessage_get(MwGetBuffer *b) {
+  gpointer msg = NULL;
+  MwMessage head;
   
   g_return_val_if_fail(b != NULL, NULL);
 
@@ -731,77 +696,161 @@ struct mwMessage *mwMessage_get(struct mwGetBuffer *b) {
   head.attribs.data = NULL;
 
   /* attempt to read the header first */
-  mwMessageHead_get(b, &head);
+  MwMessageHead_get(b, &head);
 
-  if(mwGetBuffer_error(b)) {
-    mwMessageHead_clear(&head);
+  if(MwGetBuffer_error(b)) {
+    MwMessageHead_clear(&head);
     g_warning("problem parsing message head from buffer");
     return NULL;
   }
-
+  
   /* load the rest of the message depending on the header type */
   switch(head.type) {
-    CASE(HANDSHAKE, mwMsgHandshake);
-    CASE(HANDSHAKE_ACK, mwMsgHandshakeAck);
-    CASE(LOGIN, mwMsgLogin);
-    CASE(LOGIN_REDIRECT, mwMsgLoginRedirect);
-    CASE(LOGIN_CONTINUE, mwMsgLoginContinue);
-    CASE(LOGIN_ACK, mwMsgLoginAck);
-    CASE(CHANNEL_CREATE, mwMsgChannelCreate);
-    CASE(CHANNEL_DESTROY, mwMsgChannelDestroy);
-    CASE(CHANNEL_SEND, mwMsgChannelSend);
-    CASE(CHANNEL_ACCEPT, mwMsgChannelAccept);
-    CASE(SET_USER_STATUS, mwMsgSetUserStatus);
-    CASE(SET_PRIVACY_LIST, mwMsgSetPrivacyList);
-    CASE(SENSE_SERVICE, mwMsgSenseService);
-    CASE(ADMIN, mwMsgAdmin);
-    CASE(ANNOUNCE, mwMsgAnnounce);
+  case mw_message_HANDSHAKE:
+    msg = g_new0(MwMsgHandshake, 1);
+    MwMsgHandshake_get(b, msg);
+    break;
+  case mw_message_HANDSHAKE_ACK:
+    msg = g_new0(MwMsgHandshakeAck, 1);
+    MwMsgHandshakeAck_get(b, msg);
+    break;
+  case mw_message_LOGIN:
+    msg = g_new0(MwMsgLogin, 1);
+    MwMsgLogin_get(b, msg);
+    break;
+  case mw_message_LOGIN_REDIRECT:
+    msg = g_new0(MwMsgLoginRedirect, 1);
+    MwMsgLoginRedirect_get(b, msg);
+    break;
+  case mw_message_LOGIN_FORCE:
+    msg = g_new0(MwMsgLoginForce, 1);
+    MwMsgLoginForce_get(b, msg);
+    break;
+  case mw_message_LOGIN_ACK:
+    msg = g_new0(MwMsgLoginAck, 1);
+    MwMsgLoginAck_get(b, msg);
+    break;
+
+  case mw_message_CHANNEL_CREATE:
+    msg = g_new0(MwMsgChannelCreate, 1);
+    MwMsgChannelCreate_get(b, msg);
+    break;
+  case mw_message_CHANNEL_CLOSE:
+    msg = g_new0(MwMsgChannelClose, 1);
+    MwMsgChannelClose_get(b, msg);
+    break;
+  case mw_message_CHANNEL_SEND:
+    msg = g_new0(MwMsgChannelSend, 1);
+    MwMsgChannelSend_get(b, msg);
+    break;
+  case mw_message_CHANNEL_ACCEPT:
+    msg = g_new0(MwMsgChannelAccept, 1);
+    MwMsgChannelAccept_get(b, msg);
+    break;
+
+  case mw_message_STATUS:
+    msg = g_new0(MwMsgStatus, 1);
+    MwMsgStatus_get(b, msg);
+    break;
+  case mw_message_PRIVACY:
+    msg = g_new0(MwMsgPrivacy, 1);
+    MwMsgPrivacy_get(b, msg);
+    break;
+  case mw_message_SENSE_SERVICE:
+    msg = g_new0(MwMsgSenseService, 1);
+    MwMsgSenseService_get(b, msg);
+    break;
+  case mw_message_ADMIN:
+    msg = g_new0(MwMsgAdmin, 1);
+    MwMsgAdmin_get(b, msg);
+    break;
+  case mw_message_ANNOUNCE:
+    msg = g_new0(MwMsgAnnounce, 1);
+    MwMsgAnnounce_get(b, msg);
+    break;
 
   default:
     g_warning("unknown message type 0x%02x, no parse handler", head.type);
   }
-
-  if(mwGetBuffer_error(b)) {
+  
+  if(MwGetBuffer_error(b)) {
     g_warning("problem parsing message type 0x%02x, not enough data",
 	      head.type);
   }
-
-  mwMessageHead_clear(&head);
+  
+  if(msg) MwMessageHead_clone(msg, &head);
+  MwMessageHead_clear(&head);
   
   return msg;
 }
 
 
-#undef CASE
+void MwMessage_put(MwPutBuffer *b, const MwMessage *msg) {
 
-
-#define CASE(v, t) \
-case mwMessage_ ## v: \
-  v ## _put(b, (struct t *) msg); \
-  break;
-
-
-void mwMessage_put(struct mwPutBuffer *b, struct mwMessage *msg) {
+  /* just to save me from typing the casts */
+  gconstpointer mptr = msg;
 
   g_return_if_fail(b != NULL);
   g_return_if_fail(msg != NULL);
 
-  mwMessageHead_put(b, msg);
+  MwMessageHead_put(b, msg);
 
   switch(msg->type) {
-    CASE(HANDSHAKE, mwMsgHandshake);
-    CASE(HANDSHAKE_ACK, mwMsgHandshakeAck);
-    CASE(LOGIN, mwMsgLogin);
-    CASE(LOGIN_REDIRECT, mwMsgLoginRedirect);
-    CASE(LOGIN_CONTINUE, mwMsgLoginContinue);
-    CASE(CHANNEL_CREATE, mwMsgChannelCreate);
-    CASE(CHANNEL_DESTROY, mwMsgChannelDestroy);
-    CASE(CHANNEL_SEND, mwMsgChannelSend);
-    CASE(CHANNEL_ACCEPT, mwMsgChannelAccept);
-    CASE(SET_USER_STATUS, mwMsgSetUserStatus);
-    CASE(SET_PRIVACY_LIST, mwMsgSetPrivacyList);
-    CASE(SENSE_SERVICE, mwMsgSenseService);
-    CASE(ANNOUNCE, mwMsgAnnounce);
+  case mw_message_HANDSHAKE:
+    MwMsgHandshake_put(b, mptr);
+    break;
+  case mw_message_HANDSHAKE_ACK:
+    MwMsgHandshakeAck_put(b, mptr);
+    break;
+  case mw_message_LOGIN:
+    MwMsgLogin_put(b, mptr);
+    break;
+
+#if 0
+  case mw_message_LOGIN_ACK:
+    MwMsgLoginAck_put(b, mptr);
+    break;
+#endif
+
+  case mw_message_LOGIN_REDIRECT:
+    MwMsgLoginRedirect_put(b, mptr);
+    break;
+  case mw_message_LOGIN_FORCE:
+    MwMsgLoginForce_put(b, mptr);
+    break;
+
+  case mw_message_CHANNEL_CREATE:
+    MwMsgChannelCreate_put(b, mptr);
+    break;
+  case mw_message_CHANNEL_CLOSE:
+    MwMsgChannelClose_put(b, mptr);
+    break;
+  case mw_message_CHANNEL_SEND:
+    MwMsgChannelSend_put(b, mptr);
+    break;
+  case mw_message_CHANNEL_ACCEPT:
+    MwMsgChannelAccept_put(b, mptr);
+    break;
+
+  case mw_message_STATUS:
+    MwMsgStatus_put(b, mptr);
+    break;
+  case mw_message_PRIVACY:
+    MwMsgPrivacy_put(b, mptr);
+    break;
+  case mw_message_SENSE_SERVICE:
+    MwMsgSenseService_put(b, mptr);
+    break;
+
+#if 0
+  case mw_message_ADMIN:
+    MwMsgAdmin_put(b, mptr);
+    break;
+#endif
+
+  case mw_message_ANNOUNCE:
+    MwMsgAnnounce_put(b, mptr);
+    break;
     
   default:
     ; /* hrm. */
@@ -809,45 +858,75 @@ void mwMessage_put(struct mwPutBuffer *b, struct mwMessage *msg) {
 }
 
 
-#undef CASE
+void MwMessage_clear(MwMessage *msg) {
 
-
-#define CASE(v, t) \
-case mwMessage_ ## v: \
-  v ## _clear((struct t *) msg); \
-  break;
-
-
-void mwMessage_free(struct mwMessage *msg) {
-  if(! msg) return;
-
-  mwMessageHead_clear(msg);
+  /* just to save me from typing the casts */
+  gpointer mptr = msg;
+  
+  g_return_if_fail(msg != NULL);
 
   switch(msg->type) {
-    CASE(HANDSHAKE, mwMsgHandshake);
-    CASE(HANDSHAKE_ACK, mwMsgHandshakeAck);
-    CASE(LOGIN, mwMsgLogin);
-    CASE(LOGIN_REDIRECT, mwMsgLoginRedirect);
-    CASE(LOGIN_CONTINUE, mwMsgLoginContinue);
-    CASE(LOGIN_ACK, mwMsgLoginAck);
-    CASE(CHANNEL_CREATE, mwMsgChannelCreate);
-    CASE(CHANNEL_DESTROY, mwMsgChannelDestroy);
-    CASE(CHANNEL_SEND, mwMsgChannelSend);
-    CASE(CHANNEL_ACCEPT, mwMsgChannelAccept);
-    CASE(SET_USER_STATUS, mwMsgSetUserStatus);
-    CASE(SET_PRIVACY_LIST, mwMsgSetPrivacyList);
-    CASE(SENSE_SERVICE, mwMsgSenseService);
-    CASE(ADMIN, mwMsgAdmin);
-    CASE(ANNOUNCE, mwMsgAnnounce);
+  case mw_message_HANDSHAKE:
+    MwMsgHandshake_clear(mptr);
+    break;
+  case mw_message_HANDSHAKE_ACK:
+    MwMsgHandshakeAck_clear(mptr);
+    break;
+  case mw_message_LOGIN:
+    MwMsgLogin_clear(mptr);
+    break;
+  case mw_message_LOGIN_ACK:
+    MwMsgLoginAck_clear(mptr);
+    break;
+  case mw_message_LOGIN_REDIRECT:
+    MwMsgLoginRedirect_clear(mptr);
+    break;
+  case mw_message_LOGIN_FORCE:
+    MwMsgLoginForce_clear(mptr);
+    break;
+
+  case mw_message_CHANNEL_CREATE:
+    MwMsgChannelCreate_clear(mptr);
+    break;
+  case mw_message_CHANNEL_CLOSE:
+    MwMsgChannelClose_clear(mptr);
+    break;
+  case mw_message_CHANNEL_SEND:
+    MwMsgChannelSend_clear(mptr);
+    break;
+  case mw_message_CHANNEL_ACCEPT:
+    MwMsgChannelAccept_clear(mptr);
+    break;
+
+  case mw_message_STATUS:
+    MwMsgStatus_clear(mptr);
+    break;
+  case mw_message_PRIVACY:
+    MwMsgPrivacy_clear(mptr);
+    break;
+  case mw_message_SENSE_SERVICE:
+    MwMsgSenseService_clear(mptr);
+    break;
+  case mw_message_ADMIN:
+    MwMsgAdmin_clear(mptr);
+    break;
+  case mw_message_ANNOUNCE:
+    MwMsgAnnounce_clear(mptr);
+    break;
     
   default:
-    ; /* hrm. */
+    ; /* hrm */
   }
+  
+  MwMessageHead_clear(msg);
+}
 
+
+void MwMessage_free(MwMessage *msg) {
+  if(! msg) return;
+  MwMessage_clear(msg);
   g_free(msg);
 }
 
 
-#undef CASE
-
-
+/* The end. */

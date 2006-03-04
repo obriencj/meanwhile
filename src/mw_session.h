@@ -1,3 +1,6 @@
+#ifndef _MW_SESSION_H
+#define _MW_SESSION_H
+
 
 /*
   Meanwhile - Unofficial Lotus Sametime Community Client Library
@@ -18,44 +21,35 @@
   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
-#ifndef _MW_SESSION_H
-#define _MW_SESSION_H
 
+/**
+   @file mw_session.h
 
-/** @file mw_session.h
+   A client session with a Sametime server is encapsulated in the
+   MwSession class. The session controls channels and provides
+   encryption ciphers.
 
-    A client session with a Sametime server is encapsulated in the
-    mwSession structure. The session controls channels, provides
-    encryption ciphers, and manages services using messages over the
-    Master channel.
+   A MwSession instance does not directly communicate with a socket or
+   stream. Instead, client code is required to connect to the "write"
+   signal in order to catch outgoing data.
 
-    A session does not directly communicate with a socket or stream,
-    instead the session is initialized from client code with an
-    instance of a mwSessionHandler structure. This session handler
-    provides functions as call-backs for common session events, and
-    provides functions for writing-to and closing the connection to
-    the server.
-
-    A session does not perform reads on a socket directly. Instead, it
-    must be fed from an outside source via the mwSession_recv
-    function. The session will buffer and merge data passed to this
-    function to build complete protocol messages, and will act upon
-    each complete message accordingly.
+   In order to pass incoming data to a MwSession instance for
+   processing, client code must call the MwSession_feed method. The
+   session will buffer and parse fed data, performing activities based
+   on the messages as they arrive.
 */
 
 
+#include <glib.h>
+#include "mw_channel.h"
 #include "mw_common.h"
+#include "mw_encrypt.h"
+#include "mw_message.h"
+#include "mw_object.h"
+#include "mw_typedef.h"
 
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-
-struct mwChannelSet;
-struct mwCipher;
-struct mwMessage;
-struct mwService;
+G_BEGIN_DECLS
 
 
 /** default protocol major version */
@@ -66,331 +60,277 @@ struct mwService;
 #define MW_PROTOCOL_VERSION_MINOR  0x001d
 
 
-/** @section Session Properties
-    for use with mwSession_setProperty, et al.
-*/
-/*@{*/
-
-/** char *, session user ID */
-#define mwSession_AUTH_USER_ID      "session.auth.user"
-
-/** char *, plaintext password */
-#define mwSession_AUTH_PASSWORD     "session.auth.password"
-
-/** struct mwOpaque *, authentication token */
-#define mwSession_AUTH_TOKEN        "session.auth.token"
-
-/** char *, hostname of client */
-#define mwSession_CLIENT_HOST       "client.host"
-
-/** guint32, local IP of client */
-#define mwSession_CLIENT_IP         "client.ip"
-
-/** guint16, major version of client protocol */
-#define mwSession_CLIENT_VER_MAJOR  "client.version.major"
-
-/** guint16, minor version of client protocol */
-#define mwSession_CLIENT_VER_MINOR  "client.version.minor"
-
-/** guint16, client type identifier */
-#define mwSession_CLIENT_TYPE_ID    "client.id"
-
-/** guint16, major version of server protocol */
-#define mwSession_SERVER_VER_MAJOR  "server.version.major"
-
-/** guint16, minor version of server protocol */
-#define mwSession_SERVER_VER_MINOR  "server.version.minor"
-
-/*@}*/
-
-
-enum mwSessionState {
-  mwSession_STARTING,      /**< session is starting */
-  mwSession_HANDSHAKE,     /**< session has sent handshake */
-  mwSession_HANDSHAKE_ACK, /**< session has received handshake ack */
-  mwSession_LOGIN,         /**< session has sent login */
-  mwSession_LOGIN_REDIR,   /**< session has been redirected */
-  mwSession_LOGIN_ACK,     /**< session has received login ack */
-  mwSession_STARTED,       /**< session is active */
-  mwSession_STOPPING,      /**< session is shutting down */
-  mwSession_STOPPED,       /**< session is stopped */
-  mwSession_UNKNOWN,       /**< indicates an error determining state */
-  mwSession_LOGIN_CONT,    /**< session has sent a login continue */
+enum mw_auth_type {
+  mw_auth_type_PLAIN   = 0x0000,
+  mw_auth_type_TOKEN   = 0x0001,
+  mw_auth_type_RC2     = 0x0002,
+  mw_auth_type_DH_RC2  = 0x0004,
 };
 
 
-#define mwSession_isState(session, state) \
-  (mwSession_getState((session)) == (state))
-
-#define mwSession_isStarting(s) \
-  (mwSession_isState((s), mwSession_STARTING)  || \
-   mwSession_isState((s), mwSession_HANDSHAKE) || \
-   mwSession_isState((s), mwSession_HANDSHAKE_ACK) || \
-   mwSession_isState((s), mwSession_LOGIN) || \
-   mwSession_isState((s), mwSession_LOGIN_ACK) || \
-   mwSession_isState((s), mwSession_LOGIN_REDIR) || \
-   mwSession_isState((s), mwSession_LOGIN_CONT))
-
-#define mwSession_isStarted(s) \
-  (mwSession_isState((s), mwSession_STARTED))
-
-#define mwSession_isStopping(s) \
-  (mwSession_isState((s), mwSession_STOPPING))
-
-#define mwSession_isStopped(s) \
-  (mwSession_isState((s), mwSession_STOPPED))
+#define MW_TYPE_SESSION  (MwSession_getType())
 
 
-/** @struct mwSession
-
-    Represents a Sametime client session */
-struct mwSession;
+#define MW_SESSION(obj)							\
+  (G_TYPE_CHECK_INSTANCE_CAST((obj), MW_TYPE_SESSION, MwSession))
 
 
-/** @struct mwSessionHandler
+#define MW_SESSION_CLASS(klass)						\
+  (G_TYPE_CHECK_CLASS_CAST((klass), MW_TYPE_SESSION, MwSessionClass))
 
-    session handler. Structure which interfaces a session with client
-    code to provide I/O and event handling */
-struct mwSessionHandler {
-  
-  /** write data to the server connection. Required. Should return
-      zero for success, non-zero for error */
-  int (*io_write)(struct mwSession *, const guchar *buf, gsize len);
-  
-  /** close the server connection. Required */
-  void (*io_close)(struct mwSession *);
 
-  /** triggered by mwSession_free. Optional. Put cleanup code here */
-  void (*clear)(struct mwSession *);
+#define MW_IS_SESSION(obj)				\
+  (G_TYPE_CHECK_INSTANCE_TYPE((obj), MW_TYPE_SESSION))
 
-  /** Called when the session has changed status.
 
-      @see mwSession_getStateInfo for uses of info field
+#define MW_IS_SESSION_CLASS(klass)			\
+  (G_TYPE_CHECK_CLASS_TYPE((klass), MW_TYPE_SESSION))
 
-      @param s      the session
-      @param state  the session's state
-      @param info   additional state information */
-  void (*on_stateChange)(struct mwSession *s,
-			 enum mwSessionState state, gpointer info);
 
-  /** called when privacy information has been sent or received
+#define MW_SESSION_GET_CLASS(obj)					\
+  (G_TYPE_INSTANCE_GET_CLASS((obj), MW_TYPE_SESSION, MwSessionClass))
 
-      @see mwSession_getPrivacyInfo
-  */
-  void (*on_setPrivacyInfo)(struct mwSession *);
 
-  /** called when user status has changed
+typedef struct mw_session_private MwSessionPrivate;
 
-      @see mwSession_getUserStatus */
-  void (*on_setUserStatus)(struct mwSession *);
 
-  /** called when an admin messages has been received */
-  void (*on_admin)(struct mwSession *, const char *text);
+struct mw_session_private;
 
-  /** called when an announcement arrives */
-  void (*on_announce)(struct mwSession *, struct mwLoginInfo *from,
-		      gboolean may_reply, const char *text);
 
+struct mw_session {
+  MwObject mwobject;
+
+  MwSessionPrivate *private;
 };
 
 
-/** allocate a new session */
-struct mwSession *mwSession_new(struct mwSessionHandler *);
+typedef struct mw_session_class MwSessionClass;
 
 
-/** stop, clear, free a session. Does not free contained ciphers or
-    services, these must be taken care of explicitly. */
-void mwSession_free(struct mwSession *);
+struct mw_session_class {
+  MwObjectClass mwobjectclass;
+
+  guint signal_pending;            /**< session has data to be written */
+  guint signal_write;              /**< must be handled to write data */
+  guint signal_state_changed;      /**< session status changed */
+  guint signal_channel;            /**< new incoming channel */
+  guint signal_got_status;         /**< user status changed */
+  guint signal_got_privacy;        /**< user privacy changed */
+  guint signal_got_admin;          /**< incoming admin message */
+  guint signal_got_announce;       /**< incoming announcement */
+  guint signal_got_sense_service;  /**< service is available */
+
+  /** default signal handler for "pending" */
+  gboolean (*handle_pending)(MwSession *self);
+
+  /** default signal handler for "channel-incoming" */
+  gboolean (*handle_channel)(MwSession *self, MwChannel *channel);
+
+  /* methods */
+  void (*start)(MwSession *self);
+  void (*stop)(MwSession *self, guint32 reason);
+  void (*feed)(MwSession *self, const guchar *buf, gsize len);
+  guint (*pending)(MwSession *self);
+  void (*flush)(MwSession *self);
+  void (*send_message)(MwSession *self, MwMessage *msg);
+  void (*send_channel)(MwSession *self, MwChannel *chan, MwMessage *msg);
+  void (*send_keepalive)(MwSession *self);
+  void (*send_announce)(MwSession *self, gboolean may_reply,
+			const GList *recipients, const gchar *text);
+  void (*force_login)(MwSession *self);
+  void (*sense_service)(MwSession *session, guint32 id);
+
+  MwChannel *(*new_channel)(MwSession *self);
+  MwChannel *(*get_channel)(MwSession *self, guint32 id);
+  GList *(*get_channels)(MwSession *self);
+  
+  gboolean (*add_cipher)(MwSession *self, MwCipherClass *klass);
+  MwCipherClass *(*get_cipher)(MwSession *self, guint16 id);
+  MwCipherClass *(*get_cipher_by_pol)(MwSession *self, guint16 pol);
+  GList *(*get_ciphers)(MwSession *self);
+  void (*remove_cipher)(MwSession *self, MwCipherClass *klass);
+};
 
 
-/** obtain a reference to the session's handler */
-struct mwSessionHandler *mwSession_getHandler(struct mwSession *);
+GType MwSession_getType();
 
 
-/** instruct the session to begin. This will result in the initial
-    handshake message being sent. */
-void mwSession_start(struct mwSession *);
+MwSession *MwSession_new();
 
 
-/** instruct the session to shut down with the following reason
-    code. */
-void mwSession_stop(struct mwSession *, guint32 reason);
+/** @see MwSession_getState */
+enum mw_session_state {
+  mw_session_STARTING,       /**< session is starting */
+  mw_session_HANDSHAKE,      /**< session has sent handshake */
+  mw_session_HANDSHAKE_ACK,  /**< session has received handshake ack */
+  mw_session_LOGIN,          /**< session has sent login */
+  mw_session_LOGIN_REDIRECT, /**< session has been redirected */
+  mw_session_LOGIN_FORCE,    /**< session has sent a login continue */
+  mw_session_LOGIN_ACK,      /**< session has received login ack */
+  mw_session_STARTED,        /**< session is active */
+  mw_session_STOPPING,       /**< session is shutting down */
+  mw_session_STOPPED,        /**< session is stopped */
+  mw_session_UNKNOWN,        /**< indicates an error determining state */
+};
 
 
-/** Data is buffered, unpacked, and parsed into a message, then
-    processed accordingly. */
-void mwSession_recv(struct mwSession *, const guchar *, gsize);
+#define MwSession_isState(session, state)	\
+  (MwSession_getState((session)) == (state))
 
 
-/** primarily used by services to have messages serialized and sent
-    @param s    session to send message over
-    @param msg  message to serialize and send
-    @returns    0 for success */
-int mwSession_send(struct mwSession *s, struct mwMessage *msg);
+#define MwSession_isStarting(s)				\
+  (MwSession_isState((s), mw_session_STARTING)      ||	\
+   MwSession_isState((s), mw_session_HANDSHAKE)     ||	\
+   MwSession_isState((s), mw_session_HANDSHAKE_ACK) ||	\
+   MwSession_isState((s), mw_session_LOGIN)         ||	\
+   MwSession_isState((s), mw_session_LOGIN_ACK)     ||	\
+   MwSession_isState((s), mw_session_LOGIN_REDIR)   ||	\
+   MwSession_isState((s), mw_session_LOGIN_CONT))
 
 
-/** sends the keepalive byte */
-int mwSession_sendKeepalive(struct mwSession *s);
+#define MwSession_isStarted(s)			\
+  (MwSession_isState((s), mw_session_STARTED))
 
 
-/** respond to a login redirect message by forcing the login sequence
-    to continue through the immediate server. */
-int mwSession_forceLogin(struct mwSession *s);
+#define MwSession_isStopping(s)			\
+  (MwSession_isState((s), mw_session_STOPPING))
 
 
-/** send an announcement to a list of users/groups. Targets of
-    announcement must be in the same community as the session.
+#define MwSession_isStopped(s)			\
+  (MwSession_isState((s), mw_session_STOPPED))
 
-    @param s          session to send announcement from
-    @param may_reply  permit clients to reply. Not all clients honor this.
-    @param text       text of announcement
-    @param recipients list of recipients. Each recipient is specified
-                      by a single string, prefix with "@U " for users
-                      and "@G " for Notes Address Book groups.
+
+gpointer MwSession_getStateInfo(MwSession *session);
+
+
+void MwSession_start(MwSession *session);
+
+
+void MwSession_stop(MwSession *session, guint32 reason);
+
+
+/** Feed data to a session's internal message parser */
+void MwSession_feed(MwSession *session, const guchar *buf, gsize len);
+
+
+/** Feed data to a session's internal message parser */
+#define MwSession_feedOpaque(session, opaque)			\
+  {								\
+    const MwOpaque *o = (opaque);				\
+    MwSession_feed((session), o->buf, o->len);			\
+  }
+
+
+/**
+   Count of pending outgoing messages. Pending messages can be written
+   to the write signal handler via a call to MwSession_flush, one at a
+   time.
 */
-int mwSession_sendAnnounce(struct mwSession *s, gboolean may_reply,
-			   const char *text, const GList *recipients);
+guint MwSession_pending(MwSession *session);
 
 
-/** set the internal privacy information, and inform the server as
-    necessary. Triggers the on_setPrivacyInfo call-back. */
-int mwSession_setPrivacyInfo(struct mwSession *, struct mwPrivacyInfo *);
+/**
+   Cause the write signal to be emitted upon the session, passing the
+   first pending outgoing message.
 
-
-/** direct reference to the session's internal privacy structure */
-struct mwPrivacyInfo *mwSession_getPrivacyInfo(struct mwSession *);
-
-
-/** reference the login information for the session */
-struct mwLoginInfo *mwSession_getLoginInfo(struct mwSession *);
-
-
-/** set the internal user status state, and inform the server as
-    necessary. Triggers the on_setUserStatus call-back */
-int mwSession_setUserStatus(struct mwSession *, struct mwUserStatus *);
-
-
-struct mwUserStatus *mwSession_getUserStatus(struct mwSession *);
-
-
-/** current status of the session */
-enum mwSessionState mwSession_getState(struct mwSession *);
-
-
-/** additional status-specific information. Depending on the state of
-    the session, this value has different meaning.
-
-    @li @c mwSession_STOPPING guint32 error code causing
-    the session to shut down
-
-    @li @c mwSession_STOPPED guint32 error code causing
-    the session to shut down
-
-    @li @c mwSession_LOGIN_REDIR (char *) host to redirect
-    to
+   Any code that connects to the session's write-ready signal and
+   returns TRUE should ensure that this method is eventually
+   called. The default behavior for a session instance will cause this
+   method to be called automatically if no write-ready signal handler
+   returns TRUE.
 */
-gpointer mwSession_getStateInfo(struct mwSession *);
+void MwSession_flush(MwSession *session);
 
 
-struct mwChannelSet *mwSession_getChannels(struct mwSession *);
+void MwSession_sendMessage(MwSession *self, MwMessage *msg);
 
 
-/** adds a service to the session. If the session is started (or when
-    the session is successfully started) and the service has a start
-    function, the session will request service availability from the
-    server. On receipt of the service availability notification, the
-    session will call the service's start function.
-
-    @return TRUE if the session was added correctly */
-gboolean mwSession_addService(struct mwSession *, struct mwService *);
+/** Cause the write signal to be emitted with a keepalive byte */
+void MwSession_sendKeepalive(MwSession *self);
 
 
-/** find a service by its type identifier */
-struct mwService *mwSession_getService(struct mwSession *, guint32 type);
+/** Send an announcement message to the specified recipients.  The
+    recipient list is a GList of strings in the following format
 
-
-/** removes a service from the session. If the session is started and
-    the service has a stop function, it will be called. Returns the
-    removed service */
-struct mwService *mwSession_removeService(struct mwSession *, guint32 type);
-
-
-/** a GList of services in this session. The GList needs to be freed
-    after use */
-GList *mwSession_getServices(struct mwSession *);
-
-
-/** instruct a STARTED session to check the server for the presense of
-    a given service. The service will be automatically started upon
-    receipt of an affirmative reply from the server. This function is
-    automatically called upon all services in a session when the
-    session is fully STARTED.
-
-    Services which terminate due to an error may call this on
-    themselves to re-initialize when their server-side counterpart is
-    made available again.
-
-    @param s     owning session
-    @param type  service type ID */
-void mwSession_senseService(struct mwSession *s, guint32 type);
-
-
-/** adds a cipher to the session. */
-gboolean mwSession_addCipher(struct mwSession *, struct mwCipher *);
-
-
-/** find a cipher by its type identifier */
-struct mwCipher *mwSession_getCipher(struct mwSession *, guint16 type);
-
-
-/** remove a cipher from the session */
-struct mwCipher *mwSession_removeCipher(struct mwSession *, guint16 type);
-
-
-/** a GList of ciphers in this session. The GList needs to be freed
-    after use */
-GList *mwSession_getCiphers(struct mwSession *);
-
-
-/** associate a key:value pair with the session. If an existing value is
-    associated with the same key, it will have its clear function called
-    and will be replaced with the new value */
-void mwSession_setProperty(struct mwSession *, const char *key,
-			   gpointer val, GDestroyNotify clear);
-
-
-/** obtain the value of a previously set property, or NULL */
-gpointer mwSession_getProperty(struct mwSession *, const char *key);
-
-
-/** remove a property, calling the optional GDestroyNotify function
-    indicated in mwSession_setProperty if applicable */
-void mwSession_removeProperty(struct mwSession *, const char *key);
-
-
-/** associate arbitrary data with the session for use by the client
-    code. Only client applications should use this, never services.
-
-    @param session  the session to associate the data with
-    @param data     arbitrary client data
-    @param clear    optional cleanup function called on data from
-                    mwSession_removeClientData and mwSession_free
+    @li "\@U userid" to indicate a user on your community
+    @li "\@G groupid" to indicate all users in a Notes Address Book group
+    @li "\@E externaluserid" to indicate a user via a SIP gateway
 */
-void mwSession_setClientData(struct mwSession *session,
-			     gpointer data, GDestroyNotify clear);
+void MwSession_sendAnnounce(MwSession *session, gboolean may_reply,
+			    const GList *recipients, const gchar *text);
 
 
-gpointer mwSession_getClientData(struct mwSession *session);
+/** Force a session to continue the authentication process against the
+    current server connection. This is only valid when the session
+    state is mw_session_OGIN_REDIR. */
+void MwSession_forceLogin(MwSession *session);
 
 
-/** remove client data, calling the optional GDestroyNotify function
-    indicated in mwSession_setClientData if applicable */
-void mwSession_removeClientData(struct mwSession *session);
+void MwSession_senseService(MwSession *session, guint32 type);
 
 
-#ifdef __cplusplus
-}
-#endif
+/** allocate a new outgoing channel */
+MwChannel *MwSession_newChannel(MwSession *session);
+
+
+/** find a channel by its ID */
+MwChannel *MwSession_getChannel(MwSession *session, guint32 id);
+
+
+/** GList of MwChannel instanciated by this session. Remember to
+    g_list_free when you're done. */
+GList *MwSession_getChannels(MwSession *session);
+
+
+gboolean MwSession_addCipher(MwSession *session, MwCipherClass *klass);
+
+
+void MwSession_removeCipher(MwSession *session, MwCipherClass *klass);
+
+
+MwCipherClass *MwSession_getCipher(MwSession *session, guint16 id);
+
+
+MwCipherClass *MwSession_getCipherByPolicy(MwSession *session,
+					   guint16 policy);
+
+
+/** GList of MwCipherClass, sorted by their identifiers. Remember to
+    call g_list_free when you're done. */
+GList *MwSession_getCiphers(MwSession *session);
+
+
+const MwLogin *MwSession_getLogin(MwSession *session);
+
+
+void MwSession_setLogin(MwSession *session, const MwLogin *login);
+
+
+const MwPrivacy *MwSession_getPrivacy(MwSession *session);
+
+
+void MwSession_setPrivacy(MwSession *session, const MwPrivacy *privacy);
+
+
+const MwStatus *MwSession_getStatus(MwSession *session);
+
+
+void MwSession_setStatus(MwSession *session, const MwStatus *status);
+
+
+/**
+   Default handler for the MW_SESSION_PENDING signal
+ */
+gboolean MwSession_handlePending(MwSession *session);
+
+
+/**
+   Default handler for the MW_SESSION_CHANNEL signal
+*/
+gboolean MwSession_handleChannel(MwSession *session, MwChannel *chan);
+
+
+G_END_DECLS
 
 
 #endif /* _MW_SESSION_H */

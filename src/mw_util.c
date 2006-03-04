@@ -21,28 +21,28 @@
 #include "mw_util.h"
 
 
-static void collect_keys(gpointer key, gpointer val, gpointer data) {
+static void mw_collect_keys(gpointer key, gpointer val, gpointer data) {
   GList **list = data;
   *list = g_list_append(*list, key);
 }
 
 
-GList *map_collect_keys(GHashTable *ht) {
+GList *mw_map_collect_keys(GHashTable *ht) {
   GList *ret = NULL;
-  g_hash_table_foreach(ht, collect_keys, &ret);
+  g_hash_table_foreach(ht, mw_collect_keys, &ret);
   return ret;
 }
 
 
-static void collect_values(gpointer key, gpointer val, gpointer data) {
+static void mw_collect_values(gpointer key, gpointer val, gpointer data) {
   GList **list = data;
   *list = g_list_append(*list, val);
 }
 
 
-GList *map_collect_values(GHashTable *ht) {
+GList *mw_map_collect_values(GHashTable *ht) {
   GList *ret = NULL;
-  g_hash_table_foreach(ht, collect_values, &ret);
+  g_hash_table_foreach(ht, mw_collect_values, &ret);
   return ret;
 }
 

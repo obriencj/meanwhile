@@ -1,3 +1,6 @@
+#ifndef _MW_SRVC_IM_H
+#define _MW_SRVC_IM_H
+
 
 /*
   Meanwhile - Unofficial Lotus Sametime Community Client Library
@@ -18,259 +21,234 @@
   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
-#ifndef _MW_SRVC_IM_H
-#define _MW_SRVC_IM_H
 
-
-/** @file mw_srvc_im.h
-
-    The IM service provides one-on-one communication between
-    users. Messages sent over conversations may relay different types
-    of information, in a variety of formats. The basic feature-set
-    provides plain-text chat with typing notification. More complex
-    features may be negotiated transparently by setting the IM Client
-    Type for a conversation, or for the service as a whole.
+/**
+   @file mw_srvc_im.h
 */
 
 
 #include <glib.h>
-#include "mw_common.h"
+#include "mw_channel.h"
+#include "mw_object.h"
+#include "mw_service.h"
+#include "mw_session.h"
+#include "mw_typedef.h"
 
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-  
-  
-/* identifier for the IM service */
-#define mwService_IM  0x00001000
-  
-  
-/** @struct mwServiceIm
-
-    An instance of the IM service. This service provides simple
-    instant messaging functionality */
-struct mwServiceIm;
+G_BEGIN_DECLS
 
 
-/** @struct mwConversation
-
-    A conversation between the local service and a single other user */
-struct mwConversation;
+#define MW_TYPE_IM_SERVICE  (MwIMService_getType())
 
 
-enum mwImClientType {
-  mwImClient_PLAIN       = 0x00000001,  /**< text, typing */
-  mwImClient_NOTESBUDDY  = 0x00033453,  /**< adds html, subject, mime */
-  mwImClient_PRECONF     = 0x00000019,  /**< pre-conference, legacy */
-  mwImClient_UNKNOWN     = 0xffffffff,  /**< trouble determining type */
+#define MW_IM_SERVICE(obj)						\
+  (G_TYPE_CHECK_INSTANCE_CAST((obj), MW_TYPE_IM_SERVICE, MwIMService))
+
+
+#define MW_IM_SERVICE_CLASS(klass)					\
+  (G_TYPE_CHECK_CLASS_CAST((klass), MW_TYPE_IM_SERVICE, MwIMServiceClass))
+
+
+#define MW_IS_IM_SERVICE(obj)					\
+  (G_TYPE_CHECK_INSTANCE_TYPE((obj), MW_TYPE_IM_SERVICE))
+
+
+#define MW_IS_IM_SERVICE_CLASS(klass)				\
+  (G_TYPE_CHECK_CLASS_TYPE((klass), MW_TYPE_IM_SERVICE))
+
+
+#define MW_IM_SERVICE_GET_CLASS(obj)					\
+  (G_TYPE_INSTANCE_GET_CLASS((obj), MW_TYPE_IM_SERVICE, MwIMServiceClass))
+
+
+typedef struct mw_im_service_private MwIMServicePrivate;
+
+
+struct mw_im_service_private;
+
+
+struct mw_im_service {
+  MwService mwservice;
+
+  MwIMServicePrivate *private;
 };
+
+
+typedef struct mw_im_service_class MwIMServiceClass;
+
+
+struct mw_im_service_class {
+  MwServiceClass mwservice_class;
+
+  guint signal_incoming_conversation;
+
+  /** @see MwIMService_getConversation */ 
+  MwConversation *(*get_conv)(MwIMService *srvc,
+			      const gchar *user, const gchar *community);
+
+  /** @see MwIMService_findConversation */
+  MwConversation *(*find_conv)(MwIMService *srvc,
+			       const gchar *user, const gchar *community);
+
+  /** @see MwIMService_getConversations */
+  GList *(*get_convs)(MwIMService *srvc);
+};
+
+
+GType MwIMService_getType();
 
 
 /**
-   Types of supported messages. When a conversation is created, the
-   least common denominator of features between either side of the
-   conversation (based on what features are available in the IM
-   service itself) becomes the set of supported features for that
-   conversation. At any point, the feature set for the service may
-   change, without affecting any existing conversations.
+   @return reference to new IM service instance
+*/
+MwIMService *MwIMService_new(MwSession *session);
 
-   @see mwServiceIm_supports
-   @see mwServiceIm_setSupported
-   @see mwConversation_supports
-   @see mwConversation_send
-   @see mwServiceImHandler::conversation_recv
- */
-enum mwImSendType {
-  mwImSend_PLAIN,   /**< char *, plain-text message */
-  mwImSend_TYPING,  /**< gboolean, typing status */
-  mwImSend_HTML,    /**< char *, HTML formatted message (NOTESBUDDY) */
-  mwImSend_SUBJECT, /**< char *, conversation subject (NOTESBUDDY) */
-  mwImSend_MIME,    /**< char *, MIME-encoded message (NOTESBUDDY) */
-  mwImSend_TIMESTAMP, /**< char *, YYYY:MM:DD:HH:mm:SS format (NOTESBUDDY) */
+
+/**
+   @since 2.0.0
+   
+   Find or create a conversation to the target. If it's a new conversation,
+   it will have a refcount of 1. If it's an existing conversation, the
+   refcount will be incremented before being returned.
+
+   @return reference to MwConversation instance
+*/
+MwConversation *
+MwIMService_getConversation(MwIMService *srvc,
+			    const gchar *user, const gchar *community);
+
+
+/**
+   @since 2.0.0
+   
+   Find a conversation to the target. If an existing conversation can
+   be found, the refcount will be incremented before being returned.
+
+   @return reference to MwConversation instance or NULL
+*/
+MwConversation *
+MwIMService_findConversation(MwIMService *srvc,
+			     const gchar *user, const gchar *community);
+
+
+/**
+   Borrowed references to all conversations created via this service instance.
+
+   @return list of borrowed references to MwConversation instances
+*/
+GList *MwIMService_getConversations(MwIMService *srvc);
+
+
+#define MW_TYPE_CONVERSATION  (MwConversation_getType())
+
+
+#define MW_CONVERSATION(obj)						\
+  (G_TYPE_CHECK_INSTANCE_CAST((obj), MW_TYPE_CONVERSATION, MwConversation))
+
+
+#define MW_CONVERSATION_CLASS(klass)					\
+  (G_TYPE_CHECK_CLASS_CAST((klass), MW_TYPE_CONVERSATION, MwConversationClass))
+
+
+#define MW_IS_CONVERSATION(obj)					\
+  (G_TYPE_CHECK_INSTANCE_TYPE((obj), MW_TYPE_CONVERSATION))
+
+
+#define MW_IS_CONVERSATION_CLASS(klass)				\
+  (G_TYPE_CHECK_CLASS_TYPE((klass), MW_TYPE_CONVERSATION))
+
+
+#define MW_CONVERSATION_GET_CLASS(obj)					\
+  (G_TYPE_INSTANCE_GET_CLASS((obj), MW_TYPE_CONVERSATION, MwConversationClass))
+
+
+typedef struct mw_conversation_private MwConversationPrivate;
+
+
+struct mw_conversation_private;
+
+
+struct mw_conversation {
+  MwObject mwobject;
+
+  MwConversationPrivate *private;
 };
 
 
+typedef struct mw_conversation_class MwConversationClass;
 
-/** @see mwConversation_getState */
-enum mwConversationState {
-  mwConversation_CLOSED,   /**< conversation is not open */
-  mwConversation_PENDING,  /**< conversation is opening */
-  mwConversation_OPEN,     /**< conversation is open */
-  mwConversation_UNKNOWN,  /**< unknown state */
+
+struct mw_conversation_class {
+  MwObjectClass mwobject_class;
+
+  guint signal_state_changed;
+
+  guint signal_got_text;
+
+  /** while technically a typing notification is a data message, since
+      it's a standard feature, it's checked for first */
+  guint signal_got_typing;
+
+  /** when an incoming data message is not determined immediately to
+      be text, it will be passed on via this signal. Useful for
+      extending the basic conversation by adding new message types
+      beyond text and typing */
+  guint signal_got_data;
+
+  void (*open)(MwConversation *self);
+  void (*close)(MwConversation *self);
+  void (*send_text)(MwConversation *self, const gchar *text);
+  void (*send_typing)(MwConversation *self, gboolean typing);
+  void (*send_data)(MwConversation *self, guint type, guint subtype,
+		    const MwOpaque *data);
 };
 
 
-#define mwConversation_isState(conv, state) \
-  (mwConversation_getState(conv) == (state))
-
-#define mwConversation_isClosed(conv) \
-  mwConversation_isState((conv), mwConversation_CLOSED)
-
-#define mwConversation_isPending(conv) \
-  mwConversation_isState((conv), mwConversation_PENDING)
-
-#define mwConversation_isOpen(conv) \
-  mwConversation_isState((conv), mwConversation_OPEN)
-
-
-
-/** IM Service Handler. Provides functions for events triggered from an
-    IM service instance. */
-struct mwImHandler {
-
-  /** A conversation has been successfully opened */
-  void (*conversation_opened)(struct mwConversation *conv);
-
-  /** A conversation has been closed */
-  void (*conversation_closed)(struct mwConversation *conv, guint32 err);
-  
-  /** A message has been received on a conversation */
-  void (*conversation_recv)(struct mwConversation *conv,
-			    enum mwImSendType type, gconstpointer msg);
-
-  /** Handle a Place invitation. Set this to NULL and we should end up
-      receiving a conference invitation instead. */
-  void (*place_invite)(struct mwConversation *conv,
-		       const char *message,
-		       const char *title, const char *name);
-
-  /** optional. called from mwService_free */
-  void (*clear)(struct mwServiceIm *srvc);
+enum mw_conversation_state {
+  mw_conversation_NEW,
+  mw_conversation_PENDING,
+  mw_conversation_OPEN,
+  mw_conversation_CLOSED,
+  mw_conversation_ERROR,
+  mw_conversation_UNKNOWN,
 };
 
 
-struct mwServiceIm *mwServiceIm_new(struct mwSession *session,
-				    struct mwImHandler *handler);
+GType MwConversation_getType();
 
 
-struct mwImHandler *mwServiceIm_getHandler(struct mwServiceIm *srvc);
-
-
-/** reference an existing conversation to target, or create a new
-    conversation to target if one does not already exist */
-struct mwConversation *mwServiceIm_getConversation(struct mwServiceIm *srvc,
-						   struct mwIdBlock *target);
-
-
-/** reference an existing conversation to target */
-struct mwConversation *mwServiceIm_findConversation(struct mwServiceIm *srvc,
-						    struct mwIdBlock *target);
-
-
-/** determine if the conversations created from this service will
-    support a given send type */
-gboolean mwServiceIm_supports(struct mwServiceIm *srvc,
-			      enum mwImSendType type);
-
-
-/** Set the default client type for the service. Newly created
-    conversations will attempt to meet this level of functionality
-    first.
-
-    @param srvc       the IM service
-    @param type       the send type to enable/disable
+/**
+   open a conversation.
 */
-void mwServiceIm_setClientType(struct mwServiceIm *srvc,
-			       enum mwImClientType type);
+void MwConversation_open(MwConversation *conv);
 
 
-enum mwImClientType mwServiceIm_getClientType(struct mwServiceIm *srvc);
-
-
-/** attempt to open a conversation. If the conversation was not
-    already open and it is accepted,
-    mwServiceImHandler::conversation_opened will be triggered. Upon
-    failure, mwServiceImHandler::conversation_closed will be
-    triggered */
-void mwConversation_open(struct mwConversation *conv);
-
-
-/** close a conversation. If the conversation was not already closed,
-    mwServiceImHandler::conversation_closed will be triggered */
-void mwConversation_close(struct mwConversation *conv, guint32 err);
-
-
-/** determine whether a conversation supports the given message type */
-gboolean mwConversation_supports(struct mwConversation *conv,
-				 enum mwImSendType type);
-
-
-enum mwImClientType mwConversation_getClientType(struct mwConversation *conv);
-
-
-/** get the state of a conversation
-
-    @see mwConversation_isOpen
-    @see mwConversation_isClosed
-    @see mwConversation_isPending
+/**
+   close a conversation. May be re-opened 
 */
-enum mwConversationState mwConversation_getState(struct mwConversation *conv);
+void MwConversation_close(MwConversation *conv);
 
 
-/** send a message over an open conversation */
-int mwConversation_send(struct mwConversation *conv,
-			enum mwImSendType type, gconstpointer send);
+gboolean MwConversation_isState(MwConversation *conv,
+				enum mw_conversation_state state);
 
 
-/** @returns owning service for a conversation */
-struct mwServiceIm *mwConversation_getService(struct mwConversation *conv);
+#define MW_CONVERSATION_IS_OPEN(conv) \
+  (MwConversation_isState((conv), mw_conversation_OPEN))
 
 
-/** login information for conversation partner. returns NULL if conversation 
-    is not OPEN */
-struct mwLoginInfo *mwConversation_getTargetInfo(struct mwConversation *conv);
+void MwConversation_sendText(MwConversation *conv, const gchar *text);
 
 
-/** ID for conversation partner */
-struct mwIdBlock *mwConversation_getTarget(struct mwConversation *conv);
+void MwConversation_sendTyping(MwConversation *conv, gboolean typing);
 
 
-/** set whether outgoing messages should be encrypted using the
-    negotiated cipher, if any */
-void mwConversation_setEncrypted(struct mwConversation *conv,
-				 gboolean useCipher);
+void MwConversation_sendData(MwConversation *conv,
+			     guint32 type, guint32 subtype,
+			     const MwOpaque *data);
 
 
-/** determine whether outgoing messages are being encrypted */
-gboolean mwConversation_isEncrypted(struct mwConversation *conv);
-
-
-/** Associates client data with a conversation. If there is existing data,
-    it will not have its cleanup function called.
-
-    @see mwConversation_getClientData
-    @see mwConversation_removeClientData
-*/
-void mwConversation_setClientData(struct mwConversation *conv,
-				  gpointer data, GDestroyNotify clean);
-
-
-/** Reference associated client data
-
-    @see mwConversation_setClientData
-    @see mwConversation_removeClientData
- */
-gpointer mwConversation_getClientData(struct mwConversation *conv);
-
-
-/** Remove any associated client data, calling the optional cleanup
-    function if one was provided
-
-    @see mwConversation_setClientData
-    @see mwConversation_getClientData
-*/
-void mwConversation_removeClientData(struct mwConversation *conv);
-
-
-/** close and destroy the conversation and its backing channel, and
-    call the optional client data cleanup function */
-void mwConversation_free(struct mwConversation *conv);
-
-
-#ifdef __cplusplus
-}
-#endif
+G_END_DECLS
 
 
 #endif /* _MW_SRVC_IM_H */

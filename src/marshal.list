@@ -1,0 +1,17 @@
+# I gave up trying to remember which marshallers are built-in to GLib
+# and which aren't, and instead will just use generated ones for
+# everything   - siege
+
+VOID:VOID
+VOID:BOOLEAN
+VOID:BOOLEAN,POINTER,POINTER
+VOID:UINT
+VOID:UINT,UINT,POINTER
+VOID:UINT,POINTER
+VOID:POINTER
+VOID:POINTER,UINT
+
+BOOLEAN:VOID
+BOOLEAN:POINTER
+
+# The end.

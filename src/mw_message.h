@@ -1,3 +1,6 @@
+#ifndef _MW_MESSAGE_H
+#define _MW_MESSAGE_H
+
 
 /*
   Meanwhile - Unofficial Lotus Sametime Community Client Library
@@ -18,288 +21,298 @@
   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
-#ifndef _MW_MESSAGE_H
-#define _MW_MESSAGE_H
+
+/**
+
+*/
 
 
-#include <glib/glist.h>
+#include <glib.h>
 #include "mw_common.h"
 
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+G_BEGIN_DECLS
 
 
-/** Cast a pointer to a message subtype (eg, mwMsgHandshake,
-    mwMsgAdmin) into a pointer to a mwMessage */
+/** Cast a pointer to a message subtype (eg, MwMsgHandshake,
+    MwMsgAdmin) into a pointer to a MwMessage */
 #define MW_MESSAGE(msg) (&msg->head)
 
 
 /** Indicates the type of a message. */
-enum mwMessageType {
-  mwMessage_HANDSHAKE         = 0x0000,  /**< mwMsgHandshake */
-  mwMessage_HANDSHAKE_ACK     = 0x8000,  /**< mwMsgHandshakeAck */
-  mwMessage_LOGIN             = 0x0001,  /**< mwMsgLogin */
-  mwMessage_LOGIN_ACK         = 0x8001,  /**< mwMsgLoginAck */
-  mwMessage_LOGIN_REDIRECT    = 0x0018,  /**< mwMsgLoginRedirect */
-  mwMessage_LOGIN_CONTINUE    = 0x0016,  /**< mwMsgLoginContinue */
+enum mw_message_type {
+  mw_message_HANDSHAKE        = 0x0000,  /**< MwMsgHandshake */
+  mw_message_HANDSHAKE_ACK    = 0x8000,  /**< MwMsgHandshakeAck */
+  mw_message_LOGIN            = 0x0001,  /**< MwMsgLogin */
+  mw_message_LOGIN_REDIRECT   = 0x0018,  /**< MwMsgLoginRedirect */
+  mw_message_LOGIN_FORCE      = 0x0016,  /**< MwMsgLoginForce */
+  mw_message_LOGIN_ACK        = 0x8001,  /**< MwMsgLoginAck */
 
-  mwMessage_CHANNEL_CREATE    = 0x0002,  /**< mwMsgChannelCreate */
-  mwMessage_CHANNEL_DESTROY   = 0x0003,  /**< mwMsgChannelDestroy */
-  mwMessage_CHANNEL_SEND      = 0x0004,  /**< mwMsgChannelSend */
-  mwMessage_CHANNEL_ACCEPT    = 0x0006,  /**< mwMsgChannelAccept */
+  mw_message_CHANNEL_CREATE   = 0x0002,  /**< MwMsgChannelCreate */
+  mw_message_CHANNEL_CLOSE    = 0x0003,  /**< MwMsgChannelClose */
+  mw_message_CHANNEL_SEND     = 0x0004,  /**< MwMsgChannelSend */
+  mw_message_CHANNEL_ACCEPT   = 0x0006,  /**< MwMsgChannelAccept */
 
-  mwMessage_SET_USER_STATUS   = 0x0009,  /**< mwMsgSetUserStatus */
-  mwMessage_SET_PRIVACY_LIST  = 0x000b,  /**< mwMsgSetPrivacyList */
-  mwMessage_SENSE_SERVICE     = 0x0011,  /**< mwMsgSenseService */
-  mwMessage_ADMIN             = 0x0019,  /**< mwMsgAdmin */
-  mwMessage_ANNOUNCE          = 0x0022,  /**< mwMsgAnnounce */
+  mw_message_STATUS           = 0x0009,  /**< MwMsgStatus */
+  mw_message_PRIVACY          = 0x000b,  /**< MwMsgPrivacy */
+
+  mw_message_SENSE_SERVICE    = 0x0011,  /**< MwMsgSenseService */
+  mw_message_ADMIN            = 0x0019,  /**< MwMsgAdmin */
+  mw_message_ANNOUNCE         = 0x0022,  /**< MwMsgAnnounce */
 };
 
 
-enum mwMessageOption {
-  mwMessageOption_ENCRYPT      = 0x4000,  /**< message data is encrypted */
-  mwMessageOption_HAS_ATTRIBS  = 0x8000,  /**< message has attributes */
+enum mw_message_ption {
+  mw_message_option_ENCRYPT  = 0x4000,  /**< message data is encrypted */
+  mw_message_option_ATTRIBS  = 0x8000,  /**< message has attributes */
 };
 
 
-/** @see mwMessageOption */
+/** @see mw_message_option */
 #define MW_MESSAGE_HAS_OPTION(msg, opt) \
   ((msg)->options & (opt))
 
 
-struct mwMessage {
-  guint16 type;     /**< @see mwMessageType */
-  guint16 options;  /**< @see mwMessageOption */
-  guint32 channel;  /**< ID of channel message is intended for */
-  struct mwOpaque attribs;  /**< optional message attributes */
+typedef struct mw_message MwMessage;
+
+
+struct mw_message {
+  guint16 type;      /**< @see mw_message_type */
+  guint16 options;   /**< @see mw_message_option */
+  guint32 channel;   /**< ID of channel message is intended for */
+  MwOpaque attribs;  /**< optional message attributes */
 };
 
 
-
-/** Allocate and initialize a new message of the specified type */
-struct mwMessage *mwMessage_new(enum mwMessageType type);
+/** Allocate and initialize a new MwMessage of the specified type */
+gpointer MwMessage_new(enum mw_message_type type);
 
 
 /** build a message from its representation */
-struct mwMessage *mwMessage_get(struct mwGetBuffer *b);
+gpointer MwMessage_get(MwGetBuffer *b);
 
 
-void mwMessage_put(struct mwPutBuffer *b, struct mwMessage *msg);
+/** write a message to a buffer */
+void MwMessage_put(MwPutBuffer *b, const MwMessage *msg);
 
 
-void mwMessage_free(struct mwMessage *msg);
+/** destroy a message */
+void MwMessage_free(MwMessage *msg);
 
 
-/* 8.4 Messages */
-/* 8.4.1 Basic Community Messages */
-/* 8.4.1.1 Handshake */
+typedef struct mw_msg_handshake MwMsgHandshake;
 
-struct mwMsgHandshake {
-  struct mwMessage head;
+
+struct mw_msg_handshake {
+  MwMessage head;
   guint16 major;          /**< client's major version number */
   guint16 minor;          /**< client's minor version number */
   guint32 srvrcalc_addr;  /**< 0.0.0.0 */
-  guint16 login_type;     /**< @see mwLoginType */
+  guint16 client_type;    /**< @see mw_client_type */
   guint32 loclcalc_addr;  /**< local public IP */
   guint16 unknown_a;      /**< normally 0x0100 */
   guint32 unknown_b;      /**< normally 0x00000000 */
-  char *local_host;       /**< name of client host */
+  gchar *local_host;      /**< name of client host */
 };
 
 
-/* 8.4.1.2 HandshakeAck */
+typedef struct mw_msg_handshake_ack MwMsgHandshakeAck;
 
-struct mwMsgHandshakeAck {
-  struct mwMessage head;
+
+struct mw_msg_handshake_ack {
+  MwMessage head;
   guint16 major;          /**< server's major version number */
   guint16 minor;          /**< server's minor version number */
   guint32 srvrcalc_addr;  /**< server-calculated address */
   guint32 magic;          /**< four bytes of something */
-  struct mwOpaque data;   /**< server's DH public key for auth */
+  MwOpaque data;          /**< server's DH public key for auth */
 };
 
 
-/* 8.3.7 Authentication Types */
+typedef struct mw_msg_login MwMsgLogin;
 
-enum mwAuthType {
-  mwAuthType_PLAIN    = 0x0000,
-  mwAuthType_TOKEN    = 0x0001,
-  mwAuthType_ENCRYPT  = 0x0002, /**< @todo remove for 1.0 */
-  mwAuthType_RC2_40   = 0x0002,
-  mwAuthType_RC2_128  = 0x0004,
+
+struct mw_msg_login  {
+  MwMessage head;
+  guint16 client_type;  /**< @see mw_client_type */
+  gchar *name;          /**< user identification */
+  guint16 auth_type;    /**< @see mw_auth_type */
+  MwOpaque auth_data;   /**< authentication data */
 };
 
 
-/* 8.4.1.3 Login */
+typedef struct mw_msg_login_ack MwMsgLoginAck;
 
-struct mwMsgLogin {
-  struct mwMessage head;
-  guint16 login_type;         /**< @see mwLoginType */
-  char *name;                 /**< user identification */
-  guint16 auth_type;          /**< @see mwAuthType */
-  struct mwOpaque auth_data;  /**< authentication data */
+
+struct mw_msg_login_ack {
+  MwMessage head;
+  MwLogin login;
+  MwPrivacy privacy;
+  MwStatus status;
 };
 
 
-/* 8.4.1.4 LoginAck */
+typedef struct mw_msg_login_redirect MwMsgLoginRedirect;
 
-struct mwMsgLoginAck {
-  struct mwMessage head;
-  struct mwLoginInfo login;
-  struct mwPrivacyInfo privacy;
-  struct mwUserStatus status;
+
+struct mw_msg_login_redirect {
+  MwMessage head;
+  gchar *host;
+  gchar *server_id;
 };
 
 
-/* 8.4.1.5 LoginCont */
+typedef struct mw_msg_login_force MwMsgLoginForce;
 
-struct mwMsgLoginContinue {
-  struct mwMessage head;
+
+struct mw_msg_login_force {
+  MwMessage head;
 };
 
 
-/* 8.4.1.6 AuthPassed */
+typedef struct mw_enc_item MwEncItem;
 
-struct mwMsgLoginRedirect {
-  struct mwMessage head;
-  char *host;
-  char *server_id;
+
+struct mw_enc_item {
+  guint16 cipher;
+  MwOpaque info;
 };
 
 
-/* 8.4.1.7 CreateCnl */
+typedef struct mw_msg_channel_create MwMsgChannelCreate;
 
-/** an offer of encryption items */
-struct mwEncryptOffer {
-  guint16 mode;   /**< encryption mode */
-  GList *items;   /**< list of mwEncryptItem offered */
-  guint16 extra;  /**< encryption mode again? */
-  gboolean flag;  /**< unknown flag */
+
+struct mw_msg_channel_create {
+  MwMessage head;
+
+  guint32 reserved;       /**< unknown reserved data */
+  guint32 channel;        /**< intended ID for new channel */
+  MwIdentity target;      /**< User ID. for service use */
+  guint32 service;        /**< ID for the target service */
+  guint32 proto_type;     /**< protocol type for the service */
+  guint32 proto_ver;      /**< protocol version for the service */
+  guint32 options;        /**< options */
+  MwOpaque addtl;         /**< service-specific additional data */
+  gboolean creator_flag;  /**< indicate presence of creator information */
+  MwLogin creator;
+
+  guint16 enc_mode;      /**< offered encryption mode */
+  guint32 enc_count;     /**< count of offered items */
+  MwEncItem *enc_items;  /**< offered encryption items */
+  guint16 enc_extra;     /**< encryption mode again? */
+  gboolean enc_flag;     /**< unknown flag */
 };
 
 
-struct mwMsgChannelCreate {
-  struct mwMessage head;
-  guint32 reserved;         /**< unknown reserved data */
-  guint32 channel;          /**< intended ID for new channel */
-  struct mwIdBlock target;  /**< User ID. for service use */
-  guint32 service;          /**< ID for the target service */
-  guint32 proto_type;       /**< protocol type for the service */
-  guint32 proto_ver;        /**< protocol version for the service */
-  guint32 options;          /**< options */
-  struct mwOpaque addtl;    /**< service-specific additional data */
-  gboolean creator_flag;    /**< indicate presence of creator information */
-  struct mwLoginInfo creator;
-  struct mwEncryptOffer encrypt;
-};
+typedef struct mw_msg_channel_accept MwMsgChannelAccept;
 
 
-/* 8.4.1.8 AcceptCnl */
-
-/** a selected encryption item from those offered */
-struct mwEncryptAccept {
-  guint16 mode;                /**< encryption mode */
-  struct mwEncryptItem *item;  /**< chosen mwEncryptItem (optional) */
-  guint16 extra;               /**< encryption mode again? */
-  gboolean flag;               /**< unknown flag */
-};
-
-
-struct mwMsgChannelAccept {
-  struct mwMessage head;
+struct mw_msg_channel_accept {
+  MwMessage head;
   guint32 service;         /**< ID for the channel's service */
   guint32 proto_type;      /**< protocol type for the service */
   guint32 proto_ver;       /**< protocol version for the service */
-  struct mwOpaque addtl;   /**< service-specific additional data */
+  MwOpaque addtl;          /**< service-specific additional data */
   gboolean acceptor_flag;  /**< indicate presence of acceptor information */
-  struct mwLoginInfo acceptor;
-  struct mwEncryptAccept encrypt;
+  MwLogin acceptor;
+
+  guint16 enc_mode;    /**< accepted encryption mode */
+  MwEncItem enc_item;  /**< accepted encryption item (if enc_mode != 0) */
+  guint16 enc_extra;   /**< originally offered encryption mode */
+  gboolean enc_flag;   /**< unknown flag */
 };
 
 
-/* 8.4.1.9 SendOnCnl */
+typedef struct mw_msg_channel_send MwMsgChannelSend;
 
-struct mwMsgChannelSend {
-  struct mwMessage head;
+
+struct mw_msg_channel_send {
+  MwMessage head;
 
   /** message type. each service defines its own send types. Type IDs
       are only necessarily unique within a given service. */
   guint16 type;
 
   /** protocol data to be interpreted by the handling service */
-  struct mwOpaque data;
+  MwOpaque data;
 };
 
 
-/* 8.4.1.10 DestroyCnl */
+typedef struct mw_msg_channel_close MwMsgChannelClose;
 
-struct mwMsgChannelDestroy {
-  struct mwMessage head;
-  guint32 reason;        /**< reason for closing the channel. */
-  struct mwOpaque data;  /**< additional information */
+
+struct mw_msg_channel_close {
+  MwMessage head;
+  guint32 reason;  /**< reason for closing the channel. */
+  MwOpaque data;   /**< additional information */
 };
 
 
-/* 8.4.1.11 SetUserStatus */
 
-struct mwMsgSetUserStatus {
-  struct mwMessage head;
-  struct mwUserStatus status;
+typedef struct mw_msg_status MwMsgStatus;
+
+
+struct mw_msg_status {
+  MwMessage head;
+  MwStatus status;
 };
 
 
-/* 8.4.1.12 SetPrivacyList */
+typedef struct mw_msg_privacy MwMsgPrivacy;
 
-struct mwMsgSetPrivacyList {
-  struct mwMessage head;
-  struct mwPrivacyInfo privacy;
+
+struct mw_msg_privacy {
+  MwMessage head;
+  MwPrivacy privacy;
 };
 
 
-/* Sense Service */
+typedef struct mw_msg_sense_service MwMsgSenseService;
+
 
 /** Sent to the server to request the presense of a service by its
     ID. Sent to the client to indicate the presense of such a
     service */
-struct mwMsgSenseService {
-  struct mwMessage head;
+struct mw_msg_sense_service {
+  MwMessage head;
   guint32 service;
 };
 
 
-/* Admin */
+typedef struct mw_msg_admin MwMsgAdmin;
+
 
 /** An administrative broadcast message */
-struct mwMsgAdmin {
-  struct mwMessage head;
-  char *text;
+struct mw_msg_admin {
+  MwMessage head;
+  gchar *text;
 };
 
 
-/* Announce */
+typedef struct mw_msg_announce MwMsgAnnounce;
+
 
 /** An announcement between users */
-struct mwMsgAnnounce {
-  struct mwMessage head;
-  gboolean sender_present;    /**< indicates presence of sender data */
-  struct mwLoginInfo sender;  /**< who sent the announcement */
-  guint16 unknown_a;          /**< unknown A. Usually 0x00 */
-  gboolean may_reply;         /**< replies allowed */
-  char *text;                 /**< text of message */
+struct mw_msg_announce {
+  MwMessage head;
+
+  gboolean sender_flag;  /**< indicates presence of sender data */
+  MwLogin sender;        /**< who sent the announcement */
+
+  guint16 unknown_a;   /**< unknown A. Usually 0x00 */
+  gboolean may_reply;  /**< replies allowed */
+  gchar *text;         /**< text of message */
+
+  guint32 rcpt_count;  /**< count of recipients */
 
   /** list of (char *) indicating recipients. Recipient users are in
       the format "@U username" and recipient NAB groups are in the
       format "@G groupname" */
-  GList *recipients;
+  gchar **recipients;
 };
 
 
-#ifdef __cplusplus
-}
-#endif
+G_END_DECLS
 
 
 #endif /* _MW_MESSAGE_H */
-

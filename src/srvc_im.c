@@ -1,4 +1,3 @@
-
 /*
   Meanwhile - Unofficial Lotus Sametime Community Client Library
   Copyright (C) 2004  Christopher (siege) O'Brien
@@ -18,1058 +17,1013 @@
   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
-#include <glib.h>
-#include <glib/glist.h>
-#include <string.h>
 
-#include "mw_channel.h"
+#include <glib.h>
+#include <glib/ghash.h>
+#include "mw_common.h"
 #include "mw_debug.h"
 #include "mw_error.h"
-#include "mw_message.h"
+#include "mw_marshal.h"
+#include "mw_object.h"
 #include "mw_service.h"
 #include "mw_session.h"
 #include "mw_srvc_im.h"
 #include "mw_util.h"
 
 
-#define PROTOCOL_TYPE  0x00001000
-#define PROTOCOL_VER   0x00000003
+#define MW_SERVICE_ID  0x00001000
+#define MW_PROTO_TYPE  0x00001000
+#define MW_PROTO_VER   0x00000003  
 
 
-/* data for the addtl blocks of channel creation */
-#define mwImAddtlA_NORMAL  0x00000001
-
-#define mwImAddtlB_NORMAL      0x00000001  /**< standard */
-#define mwImAddtlB_PRECONF     0x00000019  /**< pre-conference chat */
-#define mwImAddtlB_NOTESBUDDY  0x00033453  /**< notesbuddy */
-
-#define mwImAddtlC_NORMAL  0x00000002
+static GObjectClass *srvc_parent_class;
+static GObjectClass *conv_parent_class;
 
 
-/* send-on-channel message type */
-#define msg_MESSAGE  0x0064  /**< IM message */
-
-
-#define BREAKUP  2048
-
-
-/* which type of im? */
-enum mwImType {
-  mwIm_TEXT  = 0x00000001,  /**< text message */
-  mwIm_DATA  = 0x00000002,  /**< status message (usually) */
+struct mw_im_service_private {
+  GHashTable *convs;
 };
 
 
-/* which type of data im? */
-enum mwImDataType {
-  mwImData_TYPING   = 0x00000001,  /**< common use typing indicator */
-  mwImData_SUBJECT  = 0x00000003,  /**< notesbuddy IM topic */
-  mwImData_HTML     = 0x00000004,  /**< notesbuddy HTML message */
-  mwImData_MIME     = 0x00000005,  /**< notesbuddy MIME message, w/image */
-  mwImData_TIMESTAMP = 0x00000006, /**< notesbuddy timestamp */
-
-  mwImData_INVITE   = 0x0000000a,  /**< Places invitation */
-
-  mwImData_MULTI_START  = 0x00001388,
-  mwImData_MULTI_STOP   = 0x00001389,
-};
-
-
-/** @todo might be appropriate to make a couple of hashtables to
-    reference conversations by channel and target */
-struct mwServiceIm {
-  struct mwService service;
-
-  enum mwImClientType features;
-
-  struct mwImHandler *handler;
-  GList *convs;  /**< list of struct im_convo */
-};
-
-
-struct mwConversation {
-  struct mwServiceIm *service;  /**< owning service */
-  struct mwChannel *channel;    /**< channel */
-  struct mwIdBlock target;      /**< conversation target */
-
-  gboolean ext_id;              /**< special treatment, external ID */
-
-  /** state of the conversation, based loosely on the state of its
-      underlying channel */
-  enum mwConversationState state;
-
-  enum mwImClientType features;
-
-  GString *multi;               /**< buffer for multi-chunk message */
-  enum mwImSendType multi_type; /**< type of incoming multi-chunk message */
-
-  struct mw_datum client_data;
-};
-
-
-/** momentarily places a mwLoginInfo into a mwIdBlock */
-static void login_into_id(struct mwIdBlock *to, struct mwLoginInfo *from) {
-  to->user = from->user_id;
-  to->community = from->community;
+static const gchar *mw_get_name(MwService *self) {
+  return "Basic IM";
 }
 
 
-static struct mwConversation *convo_find_by_user(struct mwServiceIm *srvc,
-						 struct mwIdBlock *to) {
+static const gchar *mw_get_desc(MwService *self) {
+  return "Meanwhile's Basic Instant Messaging Service";
+}
+
+
+static void mw_conv_weak_cb(gpointer data, GObject *gone) {
+  gpointer *mem = data;
+  MwIMService *self;
+  MwIMServicePrivate *priv;
+
+  self = mem[0];
+  priv = self->private;
+
+  if(priv) {
+    g_hash_table_remove(priv->convs, mem[1]);
+  }
+
+  /* free what's allocated in mw_conv_setup */
+  g_free(mem);
+}
+
+
+static void mw_conv_setup(MwIMService *self, MwConversation *conv) {
+  MwIMServicePrivate *priv;
+  GHashTable *ht;
+  MwIdentity *id;
+  gpointer *mem;
+
+  priv = self->private;
+  ht = priv->convs;
+
+  /* id will be free'd as a key when the hash table is destroyed */
+  g_object_get(G_OBJECT(conv), "target", &id, NULL);
+
+  g_hash_table_insert(ht, id, conv);
+
+  mem = g_new0(gpointer, 2);
+  mem[0] = self;
+  mem[1] = id;
+  g_object_weak_ref(G_OBJECT(conv), mw_conv_weak_cb, mem);
+}
+
+
+static void mw_conv_recv_text(MwConversation *self, MwGetBuffer *gb) {
+  MwConversationClass *klass;
+  gchar *message = NULL;
+
+  klass = MW_CONVERSATION_GET_CLASS(self);
+
+  mw_str_get(gb, &message);
+  g_signal_emit(self, klass->signal_got_text, 0, message, NULL);
+  g_free(message);
+}
+
+
+static void mw_conv_recv_data(MwConversation *self, MwGetBuffer *gb) {
+  MwConversationClass *klass;
+  guint32 type, subtype;
+
+  klass = MW_CONVERSATION_GET_CLASS(self);
+
+  mw_uint32_get(gb, &type);
+  mw_uint32_get(gb, &subtype);
+
+  if(type == 0x01) {
+    g_signal_emit(self, klass->signal_got_typing, 0, !subtype, NULL);
+
+  } else {
+    MwOpaque data;
+
+    MwOpaque_get(gb, &data);
+    g_signal_emit(self, klass->signal_got_data, 0, type, subtype, &data, NULL);
+    MwOpaque_clear(&data);
+  }
+}
+
+
+static void mw_chan_recv(MwChannel *chan, guint type, const MwOpaque *msg,
+			 MwConversation *conv) {
+
+  MwGetBuffer *gb;
+  guint32 a;
+
+  mw_debug_enter();
+
+  /* parse text vs. data */
+
+  if(type != 0x64)
+    return;
+
+  gb = MwGetBuffer_wrap(msg);
+  
+  mw_uint32_get(gb, &a);
+  
+  switch(a) {
+  case 0x01:
+    mw_conv_recv_text(conv, gb);
+    break;
+  case 0x02:
+    mw_conv_recv_data(conv, gb);
+    break;
+  default:
+    ;
+  }
+
+  MwGetBuffer_free(gb);
+
+  mw_debug_exit();
+}
+
+
+static void mw_chan_state(MwChannel *chan, MwConversation *conv) {
+  /* if state is closed or error,
+       mark conv as closed, emit state changed
+     elif state is open,
+       mark conv as open, emit state changed
+  */
+
+  /* XXX */
+}
+
+
+static void mw_incoming_accept(MwSession *session, MwIMService *self,
+			       MwChannel *chan) {
+  MwStatus stat;
+  MwPutBuffer *pb;
+  MwOpaque o;
+  gchar *user = NULL, *community = NULL;
+  MwConversation *conv;
+  MwIMServiceClass *klass;
+  
+  g_object_get(G_OBJECT(session),
+	       "status", &stat.status,
+	       "status-idle-since", &stat.time,
+	       "status-message", &stat.desc,
+	       NULL);
+
+  /* compose accept addtl */
+  pb = MwPutBuffer_new();
+  mw_uint32_put(pb, 0x01);
+  mw_uint32_put(pb, 0x01);
+  mw_uint32_put(pb, 0x02);
+  MwStatus_put(pb, &stat);
+  MwPutBuffer_free(pb, &o);
+
+  /* accept channel */
+  MwChannel_open(chan, &o);
+
+  /* cleanup from accept */
+  MwStatus_clear(&stat, TRUE);
+  MwOpaque_clear(&o);
+
+  g_object_get(G_OBJECT(chan),
+	       "user", &user,
+	       "community", &community,
+	       NULL);
+
+  /* find or get a conversation */
+  conv = MwIMService_getConversation(self, user, community);
+
+  g_free(user);
+  g_free(community);
+
+  g_object_set(G_OBJECT(conv), "channel", chan, NULL);
+
+  klass = MW_IM_SERVICE_GET_CLASS(self);
+
+  g_signal_emit(self, klass->signal_incoming_conversation, 0,
+		conv, NULL);
+
+  mw_gobject_unref(conv);
+}
+
+
+static gboolean mw_incoming_channel(MwSession *session, MwChannel *chan,
+				    MwIMService *self) {
+  guint srvc, proto_type, proto_ver;
+  gboolean ret = FALSE;
+
+  mw_debug_enter();
+
+  g_object_get(G_OBJECT(chan),
+	       "service-id", &srvc,
+	       "protocol-type", &proto_type,
+	       "protocol-version", &proto_ver,
+	       NULL);
+
+  if(srvc == MW_SERVICE_ID &&
+     proto_type == MW_PROTO_TYPE &&
+     proto_ver == MW_PROTO_VER) {
+    
+    MwOpaque *info;
+    MwGetBuffer *gb;
+    guint a, b;
+    
+    g_object_get(G_OBJECT(chan), "offered-info", &info, NULL);
+
+    gb = MwGetBuffer_wrap(info);
+    mw_uint32_get(gb, &a);
+    mw_uint32_get(gb, &b);
+
+    MwGetBuffer_free(gb);
+    MwOpaque_free(info);
+
+    if(a == 0x01 && b == 0x01) {
+      mw_incoming_accept(session, self, chan);
+
+    } else {
+      MwChannel_close(chan, ERR_IM_NOT_REGISTERED, NULL);
+    }
+
+    ret = TRUE;
+  }
+  
+  mw_debug_exit();
+  return ret;
+}
+
+
+static void mw_start(MwService *srvc) {
+  MwIMService *self;
+  MwSession *session;
+
+  self = MW_IM_SERVICE(srvc);
+
+  g_object_get(G_OBJECT(self), "session", &session, NULL);
+
+  g_signal_connect(G_OBJECT(session), "channel",
+		   G_CALLBACK(mw_incoming_channel), self);
+
+  mw_gobject_unref(session);
+
+  MW_SERVICE_CLASS(srvc_parent_class)->start(srvc);
+}
+
+
+static void mw_stop(MwService *srvc) {
+  /* stop all conversations */
+
+  MwIMService *self;
   GList *l;
 
-  for(l = srvc->convs; l; l = l->next) {
-    struct mwConversation *c = l->data;
-    if(mwIdBlock_equal(&c->target, to))
-       return c;
+  self = MW_IM_SERVICE(srvc);
+  l = MwIMService_getConversations(self);
+
+  for(; l; l = g_list_delete_link(l, l)) {
+    MwConversation_close(l->data);
   }
 
-  return NULL;
+  MW_SERVICE_CLASS(srvc_parent_class)->stop(srvc);
 }
 
 
-static const char *conv_state_str(enum mwConversationState state) {
-  switch(state) {
-  case mwConversation_CLOSED:
-    return "closed";
-
-  case mwConversation_OPEN:
-    return "open";
-
-  case mwConversation_PENDING:
-    return "pending";
-
-  case mwConversation_UNKNOWN:
-  default:
-    return "UNKNOWN";
-  }
-}
-
-
-static void convo_set_state(struct mwConversation *conv,
-			    enum mwConversationState state) {
-
-  g_return_if_fail(conv != NULL);
-
-  if(conv->state != state) {
-    g_info("setting conversation (%s, %s) state: %s",
-	   NSTR(conv->target.user), NSTR(conv->target.community),
-	   conv_state_str(state));
-    conv->state = state;
-  }
-}
-
-
-struct mwConversation *mwServiceIm_findConversation(struct mwServiceIm *srvc,
-						    struct mwIdBlock *to) {
-  g_return_val_if_fail(srvc != NULL, NULL);
-  g_return_val_if_fail(to != NULL, NULL);
-
-  return convo_find_by_user(srvc, to);
-}
-
-
-struct mwConversation *mwServiceIm_getConversation(struct mwServiceIm *srvc,
-						   struct mwIdBlock *to) {
-  struct mwConversation *c;
-
-  g_return_val_if_fail(srvc != NULL, NULL);
-  g_return_val_if_fail(to != NULL, NULL);
-
-  c = convo_find_by_user(srvc, to);
-  if(! c) {
-    c = g_new0(struct mwConversation, 1);
-    c->service = srvc;
-    mwIdBlock_clone(&c->target, to);
-    c->state = mwConversation_CLOSED;
-    c->features = srvc->features;
-
-    /* mark external users */
-    /* c->ext_id = g_str_has_prefix(to->user, "@E "); */
-
-    srvc->convs = g_list_prepend(srvc->convs, c);
-  }
-
-  return c;
-}
-
-
-static void convo_create_chan(struct mwConversation *c) {
-  struct mwSession *s;
-  struct mwChannelSet *cs;
-  struct mwChannel *chan;
-  struct mwLoginInfo *login;
-  struct mwPutBuffer *b;
-
-  /* we only should be calling this if there isn't a channel already
-     associated with the conversation */
-  g_return_if_fail(c != NULL);
-  g_return_if_fail(mwConversation_isPending(c));
-  g_return_if_fail(c->channel == NULL);
-
-  s = mwService_getSession(MW_SERVICE(c->service));
-  cs = mwSession_getChannels(s);
-
-  chan = mwChannel_newOutgoing(cs);
-  mwChannel_setService(chan, MW_SERVICE(c->service));
-  mwChannel_setProtoType(chan, PROTOCOL_TYPE);
-  mwChannel_setProtoVer(chan, PROTOCOL_VER);
-
-  /* offer all known ciphers */
-  mwChannel_populateSupportedCipherInstances(chan);
-
-  /* set the target */
-  login = mwChannel_getUser(chan);
-  login->user_id = g_strdup(c->target.user);
-  login->community = g_strdup(c->target.community);
-
-  /* compose the addtl create, with optional FANCY HTML! */
-  b = mwPutBuffer_new();
-  guint32_put(b, mwImAddtlA_NORMAL);
-  guint32_put(b, c->features);
-  mwPutBuffer_finalize(mwChannel_getAddtlCreate(chan), b);
-
-  c->channel = mwChannel_create(chan)? NULL: chan;
-  if(c->channel) {
-    mwChannel_setServiceData(c->channel, c, NULL);
-  }
-}
-
-
-void mwConversation_open(struct mwConversation *conv) {
-  g_return_if_fail(conv != NULL);
-  g_return_if_fail(mwConversation_isClosed(conv));
-
-  convo_set_state(conv, mwConversation_PENDING);
-  convo_create_chan(conv);
-}
-
-
-static void convo_opened(struct mwConversation *conv) {
-  struct mwImHandler *h = NULL;
-
-  g_return_if_fail(conv != NULL);
-  g_return_if_fail(conv->service != NULL);
-
-  convo_set_state(conv, mwConversation_OPEN);
-  h = conv->service->handler;
-
-  g_return_if_fail(h != NULL);
-
-  if(h->conversation_opened)
-    h->conversation_opened(conv);
-}
-
-
-static void convo_free(struct mwConversation *conv) {
-  struct mwServiceIm *srvc;
-
-  mwConversation_removeClientData(conv);
-
-  srvc = conv->service;
-  srvc->convs = g_list_remove_all(srvc->convs, conv);
-
-  mwIdBlock_clear(&conv->target);
-  g_free(conv);
-}
-
-
-static int send_accept(struct mwConversation *c) {
-
-  struct mwChannel *chan = c->channel;
-  struct mwSession *s = mwChannel_getSession(chan);
-  struct mwUserStatus *stat = mwSession_getUserStatus(s);
-
-  struct mwPutBuffer *b;
-  struct mwOpaque *o;
-
-  b = mwPutBuffer_new();
-  guint32_put(b, mwImAddtlA_NORMAL);
-  guint32_put(b, c->features);
-  guint32_put(b, mwImAddtlC_NORMAL);
-  mwUserStatus_put(b, stat);
-
-  o = mwChannel_getAddtlAccept(chan);
-  mwOpaque_clear(o);
-  mwPutBuffer_finalize(o, b);
-
-  return mwChannel_accept(chan);
-}
-
-
-static void recv_channelCreate(struct mwService *srvc,
-			       struct mwChannel *chan,
-			       struct mwMsgChannelCreate *msg) {
-
-  /* - ensure it's the right service,proto,and proto ver
-     - check the opaque for the right opaque junk
-     - if not, close channel
-     - compose & send a channel accept
-  */
-
-  struct mwServiceIm *srvc_im = (struct mwServiceIm *) srvc;
-  struct mwImHandler *handler;
-  struct mwSession *s;
-  struct mwUserStatus *stat;
-  guint32 x, y, z;
-  struct mwGetBuffer *b;
-  struct mwConversation *c = NULL;
-  struct mwIdBlock idb;
-
-  handler = srvc_im->handler;
-  s = mwChannel_getSession(chan);
-  stat = mwSession_getUserStatus(s);
-
-  /* ensure the appropriate service/proto/ver */
-  x = mwChannel_getServiceId(chan);
-  y = mwChannel_getProtoType(chan);
-  z = mwChannel_getProtoVer(chan);
-
-  if( (x != mwService_IM) || (y != PROTOCOL_TYPE) || (z != PROTOCOL_VER) ) {
-    g_warning("unacceptable service, proto, ver:"
-	      " 0x%08x, 0x%08x, 0x%08x", x, y, z);
-    mwChannel_destroy(chan, ERR_SERVICE_NO_SUPPORT, NULL);
-    return;
-  }
-
-  /* act upon the values in the addtl block */
-  b = mwGetBuffer_wrap(&msg->addtl);
-  guint32_get(b, &x);
-  guint32_get(b, &y);
-  z = (guint) mwGetBuffer_error(b);
-  mwGetBuffer_free(b);
-
-  if(z /* buffer error, BOOM! */ ) {
-    g_warning("bad/malformed addtl in IM service");
-    mwChannel_destroy(chan, ERR_FAILURE, NULL);
-    return;
-
-  } else if(x != mwImAddtlA_NORMAL) {
-    g_message("unknown params: 0x%08x, 0x%08x", x, y);
-    mwChannel_destroy(chan, ERR_IM_NOT_REGISTERED, NULL);
-    return;
-    
-  } else if(y == mwImAddtlB_PRECONF) {
-    if(! handler->place_invite) {
-      g_info("rejecting place-invite channel");
-      mwChannel_destroy(chan, ERR_IM_NOT_REGISTERED, NULL);
-      return;
-
-    } else {
-      g_info("accepting place-invite channel");
-    }
-
-  } else if(y != mwImClient_PLAIN && y != srvc_im->features) {
-    /** reject what we do not understand */
-    mwChannel_destroy(chan, ERR_IM_NOT_REGISTERED, NULL);
-    return;
-
-  } else if(stat->status == mwStatus_BUSY) {
-    g_info("rejecting IM channel due to DND status");
-    mwChannel_destroy(chan, ERR_CLIENT_USER_DND, NULL);
-    return;
-  }
-
-  login_into_id(&idb, mwChannel_getUser(chan));
-
-#if 0
-  c = convo_find_by_user(srvc_im, &idb);
-#endif
-
-  if(! c) {
-    c = g_new0(struct mwConversation, 1);
-    c->service = srvc_im;
-    srvc_im->convs = g_list_prepend(srvc_im->convs, c);
-  }
-
-#if 0
-  /* we're going to re-associate any existing conversations with this
-     new channel. That means closing any existing ones */
-  if(c->channel) {
-    g_info("closing existing IM channel 0x%08x", mwChannel_getId(c->channel));
-    mwConversation_close(c, ERR_SUCCESS);
-  }
-#endif
-
-  /* set up the conversation with this channel, target, and be fancy
-     if the other side requested it */
-  c->channel = chan;
-  mwIdBlock_clone(&c->target, &idb);
-  c->features = y;
-  convo_set_state(c, mwConversation_PENDING);
-  mwChannel_setServiceData(c->channel, c, NULL);
-
-  if(send_accept(c)) {
-    g_warning("sending IM channel accept failed");
-    mwConversation_free(c);
-
-  } else {
-    convo_opened(c);
-  }
-}
-
-
-static void recv_channelAccept(struct mwService *srvc, struct mwChannel *chan,
-			       struct mwMsgChannelAccept *msg) {
-
-  struct mwConversation *conv;
-
-  conv = mwChannel_getServiceData(chan);
-  if(! conv) {
-    g_warning("received channel accept for non-existant conversation");
-    mwChannel_destroy(chan, ERR_FAILURE, NULL);
-    return;
-  }
-
-  convo_opened(conv);
-}
-
-
-static void recv_channelDestroy(struct mwService *srvc, struct mwChannel *chan,
-				struct mwMsgChannelDestroy *msg) {
-
-  struct mwConversation *c;
-
-  c = mwChannel_getServiceData(chan);
-  g_return_if_fail(c != NULL);
-
-  c->channel = NULL;
-
-  if(mwChannel_isState(chan, mwChannel_ERROR)) {
-
-    /* checking for failure on the receiving end to accept html
-       messages. Fail-over to a non-html format on a new channel for
-       the convo */
-    if(c->features != mwImClient_PLAIN
-       && (msg->reason == ERR_IM_NOT_REGISTERED ||
-	   msg->reason == ERR_SERVICE_NO_SUPPORT)) {
-
-      g_debug("falling back on a plaintext conversation");
-      c->features = mwImClient_PLAIN;
-      convo_create_chan(c);
-      return;
-    }
-  }
-
-  mwConversation_close(c, msg->reason);
-}
-
-
-static void convo_recv(struct mwConversation *conv, enum mwImSendType type,
-		       gconstpointer msg) {
-
-  struct mwServiceIm *srvc;
-  struct mwImHandler *handler;
-
-  g_return_if_fail(conv != NULL);
-
-  srvc = conv->service;
-  g_return_if_fail(srvc != NULL);
-
-  handler = srvc->handler;
-  if(handler && handler->conversation_recv)
-    handler->conversation_recv(conv, type, msg);
-}
-
-
-static void convo_multi_start(struct mwConversation *conv) {
-  g_return_if_fail(conv->multi == NULL);
-  conv->multi = g_string_new(NULL);
-}
-
-
-static void convo_multi_stop(struct mwConversation *conv) {
-
-  g_return_if_fail(conv->multi != NULL);
-
-  /* actually send it */
-  convo_recv(conv, conv->multi_type, conv->multi->str);
-
-  /* clear up the multi buffer */
-  g_string_free(conv->multi, TRUE);
-  conv->multi = NULL;
-}
-
-
-static void recv_text(struct mwServiceIm *srvc, struct mwChannel *chan,
-		      struct mwGetBuffer *b) {
-
-  struct mwConversation *c;
-  char *text = NULL;
-
-  mwString_get(b, &text);
-
-  if(! text) return;
-
-  c = mwChannel_getServiceData(chan);
-  if(c) {
-    if(c->multi) {
-      g_string_append(c->multi, text);
-
-    } else {
-      convo_recv(c, mwImSend_PLAIN, text); 
-    }
-  }
-
-  g_free(text);
-}
-
-
-static void convo_invite(struct mwConversation *conv,
-			 struct mwOpaque *o) {
-
-  struct mwServiceIm *srvc;
-  struct mwImHandler *handler;
-
-  struct mwGetBuffer *b;
-  char *title, *name, *msg;
-  char *unkn, *host;
-  guint16 with_who;
-
-  g_info("convo_invite");
-
-  srvc = conv->service;
-  handler = srvc->handler;
-
-  g_return_if_fail(handler != NULL);
-  g_return_if_fail(handler->place_invite != NULL);
-
-  b = mwGetBuffer_wrap(o);
-  mwGetBuffer_advance(b, 4);
-  mwString_get(b, &title);
-  mwString_get(b, &msg);
-  mwGetBuffer_advance(b, 19);
-  mwString_get(b, &name);
-
-  /* todo: add a mwString_skip */
-  mwString_get(b, &unkn);
-  mwString_get(b, &host);
-  g_free(unkn);
-  g_free(host);
-
-  /* hack. Sometimes incoming convo invitation channels won't have the
-     owner id block filled in */
-  guint16_get(b, &with_who);
-  if(with_who && !conv->target.user) {
-    char *login;
-    mwString_get(b, &conv->target.user);
-    mwString_get(b, &login); g_free(login);
-    mwString_get(b, &conv->target.community);
-  }  
-
-  if(mwGetBuffer_error(b)) {
-    mw_mailme_opaque(o, "problem with place invite over IM service");
-  } else {
-    handler->place_invite(conv, msg, title, name);
-  }
-
-  mwGetBuffer_free(b);
-  g_free(msg);
-  g_free(title);
-  g_free(name);
-}
-
-
-static void recv_data(struct mwServiceIm *srvc, struct mwChannel *chan,
-		      struct mwGetBuffer *b) {
-
-  struct mwConversation *conv;
-  guint32 type, subtype;
-  struct mwOpaque o = { 0, 0 };
-  char *x;
-
-  guint32_get(b, &type);
-  guint32_get(b, &subtype);
-  mwOpaque_get(b, &o);
-
-  if(mwGetBuffer_error(b)) {
-    mwOpaque_clear(&o);
-    return;
-  }
-
-  conv = mwChannel_getServiceData(chan);
-  if(! conv) return;
-
-  switch(type) {
-  case mwImData_TYPING:
-    convo_recv(conv, mwImSend_TYPING, GINT_TO_POINTER(! subtype));
-    break;
-
-  case mwImData_HTML:
-    if(o.len) {
-      if(conv->multi) {
-	g_string_append_len(conv->multi, (char *) o.data, o.len);
-	conv->multi_type = mwImSend_HTML;
-
-      } else {
-	x = g_strndup((char *) o.data, o.len);
-	convo_recv(conv, mwImSend_HTML, x);
-	g_free(x);
-      }
-    }
-    break;
-
-  case mwImData_SUBJECT:
-    x = g_strndup((char *) o.data, o.len);
-    convo_recv(conv, mwImSend_SUBJECT, x);
-    g_free(x);
-    break;
-
-  case mwImData_MIME:
-    if(conv->multi) {
-      g_string_append_len(conv->multi, (char *) o.data, o.len);
-      conv->multi_type = mwImSend_MIME;
-
-    } else {
-      x = g_strndup((char *) o.data, o.len);
-      convo_recv(conv, mwImSend_MIME, x);
-      g_free(x);
-    }
-    break;
-
-  case mwImData_TIMESTAMP:
-    /* todo */
-    break;
-
-  case mwImData_INVITE:
-    convo_invite(conv, &o);
-    break;
-
-  case mwImData_MULTI_START:
-    convo_multi_start(conv);
-    break;
-
-  case mwImData_MULTI_STOP:
-    convo_multi_stop(conv);
-    break;
-
-  default:
-    
-    mw_mailme_opaque(&o, "unknown data message type in IM service:"
-		     " (0x%08x, 0x%08x)", type, subtype);
-  }
-
-  mwOpaque_clear(&o);
-}
-
-
-static void recv(struct mwService *srvc, struct mwChannel *chan,
-		 guint16 type, struct mwOpaque *data) {
-
-  /* - ensure message type is something we want
-     - parse message type into either mwIMText or mwIMData
-     - handle
-  */
-
-  struct mwGetBuffer *b;
-  guint32 mt;
-
-  g_return_if_fail(type == msg_MESSAGE);
-
-  b = mwGetBuffer_wrap(data);
-  guint32_get(b, &mt);
-
-  if(mwGetBuffer_error(b)) {
-    g_warning("failed to parse message for IM service");
-    mwGetBuffer_free(b);
-    return;
-  }
-
-  switch(mt) {
-  case mwIm_TEXT:
-    recv_text((struct mwServiceIm *) srvc, chan, b);
-    break;
-
-  case mwIm_DATA:
-    recv_data((struct mwServiceIm *) srvc, chan, b);
-    break;
-
-  default:
-    g_warning("unknown message type 0x%08x for IM service", mt);
-  }
-
-  if(mwGetBuffer_error(b))
-    g_warning("failed to parse message type 0x%08x for IM service", mt);
-
-  mwGetBuffer_free(b);
-}
-
-
-static void clear(struct mwServiceIm *srvc) {
-  struct mwImHandler *h;
-
-  while(srvc->convs)
-    convo_free(srvc->convs->data);
-
-  h = srvc->handler;
-  if(h && h->clear)
-    h->clear(srvc);
-  srvc->handler = NULL;
-}
-
-
-static const char *name(struct mwService *srvc) {
-  return "Instant Messaging";
-}
-
-
-static const char *desc(struct mwService *srvc) {
-  return "IM service with Standard and NotesBuddy features";
-}
-
-
-static void start(struct mwService *srvc) {
-  mwService_started(srvc);
-}
-
-
-static void stop(struct mwServiceIm *srvc) {
-
-  while(srvc->convs)
-    mwConversation_free(srvc->convs->data);
-
-  mwService_stopped(MW_SERVICE(srvc));
-}
-
-
-struct mwServiceIm *mwServiceIm_new(struct mwSession *session,
-				    struct mwImHandler *hndl) {
-
-  struct mwServiceIm *srvc_im;
-  struct mwService *srvc;
-
-  g_return_val_if_fail(session != NULL, NULL);
-  g_return_val_if_fail(hndl != NULL, NULL);
-
-  srvc_im = g_new0(struct mwServiceIm, 1);
-  srvc = MW_SERVICE(srvc_im);
-
-  mwService_init(srvc, session, mwService_IM);
-  srvc->recv_create = recv_channelCreate;
-  srvc->recv_accept = recv_channelAccept;
-  srvc->recv_destroy = recv_channelDestroy;
-  srvc->recv = recv;
-  srvc->clear = (mwService_funcClear) clear;
-  srvc->get_name = name;
-  srvc->get_desc = desc;
-  srvc->start = start;
-  srvc->stop = (mwService_funcStop) stop;
-
-  srvc_im->features = mwImClient_PLAIN;
-  srvc_im->handler = hndl;
-
-  return srvc_im;
-}
-
-
-struct mwImHandler *mwServiceIm_getHandler(struct mwServiceIm *srvc) {
-  g_return_val_if_fail(srvc != NULL, NULL);
-  return srvc->handler;
-}
-
-
-gboolean mwServiceIm_supports(struct mwServiceIm *srvc,
-			      enum mwImSendType type) {
-
-  g_return_val_if_fail(srvc != NULL, FALSE);
-
-  switch(type) {
-  case mwImSend_PLAIN:
-  case mwImSend_TYPING:
-    return TRUE;
-
-  case mwImSend_SUBJECT:
-  case mwImSend_HTML:
-  case mwImSend_MIME:
-  case mwImSend_TIMESTAMP:
-    return srvc->features == mwImClient_NOTESBUDDY;
-
-  default:
-    return FALSE;
-  }
-}
-
-
-void mwServiceIm_setClientType(struct mwServiceIm *srvc,
-			       enum mwImClientType type) {
-
-  g_return_if_fail(srvc != NULL);
-  srvc->features = type;
-}
-
-
-enum mwImClientType mwServiceIm_getClientType(struct mwServiceIm *srvc) {
-  g_return_val_if_fail(srvc != NULL, mwImClient_UNKNOWN);
-  return srvc->features;
-}
-
-
-static int convo_send_data(struct mwConversation *conv,
-			   guint32 type, guint32 subtype,
-			   struct mwOpaque *data) {
-  struct mwPutBuffer *b;
-  struct mwOpaque o;
-  struct mwChannel *chan;
-  int ret;
-
-  chan = conv->channel;
-  g_return_val_if_fail(chan != NULL, -1);
-
-  b = mwPutBuffer_new();
-
-  guint32_put(b, mwIm_DATA);
-  guint32_put(b, type);
-  guint32_put(b, subtype);
-  mwOpaque_put(b, data);
-
-  mwPutBuffer_finalize(&o, b);
-
-  ret = mwChannel_sendEncrypted(chan, msg_MESSAGE, &o, !conv->ext_id);
-  mwOpaque_clear(&o);
-
-  return ret;
-}
-
-
-static int convo_send_multi_start(struct mwConversation *conv) {
-  return convo_send_data(conv, mwImData_MULTI_START, 0x00, NULL);
-}
-
-
-static int convo_send_multi_stop(struct mwConversation *conv) {
-  return convo_send_data(conv, mwImData_MULTI_STOP, 0x00, NULL);
-}
-
-
-/* breaks up a large message into segments, sends a start_segment
-   message, then sends each segment in turn, then sends a stop_segment
-   message */
-static int
-convo_sendSegmented(struct mwConversation *conv, const char *message,
-		    int (*send)(struct mwConversation *conv,
-				const char *msg)) {
-  char *buf = (char *) message;
-  gsize len;
-  int ret = 0;
-
-  len = strlen(buf);
-  ret = convo_send_multi_start(conv);
-
-  while(len && !ret) {
-    char tail;
-    gsize seg;
-
-    seg = BREAKUP;
-    if(len < BREAKUP)
-      seg = len;
-
-    /* temporarily NUL-terminate this segment */
-    tail = buf[seg];
-    buf[seg] = 0x00;
-
-    ret = send(conv, buf);
-
-    /* restore this segment */
-    buf[seg] = tail;
-    
-    buf += seg;
-    len -= seg;
-  }
-
-  if(! ret)
-    ret = convo_send_multi_stop(conv);
-
-  return ret;
-}
-
-
-static int convo_sendText(struct mwConversation *conv, const char *text) {
-  struct mwPutBuffer *b;
-  struct mwOpaque o;
-  int ret;
+static MwConversation *mw_get_conv(MwIMService *self,
+				   const gchar *user,
+				   const gchar *community) {
+  MwConversation *conv;
   
-  b = mwPutBuffer_new();
+  conv = MwIMService_findConversation(self, user, community);
 
-  guint32_put(b, mwIm_TEXT);
-  mwString_put(b, text);
+  if(! conv) {
+    conv = g_object_new(MW_TYPE_CONVERSATION,
+			"service", self,
+			"user", user,
+			"community", community,
+			NULL);
 
-  mwPutBuffer_finalize(&o, b);
-  ret = mwChannel_sendEncrypted(conv->channel, msg_MESSAGE, &o, !conv->ext_id);
-  mwOpaque_clear(&o);
+    mw_conv_setup(self, conv);
+  }
 
-  return ret;
+  return conv;
 }
 
 
-static int convo_sendTyping(struct mwConversation *conv, gboolean typing) {
-  return convo_send_data(conv, mwImData_TYPING, !typing, NULL);
+static MwConversation *mw_find_conv(MwIMService *self,
+				    const gchar *user,
+				    const gchar *community) {
+
+  MwIMServicePrivate *priv;
+  MwConversation *conv;
+  GHashTable *ht;
+  MwIdentity id = { .user = (gchar *) user,
+		    .community = (gchar *) community };
+
+  priv = self->private;
+  ht = priv->convs;
+  conv = g_hash_table_lookup(ht, &id);
+
+  return mw_gobject_ref(conv);
 }
 
 
-static int convo_sendSubject(struct mwConversation *conv,
-			     const char *subject) {
-  struct mwOpaque o;
-
-  o.len = strlen(subject);
-  o.data = (guchar *) subject;
-
-  return convo_send_data(conv, mwImData_SUBJECT, 0x00, &o);
+static GList *mw_get_convs(MwIMService *self) {
+  return mw_map_collect_values(self->private->convs);
 }
 
 
-static int convo_sendHtml(struct mwConversation *conv, const char *html) {
-  struct mwOpaque o;
+static GObject *
+mw_srvc_constructor(GType type, guint props_count,
+		    GObjectConstructParam *props) {
 
-  o.len = strlen(html);
-  o.data = (guchar *) html;
+  MwIMServiceClass *klass;
 
-  if(o.len > BREAKUP) {
-    return convo_sendSegmented(conv, html, convo_sendHtml);
-  } else {
-    return convo_send_data(conv, mwImData_HTML, 0x00, &o);
+  GObject *obj;
+  MwIMService *self;
+  MwIMServicePrivate *priv;
+
+  mw_debug_enter();
+
+  klass = MW_IM_SERVICE_CLASS(g_type_class_peek(MW_TYPE_IM_SERVICE));
+
+  obj = srvc_parent_class->constructor(type, props_count, props);
+  self = (MwIMService *) obj;
+
+  /* set in mw_srvc_init */
+  priv = self->private;
+
+  priv->convs = g_hash_table_new_full((GHashFunc) MwIdentity_hash,
+				       (GEqualFunc) MwIdentity_equal,
+				       (GDestroyNotify) MwIdentity_free,
+				       NULL);
+
+  mw_debug_exit();
+  return obj;
+}
+
+
+static void mw_srvc_dispose(GObject *object) {
+  MwIMService *self;
+  MwIMServicePrivate *priv;
+
+  mw_debug_enter();
+
+  self = MW_IM_SERVICE(object);
+  priv = self->private;
+
+  if(priv) {
+    self->private = NULL;
+    g_hash_table_destroy(priv->convs);
+    g_free(priv);
+  }
+
+  srvc_parent_class->dispose(object);
+
+  mw_debug_exit();
+}
+
+
+static guint mw_signal_incoming_conversation() {
+  return g_signal_new("incoming-conversation",
+		      MW_TYPE_IM_SERVICE,
+		      0,
+		      0,
+		      NULL, NULL,
+		      mw_marshal_VOID__POINTER,
+		      G_TYPE_NONE,
+		      1,
+		      G_TYPE_POINTER);
+}
+
+
+static void mw_srvc_class_init(gpointer gclass, gpointer gclass_data) {
+  GObjectClass *gobject_class = gclass;
+  MwServiceClass *service_class = gclass;
+  MwIMServiceClass *klass = gclass;
+
+  srvc_parent_class = g_type_class_peek_parent(gobject_class);
+
+  gobject_class->constructor = mw_srvc_constructor;
+  gobject_class->dispose = mw_srvc_dispose;
+
+  service_class->get_name = mw_get_name;
+  service_class->get_desc = mw_get_desc;
+  service_class->start = mw_start;
+  service_class->stop = mw_stop;
+
+  klass->signal_incoming_conversation = mw_signal_incoming_conversation();
+  
+  klass->get_conv = mw_get_conv;
+  klass->find_conv = mw_find_conv;
+  klass->get_convs = mw_get_convs;
+}
+
+
+static void mw_srvc_init(GTypeInstance *instance, gpointer g_class) {
+  MwIMService *self;
+
+  self = (MwIMService *) instance;
+  self->private = g_new0(MwIMServicePrivate, 1);
+}
+
+
+static const GTypeInfo mw_srvc_info = {
+  .class_size = sizeof(MwIMServiceClass),
+  .base_init = NULL,
+  .base_finalize = NULL,
+  .class_init = mw_srvc_class_init,
+  .class_finalize = NULL,
+  .class_data = NULL,
+  .instance_size = sizeof(MwIMService),
+  .n_preallocs = 0,
+  .instance_init = mw_srvc_init,
+  .value_table = NULL,
+};
+
+
+GType MwIMService_getType() {
+  static GType type = 0;
+
+  if(type == 0) {
+    type = g_type_register_static(MW_TYPE_SERVICE, "MwIMServiceType",
+				  &mw_srvc_info, 0);
+  }
+
+  return type;
+}
+
+
+MwIMService *MwIMService_new(MwSession *session) {
+  MwIMService *self;
+
+  self = g_object_new(MW_TYPE_IM_SERVICE,
+		      "session", session,
+		      "auto-start", TRUE,
+		      NULL);
+  return self;
+}
+
+
+MwConversation *
+MwIMService_getConversation(MwIMService *self,
+			    const gchar *user, const gchar *community) {
+  MwConversation *(*fn)(MwIMService *, const gchar *, const gchar *);
+
+  g_return_val_if_fail(self != NULL, NULL);
+  g_return_val_if_fail(user != NULL, NULL);
+
+  fn = MW_IM_SERVICE_GET_CLASS(self)->get_conv;
+  return fn(self, user, community);
+}
+
+
+MwConversation *
+MwIMService_findConversation(MwIMService *self,
+			     const gchar *user, const gchar *community) {
+  MwConversation *(*fn)(MwIMService *, const gchar *, const gchar *);
+
+  g_return_val_if_fail(self != NULL, NULL);
+  g_return_val_if_fail(user != NULL, NULL);
+
+  fn = MW_IM_SERVICE_GET_CLASS(self)->find_conv;
+  return fn(self, user, community);
+}
+
+
+GList *MwIMService_getConversations(MwIMService *self) {
+  GList *(*fn)(MwIMService *);
+
+  g_return_val_if_fail(self != NULL, NULL);
+
+  fn = MW_IM_SERVICE_GET_CLASS(self)->get_convs;
+  return fn(self);
+}
+
+
+enum conv_properties {
+  conv_property_state = 1,
+  conv_property_channel,
+  conv_property_service,
+  conv_property_user,
+  conv_property_community,
+  conv_property_target,
+};
+
+
+
+struct mw_conversation_private {
+  guint state;           /**< @see mw_conversation_state */
+  MwChannel *channel;    /**< reference to backing channel */
+  MwIMService *service;  /**< reference to owning service */
+  MwIdentity target;     /**< targeted user,community */
+
+  glong ev_in;
+  glong ev_state;
+};
+
+
+
+static void mw_open(MwConversation *self) {
+  MwChannel *chan;
+
+  g_object_get(G_OBJECT(self), "channel", &chan, NULL);
+
+  if(! chan) {
+    gchar *user, *community;
+    MwIMService *srvc;
+    MwSession *sess;
+    MwPutBuffer *pb;
+    MwOpaque o;
+
+    g_object_get(G_OBJECT(self),
+		 "service", &srvc,
+		 "user", &user,
+		 "community", &community,
+		 NULL);
+
+    g_object_get(G_OBJECT(srvc), "session", &sess, NULL);
+
+    chan = MwSession_newChannel(sess);
+
+    g_object_set(G_OBJECT(chan),
+		 "user", user,
+		 "community", community,
+		 "service-id", MW_SERVICE_ID,
+		 "protocol-type", MW_PROTO_TYPE,
+		 "protocol-version", MW_PROTO_VER,
+		 NULL);
+    
+    mw_gobject_unref(srvc);
+    mw_gobject_unref(sess);
+    g_free(user);
+    g_free(community);
+
+    pb = MwPutBuffer_new();
+    mw_uint32_put(pb, 0x01);
+    mw_uint32_put(pb, 0x01);
+    MwPutBuffer_free(pb, &o);
+
+    g_object_set(G_OBJECT(self), "channel", chan, NULL);
+
+    MwChannel_open(chan, &o);
+    MwOpaque_clear(&o);
+  }
+
+  mw_gobject_unref(chan);
+}
+
+
+static void mw_close(MwConversation *self) {
+  MwChannel *chan;
+
+  mw_debug_enter();
+
+  g_object_get(G_OBJECT(self), "channel", &chan, NULL);
+
+  if(chan) {
+    MwChannel_close(chan, 0x00, NULL);
+    g_object_set(G_OBJECT(self), "channel", NULL, NULL);
+    g_object_set_data(G_OBJECT(chan), "conversation", NULL);
+  }
+
+  mw_gobject_unref(chan);
+
+  mw_debug_exit();
+}
+
+
+static void mw_send_text(MwConversation *self, const gchar *text) {
+  MwChannel *chan;
+  MwPutBuffer *pb;
+  MwOpaque o;
+
+  g_object_get(G_OBJECT(self), "channel", &chan, NULL);
+
+  g_return_if_fail(chan != NULL);
+  g_return_if_fail(MW_CHANNEL_IS_OPEN(chan));
+
+  pb = MwPutBuffer_new();
+  mw_uint32_put(pb, 0x01);  /* indicate text */
+  mw_str_put(pb, text);
+  MwPutBuffer_free(pb, &o);
+
+  MwChannel_send(chan, 0x64, &o, TRUE);
+  MwOpaque_clear(&o);
+
+  mw_gobject_unref(chan);
+}
+
+
+static void mw_send_typing(MwConversation *self, gboolean typing) {
+
+  /* typing data type is 0x01, subtype is 0 for typing, 1 for not
+     typing, and there's no actual data block */
+  MwConversation_sendData(self, 0x01, !typing, NULL);
+}
+
+
+static void mw_send_data(MwConversation *self, guint type, guint subtype,
+			 const MwOpaque *data) {
+  MwChannel *chan;
+  MwPutBuffer *pb;
+  MwOpaque o;
+
+  g_object_get(G_OBJECT(self), "channel", &chan, NULL);
+
+  g_return_if_fail(chan != NULL);
+  g_return_if_fail(MW_CHANNEL_IS_OPEN(chan));
+
+  pb = MwPutBuffer_new();
+  mw_uint32_put(pb, 0x02);  /* indicate data */
+  mw_uint32_put(pb, type);
+  mw_uint32_put(pb, subtype);
+  MwOpaque_put(pb, data);
+  MwPutBuffer_free(pb, &o);
+
+  MwChannel_send(chan, 0x64, &o, TRUE);
+  MwOpaque_clear(&o);
+
+  mw_gobject_unref(chan);
+}
+
+
+static GObject *
+mw_conv_constructor(GType type, guint props_count,
+		    GObjectConstructParam *props) {
+
+  MwConversationClass *klass;
+
+  GObject *obj;
+  MwConversation *self;
+  MwConversationPrivate *priv;
+
+  mw_debug_enter();
+  
+  klass = MW_CONVERSATION_CLASS(g_type_class_peek(MW_TYPE_CONVERSATION));
+
+  obj = conv_parent_class->constructor(type, props_count, props);
+  self = (MwConversation *) obj;
+
+  priv = self->private;
+
+  priv->state = mw_conversation_NEW;
+
+  mw_debug_exit();
+  return obj;
+}
+
+
+static void mw_conv_dispose(GObject *object) {
+  MwConversation *self;
+  MwConversationPrivate *priv;
+
+  mw_debug_enter();
+
+  self = (MwConversation *) object;
+  priv = self->private;
+
+  if(priv) {
+    self->private = NULL;
+
+    mw_gobject_unref(priv->service);
+    MwIdentity_clear(&priv->target, TRUE);
+
+    g_free(priv);
+  }
+
+  mw_debug_exit();
+}
+
+
+/* called from mw_conv_attach_chan */
+static void mw_conv_detach_chan(MwConversation *conv) {
+  MwConversationPrivate *priv;
+  MwChannel *chan;
+  
+  priv = conv->private;
+  if(! priv) return;
+
+  chan = priv->channel;
+  if(! chan) return;
+
+  g_signal_handler_disconnect(chan, priv->ev_in);
+  g_signal_handler_disconnect(chan, priv->ev_state);
+
+  g_object_set_data(G_OBJECT(chan), "conversation", NULL);
+  
+  MwChannel_close(chan, 0x00, NULL);
+  
+  mw_gobject_unref(chan);
+  priv->channel = NULL;
+}
+
+
+/* called from mw_set_property. Use g_object_set to trigger this */
+static void mw_conv_attach_chan(MwConversation *conv, MwChannel *chan) {
+
+  MwConversationPrivate *priv;
+
+  priv = conv->private;
+
+  if(chan == priv->channel) {
+    g_debug("already attached to channel %p", chan);
+    return;
+  }
+
+  mw_conv_detach_chan(conv);
+
+  if(chan) {
+    g_debug("attaching to channel %p, who has %u refs",
+	    chan, mw_gobject_refcount(chan));
+    
+    mw_gobject_ref(chan);
+    priv->channel = chan;
+
+    mw_gobject_ref(conv);
+    g_object_set_data_full(G_OBJECT(chan), "conversation", conv,
+			   (GDestroyNotify) mw_gobject_unref);
+    
+    priv->ev_in = g_signal_connect(G_OBJECT(chan), "incoming",
+				   G_CALLBACK(mw_chan_recv), conv);
+    
+    priv->ev_state = g_signal_connect(G_OBJECT(chan), "state-changed",
+				      G_CALLBACK(mw_chan_state), conv);
   }
 }
 
 
-static int convo_sendMime(struct mwConversation *conv, const char *mime) {
-  struct mwOpaque o;
+static void mw_conv_set_property(GObject *object,
+				 guint property_id, const GValue *value,
+				 GParamSpec *pspec) {
 
-  o.len = strlen(mime);
-  o.data = (guchar *) mime;
+  MwConversation *self;
+  MwConversationPrivate *priv;
 
-  if(o.len > BREAKUP) {
-    return convo_sendSegmented(conv, mime, convo_sendMime);
-  } else {
-    return convo_send_data(conv, mwImData_MIME, 0x00, &o);
-  }
-}
+  self = MW_CONVERSATION(object);
+  priv = self->private;
 
-
-int mwConversation_send(struct mwConversation *conv, enum mwImSendType type,
-			gconstpointer msg) {
-
-  g_return_val_if_fail(conv != NULL, -1);
-  g_return_val_if_fail(mwConversation_isOpen(conv), -1);
-  g_return_val_if_fail(conv->channel != NULL, -1);
-
-  switch(type) {
-  case mwImSend_PLAIN:
-    return convo_sendText(conv, msg);
-  case mwImSend_TYPING:
-    return convo_sendTyping(conv, GPOINTER_TO_INT(msg));
-  case mwImSend_SUBJECT:
-    return convo_sendSubject(conv, msg);
-  case mwImSend_HTML:
-    return convo_sendHtml(conv, msg);
-  case mwImSend_MIME:
-    return convo_sendMime(conv, msg);
-
+  switch(property_id) {
+  case conv_property_channel:
+    mw_conv_attach_chan(self, MW_CHANNEL(g_value_get_object(value)));
+    break;
+  case conv_property_service:
+    mw_gobject_unref(priv->service);
+    priv->service = MW_IM_SERVICE(g_value_dup_object(value));
+    break;
+  case conv_property_user:
+    g_free(priv->target.user);
+    priv->target.user = g_value_dup_string(value);
+    break;
+  case conv_property_community:
+    g_free(priv->target.community);
+    priv->target.community = g_value_dup_string(value);
+    break;
   default:
-    g_warning("unsupported IM Send Type, 0x%x", type);
-    return -1;
+    ;
   }
 }
 
 
-enum mwConversationState mwConversation_getState(struct mwConversation *conv) {
-  g_return_val_if_fail(conv != NULL, mwConversation_UNKNOWN);
-  return conv->state;
-}
+static void mw_conv_get_property(GObject *object,
+				 guint property_id, GValue *value,
+				 GParamSpec *pspec) {
 
+  MwConversation *self;
+  MwConversationPrivate *priv;
 
-struct mwServiceIm *mwConversation_getService(struct mwConversation *conv) {
-  g_return_val_if_fail(conv != NULL, NULL);
-  return conv->service;
-}
+  self = MW_CONVERSATION(object);
+  priv = self->private;
 
-
-gboolean mwConversation_supports(struct mwConversation *conv,
-				 enum mwImSendType type) {
-  g_return_val_if_fail(conv != NULL, FALSE);
-
-  switch(type) {
-  case mwImSend_PLAIN:
-  case mwImSend_TYPING:
-    return TRUE;
-
-  case mwImSend_SUBJECT:
-  case mwImSend_HTML:
-  case mwImSend_MIME:
-    return conv->features == mwImClient_NOTESBUDDY;
-
+  switch(property_id) {
+  case conv_property_state:
+    g_value_set_uint(value, priv->state);
+    break;
+  case conv_property_channel:
+    g_value_set_object(value, priv->channel);
+    break;
+  case conv_property_service:
+    g_value_set_object(value, priv->service);
+    break;
+  case conv_property_user:
+    g_value_set_string(value, priv->target.user);
+    break;
+  case conv_property_community:
+    g_value_set_string(value, priv->target.community);
+    break;
+  case conv_property_target:
+    g_value_set_boxed(value, &priv->target);
+    break;
   default:
-    return FALSE;
+    ;
   }
 }
 
 
-enum mwImClientType
-mwConversation_getClientType(struct mwConversation *conv) {
-  g_return_val_if_fail(conv != NULL, mwImClient_UNKNOWN);
-  return conv->features;
+static guint mw_conv_signal_state_changed() {
+  return g_signal_new("state-changed",
+		      MW_TYPE_CONVERSATION,
+		      0,
+		      0,
+		      NULL, NULL,
+		      mw_marshal_VOID__VOID,
+		      G_TYPE_NONE,
+		      0);
 }
 
 
-struct mwIdBlock *mwConversation_getTarget(struct mwConversation *conv) {
-  g_return_val_if_fail(conv != NULL, NULL);
-  return &conv->target;
+static guint mw_conv_signal_got_text() {
+  return g_signal_new("got-text",
+		      MW_TYPE_CONVERSATION,
+		      0,
+		      0,
+		      NULL, NULL,
+		      mw_marshal_VOID__POINTER,
+		      G_TYPE_NONE,
+		      1,
+		      G_TYPE_POINTER);
 }
 
 
-struct mwLoginInfo *mwConversation_getTargetInfo(struct mwConversation *conv) {
-  g_return_val_if_fail(conv != NULL, NULL);
-  g_return_val_if_fail(conv->channel != NULL, NULL);
-  return mwChannel_getUser(conv->channel);
+static guint mw_conv_signal_got_typing() {
+  return g_signal_new("got-typing",
+		      MW_TYPE_CONVERSATION,
+		      0,
+		      0,
+		      NULL, NULL,
+		      mw_marshal_VOID__BOOLEAN,
+		      G_TYPE_NONE,
+		      1,
+		      G_TYPE_BOOLEAN);
 }
 
 
-void mwConversation_setClientData(struct mwConversation *conv,
-				  gpointer data, GDestroyNotify clean) {
-  g_return_if_fail(conv != NULL);
-  mw_datum_set(&conv->client_data, data, clean);
+static guint mw_conv_signal_got_data() {
+  return g_signal_new("got-data",
+		      MW_TYPE_CONVERSATION,
+		      0,
+		      0,
+		      NULL, NULL,
+		      mw_marshal_VOID__UINT_UINT_POINTER,
+		      G_TYPE_NONE,
+		      1,
+		      G_TYPE_UINT,
+		      G_TYPE_UINT,
+		      G_TYPE_POINTER);
 }
 
 
-gpointer mwConversation_getClientData(struct mwConversation *conv) {
-  g_return_val_if_fail(conv != NULL, NULL);
-  return mw_datum_get(&conv->client_data);
+static void mw_conv_class_init(gpointer gclass, gpointer gclass_data) {
+  GObjectClass *gobject_class = gclass;
+  MwConversationClass *klass = gclass;
+
+  conv_parent_class = g_type_class_peek_parent(gobject_class);
+
+  gobject_class->constructor = mw_conv_constructor;
+  gobject_class->dispose = mw_conv_dispose;
+  gobject_class->set_property = mw_conv_set_property;
+  gobject_class->get_property = mw_conv_get_property;
+
+  mw_prop_uint(gobject_class, conv_property_state,
+	       "state", "get conversation state",
+	       G_PARAM_READABLE);
+
+  mw_prop_obj(gobject_class, conv_property_channel,
+	      "channel", "get conversation's backing channel",
+	      MW_TYPE_CHANNEL, G_PARAM_READWRITE);
+
+  mw_prop_obj(gobject_class, conv_property_service,
+	      "service", "get conversation's owning service",
+	      MW_TYPE_IM_SERVICE, G_PARAM_READWRITE|G_PARAM_CONSTRUCT_ONLY);
+
+  mw_prop_str(gobject_class, conv_property_user,
+	      "user", "get remote user",
+	      G_PARAM_READWRITE|G_PARAM_CONSTRUCT_ONLY);
+
+  mw_prop_str(gobject_class, conv_property_community,
+	      "community", "get remote community",
+	      G_PARAM_READWRITE|G_PARAM_CONSTRUCT_ONLY);
+
+  mw_prop_boxed(gobject_class, conv_property_target,
+		"target", "get remote user,community as a MwIdentity",
+		MW_TYPE_IDENTITY, G_PARAM_READABLE);
+  
+  klass->signal_state_changed = mw_conv_signal_state_changed();
+  klass->signal_got_text = mw_conv_signal_got_text();
+  klass->signal_got_typing = mw_conv_signal_got_typing();
+  klass->signal_got_data = mw_conv_signal_got_data();
+
+  klass->open = mw_open;
+  klass->close = mw_close;
+  klass->send_text = mw_send_text;
+  klass->send_typing = mw_send_typing;
+  klass->send_data = mw_send_data;
 }
 
 
-void mwConversation_removeClientData(struct mwConversation *conv) {
-  g_return_if_fail(conv != NULL);
-  mw_datum_clear(&conv->client_data);
+static void mw_conv_init(GTypeInstance *instance, gpointer gclass) {
+  MwConversation *self;
+
+  mw_debug_enter();
+
+  self = (MwConversation *) instance;
+  self->private = g_new0(MwConversationPrivate, 1);
+
+  mw_debug_exit();
 }
 
 
-void mwConversation_close(struct mwConversation *conv, guint32 reason) {
-  struct mwServiceIm *srvc;
-  struct mwImHandler *h;
+static const GTypeInfo mw_conv_info = {
+  .class_size = sizeof(MwConversationClass),
+  .base_init = NULL,
+  .base_finalize = NULL,
+  .class_init = mw_conv_class_init,
+  .class_finalize = NULL,
+  .class_data = NULL,
+  .instance_size = sizeof(MwConversation),
+  .n_preallocs = 0,
+  .instance_init = mw_conv_init,
+  .value_table = NULL,
+};
 
-  g_return_if_fail(conv != NULL);
 
-  convo_set_state(conv, mwConversation_CLOSED);
+GType MwConversation_getType() {
+  static GType type = 0;
 
-  srvc = conv->service;
-  g_return_if_fail(srvc != NULL);
-
-  h = srvc->handler;
-  if(h && h->conversation_closed)
-    h->conversation_closed(conv, reason);
-
-  if(conv->channel) {
-    mwChannel_destroy(conv->channel, reason, NULL);
-    conv->channel = NULL;
+  if(type == 0) {
+    type = g_type_register_static(MW_TYPE_OBJECT, "MwConversationType",
+				  &mw_conv_info, 0);
   }
+
+  return type;
 }
 
 
-void mwConversation_free(struct mwConversation *conv) {
-  g_return_if_fail(conv != NULL);
+void MwConversation_open(MwConversation *self) {
+  void (*fn)(MwConversation *);
 
-  if(! mwConversation_isClosed(conv))
-    mwConversation_close(conv, ERR_SUCCESS);
+  g_return_if_fail(self != NULL);
 
-  convo_free(conv);
+  fn = MW_CONVERSATION_GET_CLASS(self)->open;
+  fn(self);
 }
 
+
+void MwConversation_close(MwConversation *self) {
+  void (*fn)(MwConversation *);
+
+  g_return_if_fail(self != NULL);
+
+  fn = MW_CONVERSATION_GET_CLASS(self)->close;
+  fn(self);
+}
+
+
+void MwConversation_sendText(MwConversation *self, const gchar *text) {
+  void (*fn)(MwConversation *, const gchar *);
+
+  g_return_if_fail(self != NULL);
+  
+  fn = MW_CONVERSATION_GET_CLASS(self)->send_text;
+  fn(self, text);
+}
+
+
+void MwConversation_sendTyping(MwConversation *self, gboolean typing) {
+  void (*fn)(MwConversation *, gboolean);
+
+  g_return_if_fail(self != NULL);
+  
+  fn = MW_CONVERSATION_GET_CLASS(self)->send_typing;
+  fn(self, typing);
+}
+
+
+void MwConversation_sendData(MwConversation *self,
+			     guint32 type, guint32 subtype,
+			     const MwOpaque *data) {
+
+  void (*fn)(MwConversation *, guint32, guint32, const MwOpaque *);
+
+  g_return_if_fail(self != NULL);
+  
+  fn = MW_CONVERSATION_GET_CLASS(self)->send_data;
+  fn(self, type, subtype, data);
+}
+
+
+/* The end. */

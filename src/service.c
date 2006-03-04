@@ -1,4 +1,3 @@
-
 /*
   Meanwhile - Unofficial Lotus Sametime Community Client Library
   Copyright (C) 2004  Christopher (siege) O'Brien
@@ -18,250 +17,311 @@
   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
+
+#include <glib.h>
+#include <glib-object.h>
 #include "mw_channel.h"
 #include "mw_debug.h"
 #include "mw_error.h"
 #include "mw_message.h"
+#include "mw_object.h"
 #include "mw_service.h"
 
 
-/* I tried to be explicit with the g_return_* calls, to make the debug
-   logging a bit more sensible. Hence all the explicit "foo != NULL"
-   checks. */
+static GObjectClass *parent_class;
 
 
-void mwService_recvCreate(struct mwService *s, struct mwChannel *chan,
-			  struct mwMsgChannelCreate *msg) {
+enum properties {
+  property_state = 1,
+  property_session,
+  property_auto_start,
+};
 
-  /* ensure none are null, ensure that the service and channel belong
-     to the same session, and ensure that the message belongs on the
-     channel */
-  g_return_if_fail(s != NULL);
-  g_return_if_fail(chan != NULL);
-  g_return_if_fail(msg != NULL);
-  g_return_if_fail(s->session == mwChannel_getSession(chan));
-  g_return_if_fail(mwChannel_getId(chan) == msg->channel);
 
-  if(s->recv_create) {
-    s->recv_create(s, chan, msg);
-  } else {
-    mwChannel_destroy(chan, ERR_FAILURE, NULL);
-  }
+struct mw_service_private {
+  guint state;          /**< property: state */
+  MwSession *session;   /**< property: session (weak reference) */
+  gboolean auto_start;  /**< property: auto start/stop with session */
+  glong auto_ev;        /**< handler for session's state-changed */
+};
+
+
+static const gchar *mw_get_name(MwService *self) {
+  return "Meanwhile Service Base Class";
 }
 
 
-void mwService_recvAccept(struct mwService *s, struct mwChannel *chan,
-			  struct mwMsgChannelAccept *msg) {
-
-  /* ensure none are null, ensure that the service and channel belong
-     to the same session, and ensure that the message belongs on the
-     channel */
-  g_return_if_fail(s != NULL);
-  g_return_if_fail(chan != NULL);
-  g_return_if_fail(msg != NULL);
-  g_return_if_fail(s->session == mwChannel_getSession(chan));
-  g_return_if_fail(mwChannel_getId(chan) == msg->head.channel);
-
-  if(s->recv_accept)
-    s->recv_accept(s, chan, msg);
+static const gchar *mw_get_desc(MwService *self) {
+  return "Generic utility base class for a service implementation";
 }
 
 
-void mwService_recvDestroy(struct mwService *s, struct mwChannel *chan,
-			   struct mwMsgChannelDestroy *msg) {
-
-  /* ensure none are null, ensure that the service and channel belong
-     to the same session, and ensure that the message belongs on the
-     channel */
-  g_return_if_fail(s != NULL);
-  g_return_if_fail(chan != NULL);
-  g_return_if_fail(msg != NULL);
-  g_return_if_fail(s->session == mwChannel_getSession(chan));
-  g_return_if_fail(mwChannel_getId(chan) == msg->head.channel);
-
-  if(s->recv_destroy)
-    s->recv_destroy(s, chan, msg);
+static void mw_start(MwService *self) {
+  g_object_set(G_OBJECT(self), "state", mw_service_state_STARTED, NULL);
 }
 
 
-void mwService_recv(struct mwService *s, struct mwChannel *chan,
-		    guint16 msg_type, struct mwOpaque *data) {
-
-  /* ensure that none are null. zero-length messages are acceptable */
-  g_return_if_fail(s != NULL);
-  g_return_if_fail(chan != NULL);
-  g_return_if_fail(data != NULL);
-  g_return_if_fail(s->session == mwChannel_getSession(chan));
-
-  /*
-  g_message("mwService_recv: session = %p, service = %p, b = %p, n = %u",
-	    mwService_getSession(s), s, data->data, data->len);
-  */
-
-  if(s->recv)
-    s->recv(s, chan, msg_type, data);
+static void mw_stop(MwService *self) {
+  g_object_set(G_OBJECT(self), "state", mw_service_state_STOPPED, NULL);
 }
 
 
-guint32 mwService_getType(struct mwService *s) {
-  g_return_val_if_fail(s != NULL, 0x00);
-  return s->type;
-}
+static void mw_auto_cb(MwSession *session, MwService *self) {
+  gboolean auto_start = FALSE;
+  guint state;
 
+  g_object_get(G_OBJECT(self), "auto-start", &auto_start, NULL);
 
-const char *mwService_getName(struct mwService *s) {
-  g_return_val_if_fail(s != NULL, NULL);
-  g_return_val_if_fail(s->get_name != NULL, NULL);
-
-  return s->get_name(s);
-}
-
-
-const char *mwService_getDesc(struct mwService *s) {
-  g_return_val_if_fail(s != NULL, NULL);
-  g_return_val_if_fail(s->get_desc != NULL, NULL);
-
-  return s->get_desc(s);
-}
-
-
-struct mwSession *mwService_getSession(struct mwService *s) {
-  g_return_val_if_fail(s != NULL, NULL);
-  return s->session;
-}
-
-
-void mwService_init(struct mwService *srvc, struct mwSession *sess,
-		    guint32 type) {
-
-  /* ensure nothing is null, and there's no such thing as a zero
-     service type */
-  g_return_if_fail(srvc != NULL);
-  g_return_if_fail(sess != NULL);
-  g_return_if_fail(type != 0x00);
-
-  srvc->session = sess;
-  srvc->type = type;
-  srvc->state = mwServiceState_STOPPED;
-}
-
-
-enum mwServiceState mwService_getState(struct mwService *srvc) {
-  g_return_val_if_fail(srvc != NULL, mwServiceState_STOPPED);
-  return srvc->state;
-}
-
-
-void mwService_start(struct mwService *srvc) {
-  g_return_if_fail(srvc != NULL);
-
-  if(! MW_SERVICE_IS_STOPPED(srvc))
+  if(! auto_start)
     return;
+  
+  g_object_get(G_OBJECT(session), "state", &state, NULL);
 
-  srvc->state = mwServiceState_STARTING;
-  g_message("starting service %s", NSTR(mwService_getName(srvc)));
+  switch(state) {
+  case mw_session_STOPPING:
+    MwService_stop(self);
+    break;
 
-  if(srvc->start) {
-    srvc->start(srvc);
-  } else {
-    mwService_started(srvc);
+  case mw_session_STARTED:
+    MwService_start(self);
+    break;
+
+  default:
+    ;
   }
 }
 
 
-void mwService_started(struct mwService *srvc) {
-  g_return_if_fail(srvc != NULL);
+static void mw_setup_session(MwService *self) {
+  MwSession *session;  
+  MwServicePrivate *priv;
 
-  srvc->state = mwServiceState_STARTED;
-  g_message("started service %s", NSTR(mwService_getName(srvc)));
+  mw_debug_enter();
+
+  priv = self->private;
+
+  g_object_get(G_OBJECT(self), "session", &session, NULL);
+
+  g_debug("mw_setup_session found session %p", session);
+
+  priv->auto_ev = g_signal_connect(G_OBJECT(session), "state-changed",
+				   G_CALLBACK(mw_auto_cb), self);
+
+  mw_gobject_unref(session);
+
+  mw_debug_exit();
 }
 
 
-void mwService_error(struct mwService *srvc) {
-  g_return_if_fail(srvc != NULL);
+static void mw_set_property(GObject *object,
+			    guint property_id, const GValue *value,
+			    GParamSpec *pspec) {
 
-  if(MW_SERVICE_IS_DEAD(srvc))
-    return;
+  MwService *self = MW_SERVICE(object);
+  MwServicePrivate *priv = self->private;
 
-  srvc->state = mwServiceState_ERROR;
-  g_message("error in service %s", NSTR(mwService_getName(srvc)));
-
-  if(srvc->stop) {
-    srvc->stop(srvc);
-  } else {
-    mwService_stopped(srvc);
+  switch(property_id) {
+  case property_state:
+    priv->state = g_value_get_uint(value);
+    break;
+  case property_session:
+    mw_gobject_set_weak_pointer(g_value_get_object(value),
+				(gpointer *) &priv->session);
+    break;
+  case property_auto_start:
+    priv->auto_start = g_value_get_boolean(value);
+    break;
+  default:
+    ;
   }
 }
 
 
-void mwService_stop(struct mwService *srvc) {
-  g_return_if_fail(srvc != NULL);
+static void mw_get_property(GObject *object,
+			    guint property_id, GValue *value,
+			    GParamSpec *pspec) {
 
-  if(MW_SERVICE_IS_DEAD(srvc))
-    return;
+  MwService *self = MW_SERVICE(object);
+  MwServicePrivate *priv = self->private;
 
-  srvc->state = mwServiceState_STOPPING;
-  g_message("stopping service %s", NSTR(mwService_getName(srvc)));
-
-  if(srvc->stop) {
-    srvc->stop(srvc);
-  } else {
-    mwService_stopped(srvc);
+  switch(property_id) {
+  case property_state:
+    g_value_set_uint(value, priv->state);
+    break;
+  case property_session:
+    g_value_set_object(value, G_OBJECT(priv->session));
+    break;
+  case property_auto_start:
+    g_value_set_boolean(value, priv->auto_start);
+    break;
+  default:
+    ;
   }
 }
 
 
-void mwService_stopped(struct mwService *srvc) {
-  g_return_if_fail(srvc != NULL);
+static GObject *
+mw_constructor(GType type, guint props_count,
+	       GObjectConstructParam *props) {
 
-  if(srvc->state != mwServiceState_STOPPED) {
-    srvc->state = mwServiceState_STOPPED;
-    g_message("stopped service %s", NSTR(mwService_getName(srvc)));
+  MwServiceClass *klass;
+
+  GObject *obj;
+  MwService *self;
+  MwServicePrivate *priv;
+
+  mw_debug_enter();
+  
+  klass = MW_SERVICE_CLASS(g_type_class_peek(MW_TYPE_SERVICE));
+
+  obj = parent_class->constructor(type, props_count, props);
+  self = (MwService *) obj;
+  
+  /* set in mw_service_init */
+  priv = self->private;
+  
+  priv->state = mw_service_state_STOPPED;
+
+  mw_setup_session(self);
+
+  mw_debug_exit();
+
+  return obj;
+}
+
+
+static void mw_dispose(GObject *object) {
+  MwService *self;
+  MwServicePrivate *priv;
+
+  mw_debug_enter();
+
+  self = MW_SERVICE(object);
+  priv = self->private;
+
+  if(priv) {
+    self->private = NULL;
+
+    if(priv->session) {
+      g_signal_handler_disconnect(priv->session, priv->auto_ev);
+    }
+
+    mw_gobject_set_weak_pointer(NULL, (gpointer *) &priv->session);
+
+    g_free(priv);
   }
+
+  parent_class->dispose(object);
+
+  mw_debug_exit();
 }
 
 
-void mwService_free(struct mwService *srvc) {
-  g_return_if_fail(srvc != NULL);
+static void mw_class_init(gpointer gclass, gpointer gclass_data) {
 
-  mwService_stop(srvc);
+  GObjectClass *gobject_class = gclass;
+  MwServiceClass *klass = gclass;
 
-  if(srvc->clear)
-    srvc->clear(srvc);
+  parent_class = g_type_class_peek_parent(gobject_class);
 
-  if(srvc->client_cleanup)
-    srvc->client_cleanup(srvc->client_data);
+  gobject_class->set_property = mw_set_property;
+  gobject_class->get_property = mw_get_property;
+  gobject_class->constructor = mw_constructor;
+  gobject_class->dispose = mw_dispose;
 
-  g_free(srvc);
+  mw_prop_uint(gclass, property_state,
+	       "state", "get/set state of this service",
+	       G_PARAM_READWRITE);
+
+  mw_prop_obj(gclass, property_session,
+	      "session", "get MwSessioin weak reference",
+	      MW_TYPE_SESSION, G_PARAM_READWRITE|G_PARAM_CONSTRUCT_ONLY);
+
+  mw_prop_boolean(gclass, property_auto_start,
+		  "auto-start", ("get/set whether this service should"
+				 " automatically start or stop with the"
+				 " session"),
+		  G_PARAM_READWRITE);
+
+  klass->get_name = mw_get_name;
+  klass->get_desc = mw_get_desc;
+  klass->start = mw_start;
+  klass->stop = mw_stop;
 }
 
 
-/** @todo switch the following to using mw_datum */
+static void mw_service_init(GTypeInstance *instance, gpointer g_class) {
+  MwService *self;
 
-void mwService_setClientData(struct mwService *srvc,
-			     gpointer data, GDestroyNotify cleanup) {
-
-  g_return_if_fail(srvc != NULL);
-
-  srvc->client_data = data;
-  srvc->client_cleanup = cleanup;
+  self = (MwService *) instance;
+  self->private = g_new0(MwServicePrivate, 1);
 }
 
 
-gpointer mwService_getClientData(struct mwService *srvc) {
+static const GTypeInfo mw_service_info = {
+  .class_size = sizeof(MwServiceClass),
+  .base_init = NULL,
+  .base_finalize = NULL,
+  .class_init = mw_class_init,
+  .class_finalize = NULL,
+  .class_data = NULL,
+  .instance_size = sizeof(MwService),
+  .n_preallocs = 0,
+  .instance_init = mw_service_init,
+  .value_table = NULL,
+};
+
+
+GType MwService_getType() {
+  static GType type = 0;
+
+  if(type == 0) {
+    type = g_type_register_static(MW_TYPE_OBJECT, "MwServiceType",
+				  &mw_service_info, 0);
+  }
+
+  return type;
+}
+
+
+const gchar *MwService_getName(MwService *srvc) {
+  const gchar *(*fn)(MwService *);
+
   g_return_val_if_fail(srvc != NULL, NULL);
-  return srvc->client_data;
+
+  fn = MW_SERVICE_GET_CLASS(srvc)->get_name;
+  return fn(srvc);
 }
 
 
-void mwService_removeClientData(struct mwService *srvc) {
+const gchar *MwService_getDescription(MwService *srvc) {
+  const gchar *(*fn)(MwService *);
+
+  g_return_val_if_fail(srvc != NULL, NULL);
+
+  fn = MW_SERVICE_GET_CLASS(srvc)->get_desc;
+  return fn(srvc);
+}
+
+
+void MwService_start(MwService *srvc) {
+  void (*fn)(MwService *);
+
   g_return_if_fail(srvc != NULL);
 
-  if(srvc->client_cleanup) {
-    srvc->client_cleanup(srvc->client_data);
-    srvc->client_cleanup = NULL;
-  }
-
-  srvc->client_data = NULL;
+  fn = MW_SERVICE_GET_CLASS(srvc)->start;
+  fn(srvc);
 }
 
+
+void MwService_stop(MwService *srvc) {
+  void (*fn)(MwService *);
+
+  g_return_if_fail(srvc != NULL);
+
+  fn = MW_SERVICE_GET_CLASS(srvc)->stop;
+  fn(srvc);
+}
+
+
+/* The end. */

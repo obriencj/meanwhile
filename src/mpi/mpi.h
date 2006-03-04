@@ -218,4 +218,9 @@ int    mw_mp_char2value(char ch, int r);
 
 const  char  *mw_mp_strerror(mw_mp_err ec);
 
+/* Misc */
+
+void mw_mp_set_rand(mw_mp_int *mp, guint bits);
+
+
 #endif /* end _H_MPI_ */

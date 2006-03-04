@@ -43,6 +43,11 @@ aclocal $ACLOCAL_FLAGS || exit $?
 
 
 
+# ECHO "Running gtkdocize"
+gtkdocize || exit 1
+
+
+
 # ECHO "Running autoheader"
 # autoheader || exit $?
 

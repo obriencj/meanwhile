@@ -12,7 +12,9 @@
 #include "mpi.h"
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <ctype.h>
+
 
 #if MP_DEBUG
 #include <stdio.h>
@@ -3996,6 +3998,24 @@ int      s_mw_mp_outlen(int bits, int r)
 /* }}} */
 
 /* }}} */
+
+
+void mw_mp_set_rand(mw_mp_int *i, guint bits) {
+  mw_mp_size len, l;
+  unsigned char *buf;
+
+  l = len = (bits / 8) + 1;
+  buf = s_mw_mp_alloc(len, 1);
+
+  srand(rand());
+  while(l--) buf[l] = rand() & 0xff;
+
+  buf[0] &= (0xff >> (8 - (bits % 8)));
+
+  mw_mp_read_unsigned_bin(i, buf, len);
+  s_mw_mp_free(buf);
+}
+
 
 /*------------------------------------------------------------------------*/
 /* HERE THERE BE DRAGONS                                                  */
