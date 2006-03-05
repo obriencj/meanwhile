@@ -92,12 +92,12 @@ GType MwService_getType();
 
 /** State-tracking for a service */
 enum mw_service_state {
-  mw_service_state_STOPPED,   /**< the service is not active */
-  mw_service_State_STARTING,  /**< the service is starting up */
-  mw_service_state_STARTED,   /**< the service is active */
-  mw_service_state_STOPPING,  /**< the service is shutting down */
-  mw_service_state_ERROR,     /**< error in service, shutting down */
-  mw_service_state_UNKNOWN,   /**< error determining state */
+  mw_service_STOPPED,   /**< the service is not active */
+  mw_service_STARTING,  /**< the service is starting up */
+  mw_service_STARTED,   /**< the service is active */
+  mw_service_STOPPING,  /**< the service is shutting down */
+  mw_service_ERROR,     /**< error in service, shutting down */
+  mw_service_UNKNOWN,   /**< error determining state */
 };
 
 

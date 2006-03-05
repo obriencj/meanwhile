@@ -111,6 +111,8 @@ static void mw_session_set_state(MwSession *session,
   MwSessionPrivate *priv;
   MwSessionClass *klass;
 
+  mw_debug_enter();
+
   g_return_if_fail(session != NULL);
   g_return_if_fail(session->private != NULL);
 
@@ -125,7 +127,10 @@ static void mw_session_set_state(MwSession *session,
 
   klass = MW_SESSION_GET_CLASS(session);
 
-  g_signal_emit(session, klass->signal_state_changed, 0, NULL);
+  g_signal_emit(session, klass->signal_state_changed, 0,
+		state, info, NULL);
+
+  mw_debug_exit();
 }
 
 
@@ -608,17 +613,35 @@ static void mw_start(MwSession *self) {
 static void mw_stop(MwSession *self, guint32 reason) {
   MwSessionPrivate *priv;
   gpointer code = GUINT_TO_POINTER(reason);
+  MwOpaque *o;
+  GList *l;
 
   mw_debug_enter();
 
   priv = self->private;
 
-  /* todo: clean out the outgoing buffers, close all channels */
+  /* let the services have a chance to catch the stopping state */
+  mw_session_set_state(self, mw_session_STOPPING, code, NULL);
 
-  /* unref outgoing queue */
+  /* close all channels not already closed */
+  for(l = MwSession_getChannels(self); l; l = g_list_delete_link(l, l)) {
+    if(MW_CHANNEL_IS_OPEN(l->data)) {
+      MwChannel_close(l->data, 0x00, NULL);
+    }
+  }
+
+  /* clear out session queue */
+  while( (o = MwQueue_next(priv->queue)) ) {
+    MwOpaque_clear(o);
+  }
+
+  /* clear out channel queue */
+  while( (o = MwMetaQueue_next(priv->chan_queue)) ) {
+    MwOpaque_clear(o);
+  }
   MwMetaQueue_scour(priv->chan_queue);
 
-  mw_session_set_state(self, mw_session_STOPPING, code, NULL);
+  /* and we're stopped */
   mw_session_set_state(self, mw_session_STOPPED, code, NULL);
 
   mw_debug_exit();
@@ -1168,9 +1191,11 @@ static guint mw_signal_state_changed() {
 		      0,
 		      0,
 		      NULL, NULL,
-		      mw_marshal_VOID__VOID,
+		      mw_marshal_VOID__UINT_POINTER,
 		      G_TYPE_NONE,
-		      0);
+		      2,
+		      G_TYPE_UINT,
+		      G_TYPE_POINTER);
 }
 
 
@@ -1421,20 +1446,6 @@ GType MwSession_getType() {
 
 MwSession *MwSession_new() {
   return g_object_new(MwSession_getType(), NULL);
-}
-
-
-enum mw_session_state MwSession_getState(MwSession *session) {
-  g_return_val_if_fail(session != NULL, mw_session_UNKNOWN);
-  g_return_val_if_fail(session->private != NULL, mw_session_UNKNOWN);
-  return session->private->state;
-}
-
-
-gpointer MwSession_getStateInfo(MwSession *session) {
-  g_return_val_if_fail(session != NULL, NULL);
-  g_return_val_if_fail(session->private != NULL, NULL);
-  return session->private->state_info;
 }
 
 

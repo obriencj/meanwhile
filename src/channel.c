@@ -102,7 +102,8 @@ static void mw_channel_set_state(MwChannel *self,
 
   priv->state = state;
 
-  g_signal_emit(G_OBJECT(self), klass->signal_state_changed, 0, NULL);
+  g_signal_emit(G_OBJECT(self), klass->signal_state_changed, 0,
+		state, NULL);
 }
 
 
@@ -181,8 +182,8 @@ static void mw_create(MwChannel *self, const MwOpaque *info) {
 	       "protocol-type", &proto_type,
 	       "protocol-version", &proto_ver,
 	       "offered-policy", &policy,
-	       "remote-user", &msg->target.user,
-	       "remote-community", &msg->target.community,
+	       "user", &msg->target.user,
+	       "community", &msg->target.community,
 	       NULL);
   
   msg->channel = id;
@@ -798,9 +799,10 @@ static guint mw_signal_state_changed() {
 		      0,
 		      0,
 		      NULL, NULL,
-		      mw_marshal_VOID__VOID,
+		      mw_marshal_VOID__UINT,
 		      G_TYPE_NONE,
-		      0);
+		      1,
+		      G_TYPE_UINT);
 }
 
 

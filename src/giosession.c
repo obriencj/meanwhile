@@ -471,10 +471,8 @@ MwGIOSession *MwGIOSession_new(GIOChannel *chan) {
 }
 
 
-static void mw_main_state_changed(MwSession *self, GMainLoop *loop) {
-  guint state;
-
-  g_object_get(MW_OBJECT(self), "state", &state, NULL);
+static void mw_main_state_changed(MwSession *self, guint state, gpointer info,
+				  GMainLoop *loop) {
 
   if(state == mw_session_STOPPED) {
     g_main_loop_quit(loop);
