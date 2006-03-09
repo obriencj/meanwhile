@@ -134,7 +134,7 @@ static void mw_get_property(GObject *object,
 static void mw_cipher_dispose(GObject *object) {
   MwCipher *self = MW_CIPHER(object);
 
-  mw_gobject_set_weak_pointer(NULL, (gpointer *) &self->channel);
+  mw_gobject_clear_weak_pointer((gpointer *) &self->channel);
 
   cipher_parent_class->dispose(object);
 }
@@ -556,10 +556,8 @@ void mw_rc2_dec(const gint *ekey, guchar *iv,
 
 
 struct mw_rc2_cipher {
-  MwObject mwobject;
+  MwCipher mwcipher;
   
-  MwChannel *channel;
-
   gint outgoing_key[64];
   gint incoming_key[64];
   guchar outgoing_iv[8];
@@ -626,6 +624,7 @@ static void mw_rc2_decrypt(MwCipher *ci, const MwOpaque *in, MwOpaque *out) {
 static void mw_rc2_set_encrypt_key(MwRC2Cipher *self,
 				   const guchar *key, gsize len) {
 
+  mw_debug_data(key, len, "unexpanded encrypt key");
   mw_rc2_key_expand(self->outgoing_key, key, len);
 }
 
@@ -773,9 +772,7 @@ void MwRC2Cipher_setDecryptKey(MwRC2Cipher *ci,
 
 
 struct mw_dh_rc2_cipher {
-  MwObject mwobject;
-
-  MwChannel *channel;
+  MwCipher mwcipher;
 
   MwMPI *private_key;
   MwMPI *public_key;

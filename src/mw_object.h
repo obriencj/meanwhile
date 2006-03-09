@@ -113,8 +113,14 @@ guint mw_gobject_refcount(gpointer obj);
 
 
 /** calls g_object_remove_weak_pointer on @p where if it is already
-    set, then calls g_object_add_weak_pointer */
+    set, then calls g_object_add_weak_pointer, and sets @p where to @p
+    obj */
 void mw_gobject_set_weak_pointer(gpointer obj, gpointer *where);
+
+
+/** calls g_object_remove_weak_pointer on @p where and sets it to
+    NULL */
+void mw_gobject_clear_weak_pointer(gpointer *where);
 
 
 /* @} */

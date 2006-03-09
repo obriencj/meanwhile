@@ -94,6 +94,15 @@ void MwMPI_set(MwMPI *to, const MwMPI *from);
 /**
    @since 2.0.0
 
+   set the value of a MwMPI to a random number of the specified number
+   of bits in length
+*/
+void MwMPI_random(MwMPI *to, guint bits);
+
+
+/**
+   @since 2.0.0
+
    set the passed mpi to the constant Prime value for use in
    Sametime-based encryption
 */

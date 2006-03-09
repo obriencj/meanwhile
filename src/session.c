@@ -43,6 +43,8 @@ enum properties {
   property_state = 1,
   property_state_info,
 
+  property_master_channel,
+
   property_auth_user,
   property_auth_type,
   property_auth_password,
@@ -97,6 +99,8 @@ struct mw_session_private {
   gchar *prop_auth_password;
   MwOpaque *prop_auth_token;
   gchar *prop_client_host;
+
+  guint master_channel;
 
   guint prop_client_ver_major;
   guint prop_client_ver_minor;
@@ -231,15 +235,20 @@ static void mw_chan_setup(MwSession *s, MwChannel *chan) {
 
 static void mw_compose_auth_PLAIN(MwSession *s, MwMsgLogin *ml,
 				  MwMsgHandshakeAck *mha) {
+  MwPutBuffer *b;
   gchar *pass = NULL;
 
   g_object_get(G_OBJECT(s), "auth-password", &pass, NULL);
 
-  ml->auth_data.data = (guchar *) pass;
-  ml->auth_data.len = strlen(pass);
+  b = MwPutBuffer_new();
+  mw_str_put(b, pass);
+  MwPutBuffer_free(b, &ml->auth_data);
+
+  g_free(pass);
 }
 
 
+#if 0
 static void mw_compose_auth_TOKEN(MwSession *s, MwMsgLogin *ml,
 				  MwMsgHandshakeAck *mha) {
   MwOpaque *tok = NULL;
@@ -248,29 +257,52 @@ static void mw_compose_auth_TOKEN(MwSession *s, MwMsgLogin *ml,
 
   ml->auth_data.data = tok->data;
   ml->auth_data.len = tok->len;
+
+  /* we stole the contents of the opaque, so we only need to free the
+     structure itself */
+  g_free(tok);
 }
+#endif
 
 
 static void mw_compose_auth_RC2(MwSession *s, MwMsgLogin *ml,
 				MwMsgHandshakeAck *mha) {
-  gchar *id, *pass = NULL;
-  MwOpaque plain;
+
+  MwMPI *rand;
+  MwOpaque key, plain, enc;
   MwRC2Cipher *ci;
+  MwPutBuffer *pb;
 
-  id = ml->name;
-  g_object_get(G_OBJECT(s), "auth-password", &pass, NULL);
+  /* get the random key */
+  rand = MwMPI_new();
+  MwMPI_random(rand, 40);
+  MwMPI_export(rand, &key);
+  MwMPI_free(rand);
 
-  plain.data = (guchar *) pass;
-  plain.len = strlen(pass);
+  /* get the plain password */
+  g_object_get(G_OBJECT(s), "auth-password", &plain.data, NULL);
+  plain.len = strlen((gchar *) plain.data);
 
-  /* encrypt plain with id (yes, really) */
+  /* encrypt plain with key */
   ci = g_object_new(MW_TYPE_RC2_CIPHER, NULL);
-  MwRC2Cipher_setEncryptKey(ci, (guchar *) id, 5);
-  MwCipher_encrypt(MW_CIPHER(ci), &plain, &ml->auth_data);
-  
-  mw_gobject_unref(ci);
+  MwRC2Cipher_setEncryptKey(ci, key.data, key.len);
+  MwCipher_encrypt(MW_CIPHER(ci), &plain, &enc);
 
-  g_free(pass);
+  /* don't need the cipher or the plain any more */
+  mw_gobject_unref(ci);
+  MwOpaque_clear(&plain);
+
+  /* assemble the auth block */
+  pb = MwPutBuffer_new();
+  MwOpaque_put(pb, &key);
+  MwOpaque_put(pb, &enc);
+
+  /* don't need these anymore */
+  MwOpaque_clear(&key);
+  MwOpaque_clear(&enc);
+
+  /* put the auth block in the message */
+  MwPutBuffer_free(pb, &ml->auth_data);
 }
 
 
@@ -360,9 +392,6 @@ static void recv_HANDSHAKE_ACK(MwSession *s, MwMsgHandshakeAck *m) {
   case mw_auth_type_PLAIN:
     mw_compose_auth_PLAIN(s, msglogin, m);
     break;
-  case mw_auth_type_TOKEN:
-    mw_compose_auth_TOKEN(s, msglogin, m);
-    break;
   case mw_auth_type_RC2:
     mw_compose_auth_RC2(s, msglogin, m);
     break;
@@ -438,8 +467,17 @@ static void recv_CHANNEL_CREATE(MwSession *s, MwMsgChannelCreate *m) {
 
 
 static void recv_CHANNEL_CLOSE(MwSession *s, MwMsgChannelClose *m) {
-  MwChannel *chan = MwSession_getChannel(s, m->head.channel);
-  MwChannel_feed(chan, MW_MESSAGE(m));
+  guint master = 0x00;
+
+  g_object_get(G_OBJECT(s), "master-channel-id", &master, NULL);
+
+  if(m->head.channel == master) {
+    MwSession_stop(s, m->reason);
+
+  } else {
+    MwChannel *chan = MwSession_getChannel(s, m->head.channel);
+    MwChannel_feed(chan, MW_MESSAGE(m));
+  }
 }
 
 
@@ -617,6 +655,8 @@ static void mw_stop(MwSession *self, guint32 reason) {
   GList *l;
 
   mw_debug_enter();
+
+  g_debug("stopping session %p: reason 0x%x", self, reason);
 
   priv = self->private;
 
@@ -1071,6 +1111,10 @@ static void mw_get_property(GObject *object,
     g_value_set_pointer(value, priv->state_info);
     break;
 
+  case property_master_channel:
+    g_value_set_uint(value, priv->master_channel);
+    break;
+
   case property_auth_user:
     g_value_set_string(value, priv->login.id.user);
     break;
@@ -1300,6 +1344,10 @@ static void mw_session_class_init(gpointer g_class, gpointer g_class_data) {
   mw_prop_ptr(gobject_class, property_state_info,
 	      "state-info", "get session state info",
 	      G_PARAM_READABLE);
+
+  mw_prop_uint(gobject_class, property_master_channel,
+	       "master-channel-id", "get the master channel ID",
+	       G_PARAM_READABLE);
   
   mw_prop_str(gobject_class, property_auth_user,
 	      "auth-user", "get/set authentication user id",

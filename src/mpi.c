@@ -84,6 +84,13 @@ void MwMPI_set(MwMPI *to, const MwMPI *from) {
 }
 
 
+void MwMPI_random(MwMPI *to, guint bits) {
+  g_return_if_fail(to != NULL);
+
+  mw_mp_set_rand(&to->i, bits);
+}
+
+
 static mw_mp_int *get_prime() {
   static mw_mp_int prime_mpi;
   static gboolean prime_ready = FALSE;

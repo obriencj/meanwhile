@@ -151,6 +151,7 @@ gint main(gint argc, gchar *argv[]) {
   g_object_set(G_OBJECT(session),
 	       "auth-user", argv[3],
 	       "auth-password", argv[4],
+	       "auth-type", mw_auth_type_RC2,
 	       NULL);
 
   /* provide a cipher */

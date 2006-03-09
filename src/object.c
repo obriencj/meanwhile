@@ -65,13 +65,23 @@ guint mw_gobject_refcount(gpointer gdata) {
 }
 
 
-void mw_gobject_set_weak_pointer(gpointer obj, gpointer *weak) {
+void mw_gobject_clear_weak_pointer(gpointer *weak) {
   g_return_if_fail(weak != NULL);
 
   if(*weak) {
-    g_object_remove_weak_pointer(*weak, weak);
+    g_debug("clearing weak pointer at %p to object %p", weak, *weak);
+    g_object_remove_weak_pointer(G_OBJECT(*weak), weak);
     *weak = NULL;
   }
+}
+
+
+void mw_gobject_set_weak_pointer(gpointer obj, gpointer *weak) {
+  g_return_if_fail(weak != NULL);
+
+  mw_gobject_clear_weak_pointer(weak);
+
+  g_debug("setting weak pointer at %p to object %p", weak, obj);
 
   if(obj) {
     GObject *gobj = G_OBJECT(obj);
