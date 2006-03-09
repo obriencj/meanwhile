@@ -72,6 +72,10 @@ mw_marshal.h:	marshal.list
 marshal:	mw_marshal.c mw_marshal.h
 
 
+test.c:
+	ln -s ../samples/sendmessage.c $@
+
+
 libmeanwhile_la_CFLAGS = \
 	$(DEBUG_CFLAGS) \
 	$(GLIB_CFLAGS) $(GOBJECT_CFLAGS)

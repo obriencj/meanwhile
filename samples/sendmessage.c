@@ -129,48 +129,28 @@ static void srvc_state_changed(MwIMService *srvc, guint state,
 gint main(gint argc, gchar *argv[]) {
 
   gint sock;
-  GIOChannel *chan;
   MwGIOSession *session;
   MwCipherClass *cipher_dhrc2;
   MwIMService *imsrvc;
-
-  gchar *server;
-  gint portno;
-  gchar *sender;
-  gchar *password;
-  gchar *recipient;
-  gchar *message;
   
   if (argc < 7) {
     fprintf(stderr, HELP, *argv);
     return 1;
   }
   
-  server = argv[1];
-  portno = atoi(argv[2]);
-  sender = argv[3];
-  password = argv[4];
-  recipient = argv[5];
-  message = argv[6];
-
   /* set up a connection to the host */
-  sock = init_sock(server, portno);
+  sock = init_sock(argv[1], atoi(argv[2]));
 
   /* init the GLib type system */
   g_type_init();
 
-  /* put together a GIOChanne from the socket */
-  chan = g_io_channel_unix_new(sock);
-  g_io_channel_set_encoding(chan, NULL, NULL);
-  g_io_channel_set_flags(chan, G_IO_FLAG_NONBLOCK, NULL);
-
   /* create the session */
-  session = MwGIOSession_new(chan);
+  session = MwGIOSession_newFromSocket(sock);
   
   /* set the user name and password */
   g_object_set(G_OBJECT(session),
-	       "auth-user", sender,
-	       "auth-password", password,
+	       "auth-user", argv[3],
+	       "auth-password", argv[4],
 	       NULL);
 
   /* provide a cipher */
@@ -181,8 +161,8 @@ gint main(gint argc, gchar *argv[]) {
   imsrvc = MwIMService_new(MW_SESSION(session));
 
   /* store the target user and message on the IM service */
-  g_object_set_data(G_OBJECT(imsrvc), "send-to-user", recipient);
-  g_object_set_data(G_OBJECT(imsrvc), "send-message", message);
+  g_object_set_data(G_OBJECT(imsrvc), "send-to-user", argv[5]);
+  g_object_set_data(G_OBJECT(imsrvc), "send-message", argv[6]);
 
   /* watch the state of the IM service */
   g_signal_connect(G_OBJECT(imsrvc), "state-changed",
@@ -197,9 +177,6 @@ gint main(gint argc, gchar *argv[]) {
   
   /* get rid of the session */
   mw_gobject_unref(session);
-
-  /* get rid of the giochannel */
-  g_io_channel_unref(chan);
 
   /* get rid of the cipher class */
   g_type_class_unref(cipher_dhrc2);

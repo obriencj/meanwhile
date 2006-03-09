@@ -92,9 +92,17 @@ GType MwGIOSession_getType();
 
 
 /**
-   Instantiate a new MwGIOSessio based on the given GIOChannel
+   Instantiate a new MwGIOSession based on the given GIOChannel (or
+   NULL)
 */
-MwGIOSession *MwGIOSession_new(GIOChannel *chan);
+MwGIOSession *MwGIOSession_newFromChannel(GIOChannel *chan);
+
+
+/**
+   Instantiate a new MwGIOSession based on a GIOChannel created for
+   the given socket fd (or 0)
+*/
+MwGIOSession *MwGIOSession_newFromSocket(gint fd);
 
 
 /**

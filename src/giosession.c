@@ -466,8 +466,29 @@ GType MwGIOSession_getType() {
 }
 
 
-MwGIOSession *MwGIOSession_new(GIOChannel *chan) {
+MwGIOSession *MwGIOSession_newFromChannel(GIOChannel *chan) {
   return g_object_new(MW_TYPE_GIOSESSION, "giochannel", chan, NULL);
+}
+
+
+
+MwGIOSession *MwGIOSession_newFromSocket(gint fd) {
+  MwGIOSession *ret;
+  GIOChannel *chan = NULL;
+  
+  if(fd) {
+     chan = g_io_channel_unix_new(fd);
+     g_io_channel_set_encoding(chan, NULL, NULL);
+     g_io_channel_set_flags(chan, G_IO_FLAG_NONBLOCK, NULL);
+  }
+
+  ret = g_object_new(MW_TYPE_GIOSESSION, "giochannel", chan, NULL);
+  
+  if(chan) {
+    g_io_channel_unref(chan);
+  }
+
+  return ret;
 }
 
 
@@ -487,8 +508,7 @@ void MwGIOSession_main(MwGIOSession *session) {
 
   loop = g_main_loop_new(NULL, FALSE);
 
-  g_signal_connect(G_OBJECT(session),
-		   "state-changed",
+  g_signal_connect(G_OBJECT(session), "state-changed",
 		   G_CALLBACK(mw_main_state_changed), loop);
 
   MwSession_start(MW_SESSION(session));

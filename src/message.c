@@ -241,10 +241,11 @@ static void enc_offer_put(MwPutBuffer *b, const MwMsgChannelCreate *msg) {
     /* write the count, items, extra, and flag into a tmp buffer,
        render that buffer into an opaque, and write it into b */
 
+    p = MwPutBuffer_new();
+
     count = msg->enc_count;
     mw_uint32_put(p, count);
 
-    p = MwPutBuffer_new();
     for(i = 0; i < count; i++) {
       MwEncItem *ei = msg->enc_items + i;
       mw_uint16_put(p, ei->cipher);
@@ -279,8 +280,11 @@ static void MwMsgChannelCreate_put(MwPutBuffer *b,
 
   enc_offer_put(b, msg);
 
+  /*
   mw_uint32_put(b, 0x00);
   mw_uint32_put(b, 0x00);
+  */
+
   mw_uint16_put(b, 0x07);
 }
 
@@ -388,8 +392,6 @@ static void MwMsgChannelAccept_put(MwPutBuffer *b,
   
   enc_accept_put(b, msg);
 
-  mw_uint32_put(b, 0x00);
-  mw_uint32_put(b, 0x00);
   mw_uint16_put(b, 0x07);
 }
 

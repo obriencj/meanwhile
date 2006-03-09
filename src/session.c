@@ -1013,6 +1013,8 @@ static void mw_set_property(GObject *object,
   MwSession *self = MW_SESSION(object);
   MwSessionPrivate *priv;
 
+  mw_debug_enter();
+
   g_return_if_fail(self->private != NULL);
   priv = self->private;
 
@@ -1047,6 +1049,7 @@ static void mw_set_property(GObject *object,
     break;
   }
 
+  mw_debug_exit();
 }
 
 

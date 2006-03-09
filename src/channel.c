@@ -145,6 +145,8 @@ static MwCipher *mw_get_cipher(MwChannel *self, guint id) {
   MwChannelPrivate *priv;
   GHashTable *ht;
   
+  g_debug("looking up cipher by id 0x%x", id);
+
   g_return_val_if_fail(self->private != NULL, NULL);
   priv = self->private;
   ht = priv->ciphers;
@@ -192,23 +194,36 @@ static void mw_create(MwChannel *self, const MwOpaque *info) {
   msg->proto_ver = proto_ver;
   MwOpaque_clone(&msg->addtl, info);
 
+  msg->enc_mode = policy;
+  msg->enc_extra = policy;
+
+  g_debug("offering encryption policy 0x%x", msg->enc_mode);
+
   /* populate the message's enc block, and the channel's ciphers */
   if(policy != mw_channel_encrypt_NONE) {
     GList *l = MwSession_getCiphers(priv->session);
-    guint i, ls = g_list_length(l);
     
-    msg->enc_mode = policy;
-    msg->enc_extra = policy;
-    msg->enc_count = ls;
-    msg->enc_items = g_new0(MwEncItem, ls);
-    
-    for(i = 0; i < ls; i++) {
-      MwCipher *ci = MwCipherClass_newInstance(l->data, self);
-      MwEncItem *ei = msg->enc_items + i;
-      ei->cipher = MwCipherClass_getIdentifier(l->data);
-      MwCipher_offer(ci, &ei->info);
-      mw_add_cipher(self, ci);
-      l = g_list_delete_link(l, l);
+    if(! l) {
+      g_debug("backing policy down to NONE, no ciphers to offer");
+      msg->enc_mode = mw_channel_encrypt_NONE;
+      msg->enc_extra = mw_channel_encrypt_NONE;
+
+    } else {
+      guint i, ls = g_list_length(l);
+
+      msg->enc_count = ls;
+      msg->enc_items = g_new0(MwEncItem, ls);
+
+      g_debug("offering %u encryption items", ls);
+      
+      for(i = 0; i < ls; i++) {
+	MwCipher *ci = MwCipherClass_newInstance(l->data, self);
+	MwEncItem *ei = msg->enc_items + i;
+	ei->cipher = MwCipherClass_getIdentifier(l->data);
+	MwCipher_offer(ci, &ei->info);
+	mw_add_cipher(self, ci);
+	l = g_list_delete_link(l, l);
+      }
     }
   }
 
@@ -412,6 +427,8 @@ static void recv_CREATE(MwChannel *self, MwMsgChannelCreate *msg) {
   MwLogin_clone(&priv->remote, &msg->creator, TRUE);
   priv->offered_policy = msg->enc_mode;
 
+  g_debug("offered channel with policy 0x%x", msg->enc_mode);
+
   if(msg->enc_mode != mw_channel_encrypt_NONE) {
     guint i, count = msg->enc_count;
 
@@ -449,10 +466,14 @@ static void recv_ACCEPT(MwChannel *self, MwMsgChannelAccept *msg) {
   MwLogin_clone(&priv->remote, &msg->acceptor, TRUE);
   priv->accepted_policy = msg->enc_mode;
 
-  {
+  g_debug("accepted with policy 0x%x", msg->enc_mode);
+  g_debug("accepted with cipher 0x%x", msg->enc_item.cipher);
+
+  if(priv->accepted_policy != mw_channel_encrypt_NONE) {
     MwCipher *ci;
     ci = mw_get_cipher(self, msg->enc_item.cipher);
     MwCipher_accepted(ci, &msg->enc_item.info);
+    priv->cipher = ci;
   }
 
   mw_channel_set_state(self, mw_channel_OPEN);

@@ -492,6 +492,7 @@ static void mw_open(MwConversation *self) {
 		 "service-id", MW_SERVICE_ID,
 		 "protocol-type", MW_PROTO_TYPE,
 		 "protocol-version", MW_PROTO_VER,
+		 "offered-policy", mw_channel_encrypt_ANY,
 		 NULL);
     
     mw_gobject_unref(srvc);

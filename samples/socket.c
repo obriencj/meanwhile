@@ -210,7 +210,6 @@ static void incoming_conversation(MwIMService *self,
 gint main(gint argc, gchar *argv[]) {
 
   gint sock;
-  GIOChannel *chan;
   MwGIOSession *session;
   MwCipherClass *cipher_dhrc2;
   MwIMService *imsrvc;
@@ -227,13 +226,8 @@ gint main(gint argc, gchar *argv[]) {
   /* init the GLib type system */
   g_type_init();
 
-  /* put together a GIOChannel from the socket */
-  chan = g_io_channel_unix_new(sock);
-  g_io_channel_set_encoding(chan, NULL, NULL);
-  g_io_channel_set_flags(chan, G_IO_FLAG_NONBLOCK, NULL);
-
   /* create the session */
-  session = MwGIOSession_new(chan);
+  session = MwGIOSession_newFromSocket(sock);
 
   /* set the username and password */
   g_object_set(G_OBJECT(session),
@@ -269,9 +263,6 @@ gint main(gint argc, gchar *argv[]) {
 
   /* get rid of the session */
   mw_gobject_unref(session);
-
-  /* get rid of the giochannel */
-  g_io_channel_unref(chan);
 
   /* get rid of the cipher class */
   g_type_class_unref(cipher_dhrc2);
