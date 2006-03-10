@@ -1,3 +1,6 @@
+#ifndef _MW_ERROR_H
+#define _MW_ERROR_H
+
 
 /*
   Meanwhile - Unofficial Lotus Sametime Community Client Library
@@ -18,9 +21,6 @@
   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
-#ifndef _MW_ERROR_H
-#define _MW_ERROR_H
-
 
 /** @file mw_error.h
 
@@ -35,13 +35,11 @@
 #include <glib.h>
 
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+G_BEGIN_DECLS
 
 
 /** reference to a new string appropriate for the given error code.*/
-char* mwError(guint32 code);
+gchar* mwError(guint32 code);
 
 
 /* 8.3 Constants */
@@ -166,9 +164,7 @@ enum ERR_IM {
 };
 
 
-#ifdef __cplusplus
-}
-#endif
+G_END_DECLS
 
 
 #endif /* _MW_ERROR_H */

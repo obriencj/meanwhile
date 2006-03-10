@@ -248,7 +248,7 @@ mw_gio_session_constructor(GType type, guint props_count,
   MwGIOSession *self;
   MwGIOSessionPrivate *priv;
 
-  klass = MW_GIO_SESSION_CLASS(g_type_class_peek(MW_TYPE_GIOSESSION));
+  klass = MW_GIO_SESSION_CLASS(g_type_class_peek(MW_TYPE_GIO_SESSION));
 
   obj = parent_class->constructor(type, props_count, props);
   self = MW_GIO_SESSION(obj);
@@ -467,7 +467,7 @@ GType MwGIOSession_getType() {
 
 
 MwGIOSession *MwGIOSession_newFromChannel(GIOChannel *chan) {
-  return g_object_new(MW_TYPE_GIOSESSION, "giochannel", chan, NULL);
+  return g_object_new(MW_TYPE_GIO_SESSION, "giochannel", chan, NULL);
 }
 
 
@@ -482,7 +482,7 @@ MwGIOSession *MwGIOSession_newFromSocket(gint fd) {
      g_io_channel_set_flags(chan, G_IO_FLAG_NONBLOCK, NULL);
   }
 
-  ret = g_object_new(MW_TYPE_GIOSESSION, "giochannel", chan, NULL);
+  ret = g_object_new(MW_TYPE_GIO_SESSION, "giochannel", chan, NULL);
   
   if(chan) {
     g_io_channel_unref(chan);

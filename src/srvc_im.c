@@ -196,7 +196,7 @@ static gboolean mw_incoming_channel(MwSession *session, MwChannel *chan,
 }
 
 
-static void mw_start(MwService *srvc) {
+static gboolean mw_start(MwService *srvc) {
   MwIMService *self;
   MwSession *session;
 
@@ -209,11 +209,11 @@ static void mw_start(MwService *srvc) {
 
   mw_gobject_unref(session);
 
-  MW_SERVICE_CLASS(srvc_parent_class)->start(srvc);
+  return TRUE;
 }
 
 
-static void mw_stop(MwService *srvc) {
+static gboolean mw_stop(MwService *srvc) {
   /* stop all conversations */
 
   MwIMService *self;
@@ -223,27 +223,37 @@ static void mw_stop(MwService *srvc) {
   l = MwIMService_getConversations(self);
 
   for(; l; l = g_list_delete_link(l, l)) {
-    MwConversation_close(l->data);
+    MwConversation_close(l->data, 0x00);
   }
 
-  MW_SERVICE_CLASS(srvc_parent_class)->stop(srvc);
+  return TRUE;
+}
+
+
+static MwConversation *mw_new_conv(MwIMService *self,
+				   const gchar *user,
+				   const gchar *community) {
+  MwConversation *conv;
+
+  conv = g_object_new(MW_TYPE_CONVERSATION,
+		      "service", self,
+		      "user", user,
+		      "community", community,
+		      NULL);
+
+  return conv;
 }
 
 
 static MwConversation *mw_get_conv(MwIMService *self,
 				   const gchar *user,
 				   const gchar *community) {
-  MwConversation *conv;
-  
+    MwConversation *conv;
+
   conv = MwIMService_findConversation(self, user, community);
 
   if(! conv) {
-    conv = g_object_new(MW_TYPE_CONVERSATION,
-			"service", self,
-			"user", user,
-			"community", community,
-			NULL);
-
+    conv = MW_IM_SERVICE_GET_CLASS(self)->new_conv(self, user, community);
     mw_conv_setup(self, conv);
   }
 
@@ -355,6 +365,7 @@ static void mw_srvc_class_init(gpointer gclass, gpointer gclass_data) {
 
   klass->signal_incoming_conversation = mw_signal_incoming_conversation();
   
+  klass->new_conv = mw_new_conv;
   klass->get_conv = mw_get_conv;
   klass->find_conv = mw_find_conv;
   klass->get_convs = mw_get_convs;
@@ -403,6 +414,19 @@ MwIMService *MwIMService_new(MwSession *session) {
 		      "auto-start", TRUE,
 		      NULL);
   return self;
+}
+
+
+MwConversation *
+MwIMService_newConversation(MwIMService *self,
+			    const gchar *user, const gchar *community) {
+
+  MwConversation *(*fn)(MwIMService *, const gchar *, const gchar *);
+
+  g_return_val_if_fail(self != NULL, NULL);
+  g_return_val_if_fail(user != NULL, NULL);
+
+  return fn(self, user, community);
 }
 
 
@@ -530,7 +554,7 @@ static void mw_conv_state(MwConversation *self,
 }
 
 
-static void mw_close(MwConversation *self) {
+static void mw_close(MwConversation *self, guint32 code) {
   MwChannel *chan;
 
   mw_debug_enter();
@@ -540,7 +564,7 @@ static void mw_close(MwConversation *self) {
   if(chan) {
     /* will trigger a state change on the channel, which will in turn
        trigger a state change on the conversation */
-    MwChannel_close(chan, 0x00, NULL);
+    MwChannel_close(chan, code, NULL);
     g_object_set(G_OBJECT(self), "channel", NULL, NULL);
 
   } else {
@@ -1023,13 +1047,13 @@ void MwConversation_open(MwConversation *self) {
 }
 
 
-void MwConversation_close(MwConversation *self) {
-  void (*fn)(MwConversation *);
+void MwConversation_close(MwConversation *self, guint32 code) {
+  void (*fn)(MwConversation *, guint32);
 
   g_return_if_fail(self != NULL);
 
   fn = MW_CONVERSATION_GET_CLASS(self)->close;
-  fn(self);
+  fn(self, code);
 }
 
 

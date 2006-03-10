@@ -41,27 +41,27 @@
 #include "mw_typedef.h"
 
 
-#define MW_TYPE_GIOSESSION  (MwGIOSession_getType())
+#define MW_TYPE_GIO_SESSION  (MwGIOSession_getType())
 
 
 #define MW_GIO_SESSION(obj)						\
-  (G_TYPE_CHECK_INSTANCE_CAST((obj), MW_TYPE_GIOSESSION, MwGIOSession))
+  (G_TYPE_CHECK_INSTANCE_CAST((obj), MW_TYPE_GIO_SESSION, MwGIOSession))
 
 
 #define MW_GIO_SESSION_CLASS(klass)					\
-  (G_TYPE_CHECK_CLASS_CAST((klass), MW_TYPE_GIOSESSION, MwGIOSessionClass))
+  (G_TYPE_CHECK_CLASS_CAST((klass), MW_TYPE_GIO_SESSION, MwGIOSessionClass))
 
 
 #define MW_IS_GIO_SESSION(obj)					\
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj), MW_TYPE_GIOSESSION))
+  (G_TYPE_CHECK_INSTANCE_TYPE((obj), MW_TYPE_GIO_SESSION))
 
 
 #define MW_IS_GIO_SESSION_CLASS(klass)				\
-  (G_TYPE_CHECK_CLASS_TYPE((klass), MW_TYPE_GIOSESSION))
+  (G_TYPE_CHECK_CLASS_TYPE((klass), MW_TYPE_GIO_SESSION))
 
 
 #define MW_GIO_SESSION_GET_CLASS(obj)					\
-  (G_TYPE_INSTANCE_GET_CLASS((obj), MW_TYPE_GIOSESSION, MwGIOSessionClass))
+  (G_TYPE_INSTANCE_GET_CLASS((obj), MW_TYPE_GIO_SESSION, MwGIOSessionClass))
 
 
 typedef struct mw_gio_session_private MwGIOSessionPrivate;

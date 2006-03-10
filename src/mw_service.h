@@ -82,8 +82,13 @@ struct mw_service_class {
   const gchar *(*get_name)(MwService *self);
   const gchar *(*get_desc)(MwService *self);
 
-  void (*start)(MwService *self);
-  void (*stop)(MwService *self);
+  gboolean (*starting)(MwService *self);
+  gboolean (*start)(MwService *self);
+  void (*started)(MwService *self);
+
+  gboolean (*stopping)(MwService *self);
+  gboolean (*stop)(MwService *self);
+  void (*stopped)(MwService *self);
 };
 
 
@@ -109,10 +114,56 @@ const gchar *MwService_getName(MwService *service);
 const gchar *mwService_getDesc(MwService *service);
 
 
+/**
+   Calls service's starting method. If starting returns TRUE, the
+   state of the service is set to STARTING, and the start method is
+   called. If start returns TRUE, MwService_started is called, setting
+   the state to STARTED, otherwise startup is considered deferred,
+   and MwService_started must be called later from the service
+   implementation when it is ready for use.
+
+   If an error occurs during startup, the implementation should call
+   MwService_error.
+*/
 void MwService_start(MwService *service);
 
 
 void MwService_stop(MwService *service);
+
+
+/*
+  @section Session extension functions
+  
+  These should only be called from service implementations, not from
+  client code.
+
+*/
+/* @{ */
+
+
+/**
+   utility function for service implementations, to be called when
+   they have completed a deferred startup. Called automatically from
+   MwService_start if startup is not deferred
+*/
+void MwService_started(MwService *service);
+
+
+/**
+   utility function for service implementations, to be called when
+   they have completed a deferred shutdown. Called automatically from
+   MwService_stop if shutdown is not deferred.
+*/
+void MwService_stopped(MwService *service);
+
+
+/**
+   triggers the mw_service_ERROR state, then calle MwService_stop
+*/
+void MwService_error(MwService *service);
+
+
+/* @} */
 
 
 G_END_DECLS

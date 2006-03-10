@@ -57,12 +57,39 @@ static const gchar *mw_get_desc(MwService *self) {
 }
 
 
-static void mw_start(MwService *self) {
+static gboolean mw_starting(MwService *self) {
+  guint state;
+  g_object_get(G_OBJECT(self), "state", &state, NULL);
+
+  return (state == mw_service_STOPPED);
+}
+
+
+static gboolean mw_start(MwService *self) {
+  return TRUE;
+}
+
+
+static void mw_started(MwService *self) {
   g_object_set(G_OBJECT(self), "state", mw_service_STARTED, NULL);
 }
 
 
-static void mw_stop(MwService *self) {
+static gboolean mw_stopping(MwService *self) {
+  guint state;
+  g_object_get(G_OBJECT(self), "state", &state, NULL);
+
+  return (state == mw_service_ERROR ||
+	  state == mw_service_STARTED);
+}
+
+
+static gboolean mw_stop(MwService *self) {
+  return TRUE;
+}
+
+
+static void mw_stopped(MwService *self) {
   g_object_set(G_OBJECT(self), "state", mw_service_STOPPED, NULL);
 }
 
@@ -271,8 +298,14 @@ static void mw_class_init(gpointer gclass, gpointer gclass_data) {
   
   klass->get_name = mw_get_name;
   klass->get_desc = mw_get_desc;
+
+  klass->starting = mw_starting;
   klass->start = mw_start;
+  klass->started = mw_started;
+
+  klass->stopping = mw_stopping;
   klass->stop = mw_stop;
+  klass->stopped = mw_stopped;
 }
 
 
@@ -331,22 +364,70 @@ const gchar *MwService_getDescription(MwService *srvc) {
 
 
 void MwService_start(MwService *srvc) {
+  gboolean (*fn)(MwService *);
+
+  g_return_if_fail(srvc != NULL);
+
+  fn = MW_SERVICE_GET_CLASS(srvc)->starting;
+  if(fn(srvc)) {
+
+    g_debug("starting service %s", MwService_getName(srvc));
+    fn = MW_SERVICE_GET_CLASS(srvc)->start;
+    if(fn(srvc)) {
+      MwService_started(srvc);
+    }
+  }
+}
+
+
+void MwService_started(MwService *srvc) {
   void (*fn)(MwService *);
 
   g_return_if_fail(srvc != NULL);
 
-  fn = MW_SERVICE_GET_CLASS(srvc)->start;
+  fn = MW_SERVICE_GET_CLASS(srvc)->started;
   fn(srvc);
+
+  g_debug("started service %s", MwService_getName(srvc));
 }
 
 
 void MwService_stop(MwService *srvc) {
+  gboolean (*fn)(MwService *);
+
+  g_return_if_fail(srvc != NULL);
+
+  fn = MW_SERVICE_GET_CLASS(srvc)->stopping;
+  if(fn(srvc)) {
+
+    g_debug("stopping service %s", MwService_getName(srvc));
+    fn = MW_SERVICE_GET_CLASS(srvc)->stop;
+    if(fn(srvc)) {
+      MwService_stopped(srvc);
+    }
+  }
+}
+
+
+void MwService_stopped(MwService *srvc) {
   void (*fn)(MwService *);
 
   g_return_if_fail(srvc != NULL);
 
-  fn = MW_SERVICE_GET_CLASS(srvc)->stop;
+  fn = MW_SERVICE_GET_CLASS(srvc)->stopped;
   fn(srvc);
+
+  g_debug("stopped service %s", MwService_getName(srvc));
+}
+
+
+void MwService_error(MwService *srvc) {
+  g_return_if_fail(srvc != NULL);
+
+  g_debug("error in service %s", MwService_getName(srvc));
+
+  g_object_set(G_OBJECT(srvc), "state", mw_service_ERROR, NULL);
+  MwService_stop(srvc);
 }
 
 

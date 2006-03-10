@@ -82,6 +82,16 @@ struct mw_im_service_class {
 
   guint signal_incoming_conversation;
 
+  /**
+     @see MwIMService_getConversation
+     
+     This method can be overridden to provide a subclass of
+     conversation for extensions of the IM service, without having to
+     override the rest of the related methods herein.
+   */
+  MwConversation *(*new_conv)(MwIMService *srvc,
+			      const gchar *user, const gchar *community);
+  
   /** @see MwIMService_getConversation */ 
   MwConversation *(*get_conv)(MwIMService *srvc,
 			      const gchar *user, const gchar *community);
@@ -196,7 +206,7 @@ struct mw_conversation_class {
   guint signal_got_data;
 
   void (*open)(MwConversation *self);
-  void (*close)(MwConversation *self);
+  void (*close)(MwConversation *self, guint32 code);
   void (*send_text)(MwConversation *self, const gchar *text);
   void (*send_typing)(MwConversation *self, gboolean typing);
   void (*send_data)(MwConversation *self, guint type, guint subtype,
@@ -226,7 +236,7 @@ void MwConversation_open(MwConversation *conv);
 /**
    close a conversation. May be re-opened 
 */
-void MwConversation_close(MwConversation *conv);
+void MwConversation_close(MwConversation *conv, guint32 code);
 
 
 gboolean MwConversation_isState(MwConversation *conv,
