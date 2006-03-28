@@ -24,6 +24,25 @@
 
 /**
    @file mw_srvc_nbim.h
+
+   An extension of the IM Service to provide additional features, such
+   as HTML messages, conversation subjects, and multipart MIME
+   messages (to allow for inline attachments such as images)
+
+   These protocol extensions are all compatible with their original
+   implementation in the Alphaworks NotesBuddy sametime client
+
+   As these extensions are not part of the standard client's IM
+   service, it is possible and likely that conversations initiated in
+   either direction (from a user or to a user) may not support these
+   features. In that case there is an optional compatability mode
+   property for the session (to allow it to accept vanilla incoming
+   conversation channels, not just NotesBuddy extension channels), and
+   a compatability mode for individual conversations (to allow them to
+   fall-back to standard-only features if the target user does not
+   support the extensions). If neither compatability mode is used,
+   then client code needs to fall back to an instance of the vanilla
+   MwIMService in order to provide the standard features.
 */
 
 

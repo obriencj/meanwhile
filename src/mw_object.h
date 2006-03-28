@@ -1,6 +1,7 @@
 #ifndef _MW_OBJECT_H
 #define _MW_OBJECT_H
 
+
 /*
   Meanwhile - Unofficial Lotus Sametime Community Client Library
   Copyright (C) 2004-2006  Christopher O'Brien  <siege@preoccupied.net>
@@ -21,10 +22,11 @@
 */
 
 
-/** @file mw_object.h
-    @since 2.0.0
+/**
+   @file mw_object.h
+   @since 2.0.0
     
-    Base class for object types defined in Meanwhile
+   Base class for object types defined in Meanwhile
 */
 
 
@@ -63,9 +65,9 @@ G_BEGIN_DECLS
 
 struct mw_object {
   GObject gobject;
-
-  gpointer user_data;
-  GDestroyNotify user_data_clear;
+  
+  /** private state field */
+  gint state;
 };
 
 
@@ -74,11 +76,41 @@ typedef struct mw_object_class MwObjectClass;
 
 struct mw_object_class {
   GObjectClass gobjectclass;
+
+  GParamSpecEnum *state_spec;
 };
 
 
 /** @since 2.0.0 */
 GType MwObject_getType();
+
+
+const GEnumValue *MwObject_getStateValue(MwObject *obj);
+
+
+void MwObjectClass_setStateEnum(MwObjectClass *klass, GType enum_type);
+
+
+GEnumClass *MwObjectCass_peekStateEnum(MwObject *obj);
+
+
+const GEnumValue *
+MwObjectClass_getStateValue(MwObjectClass *klass, gint state);
+
+
+#define MW_TYPE_OBJECT_STATE_ENUM  (MwObjectStateEnum_getType())
+
+
+enum mw_object_state {
+  mw_object_stopped = 0,
+  mw_object_starting,
+  mw_object_started,
+  mw_object_stopping,
+  mw_object_error,
+};
+
+
+GType MwObjectStateEnum_getType();
 
 
 /**
@@ -88,6 +120,12 @@ GType MwObject_getType();
    with weak references.
 */
 /* @{ */
+
+
+#define MW_REF(obj) mw_gobject_ref((obj))
+
+
+#define MW_UNREF(obj) mw_gobject_unref((obj))
 
 
 /** Calls g_object_ref on obj. Will print a g_debug of the reference
@@ -164,6 +202,15 @@ void mw_prop_obj(GObjectClass *gclass,
 		 guint property_id,
 		 const char *name, const char *blurb,
 		 GType type,
+		 GParamFlags flags);
+
+
+/** @since 2.0.0
+
+    add a gint property to a GObjectClass */
+void mw_prop_int(GObjectClass *gclass,
+		 guint property_id,
+		 const char *name, const char *blurb,
 		 GParamFlags flags);
 
 

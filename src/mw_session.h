@@ -136,18 +136,18 @@ struct mw_session_class {
   void (*send_channel)(MwSession *self, MwChannel *chan, MwMessage *msg);
   void (*send_keepalive)(MwSession *self);
   void (*send_announce)(MwSession *self, gboolean may_reply,
-			const GList *recipients, const gchar *text);
+			const gchar **recipients, const gchar *text);
   void (*force_login)(MwSession *self);
   void (*sense_service)(MwSession *session, guint32 id);
 
   MwChannel *(*new_channel)(MwSession *self);
   MwChannel *(*get_channel)(MwSession *self, guint32 id);
-  GList *(*get_channels)(MwSession *self);
+  void (*foreach_channel)(MwSession *self, GFunc func, gpointer data);
   
   gboolean (*add_cipher)(MwSession *self, MwCipherClass *klass);
   MwCipherClass *(*get_cipher)(MwSession *self, guint16 id);
   MwCipherClass *(*get_cipher_by_pol)(MwSession *self, guint16 pol);
-  GList *(*get_ciphers)(MwSession *self);
+  void (*foreach_cipher)(MwSession *self, GFunc func, gpointer data);
   void (*remove_cipher)(MwSession *self, MwCipherClass *klass);
 };
 
@@ -156,51 +156,6 @@ GType MwSession_getType();
 
 
 MwSession *MwSession_new();
-
-
-/** @see MwSession_getState */
-enum mw_session_state {
-  mw_session_STARTING,       /**< session is starting */
-  mw_session_HANDSHAKE,      /**< session has sent handshake */
-  mw_session_HANDSHAKE_ACK,  /**< session has received handshake ack */
-  mw_session_LOGIN,          /**< session has sent login */
-  mw_session_LOGIN_REDIRECT, /**< session has been redirected */
-  mw_session_LOGIN_FORCE,    /**< session has sent a login continue */
-  mw_session_LOGIN_ACK,      /**< session has received login ack */
-  mw_session_STARTED,        /**< session is active */
-  mw_session_STOPPING,       /**< session is shutting down */
-  mw_session_STOPPED,        /**< session is stopped */
-  mw_session_UNKNOWN,        /**< indicates an error determining state */
-};
-
-
-#define MwSession_isState(session, state)	\
-  (MwSession_getState((session)) == (state))
-
-
-#define MwSession_isStarting(s)				\
-  (MwSession_isState((s), mw_session_STARTING)      ||	\
-   MwSession_isState((s), mw_session_HANDSHAKE)     ||	\
-   MwSession_isState((s), mw_session_HANDSHAKE_ACK) ||	\
-   MwSession_isState((s), mw_session_LOGIN)         ||	\
-   MwSession_isState((s), mw_session_LOGIN_ACK)     ||	\
-   MwSession_isState((s), mw_session_LOGIN_REDIR)   ||	\
-   MwSession_isState((s), mw_session_LOGIN_CONT))
-
-
-#define MwSession_isStarted(s)			\
-  (MwSession_isState((s), mw_session_STARTED))
-
-
-#define MwSession_isStopping(s)			\
-  (MwSession_isState((s), mw_session_STOPPING))
-
-
-#define MwSession_isStopped(s)			\
-  (MwSession_isState((s), mw_session_STOPPED))
-
-
-gpointer MwSession_getStateInfo(MwSession *session);
 
 
 void MwSession_start(MwSession *session);
@@ -250,14 +205,14 @@ void MwSession_sendKeepalive(MwSession *self);
 
 
 /** Send an announcement message to the specified recipients.  The
-    recipient list is a GList of strings in the following format
+    recipient list is an array of strings in the following format
 
     @li "\@U userid" to indicate a user on your community
     @li "\@G groupid" to indicate all users in a Notes Address Book group
     @li "\@E externaluserid" to indicate a user via a SIP gateway
 */
 void MwSession_sendAnnounce(MwSession *session, gboolean may_reply,
-			    const GList *recipients, const gchar *text);
+			    const gchar **recipients, const gchar *text);
 
 
 /** Force a session to continue the authentication process against the
@@ -277,8 +232,17 @@ MwChannel *MwSession_newChannel(MwSession *session);
 MwChannel *MwSession_getChannel(MwSession *session, guint32 id);
 
 
-/** GList of MwChannel instanciated by this session. Remember to
-    g_list_free when you're done. */
+void MwSession_foreachChannel(MwSession *session,
+			      GFunc func, gpointer data);
+
+
+void MwSession_foreachChannelClosure(MwSession *session,
+				     GClosure *closure);
+
+
+/** Uses MwSession_foreachChannel to construct a GList of MwChannel
+    instanciated by this session. Remember to g_list_free when you're
+    done. */
 GList *MwSession_getChannels(MwSession *session);
 
 
@@ -295,8 +259,17 @@ MwCipherClass *MwSession_getCipherByPolicy(MwSession *session,
 					   guint16 policy);
 
 
-/** GList of MwCipherClass, sorted by their identifiers. Remember to
-    call g_list_free when you're done. */
+void MwSession_foreachCipher(MwSession *session,
+			     GFunc func, gpointer data);
+
+
+void MwSession_foreachCipherClosure(MwSession *session,
+				    GClosure *closure);
+
+
+/** Uses MwSession_foreachCipher to construct a GList of
+    MwCipherClass, sorted by their identifiers. Remember to call
+    g_list_free when you're done. */
 GList *MwSession_getCiphers(MwSession *session);
 
 
@@ -328,6 +301,28 @@ gboolean MwSession_handlePending(MwSession *session);
    Default handler for the MW_SESSION_CHANNEL signal
 */
 gboolean MwSession_handleChannel(MwSession *session, MwChannel *chan);
+
+
+#define MW_TYPE_SESSION_STATE_ENUM  (MwSessionStateEnum_getType())
+
+
+/** @see MwSession_getState */
+enum mw_session_state {
+  mw_session_stopped   = mw_object_stopped,
+  mw_session_starting  = mw_object_starting,
+  mw_session_started   = mw_object_started,
+  mw_session_stopping  = mw_object_stopping,
+  mw_session_error     = mw_object_error,
+  mw_session_handshake,      /**< session has sent handshake */
+  mw_session_handshake_ack,  /**< session has received handshake ack */
+  mw_session_login,          /**< session has sent login */
+  mw_session_login_redirect, /**< session has been redirected */
+  mw_session_login_force,    /**< session has sent a login continue */
+  mw_session_login_ack,      /**< session has received login ack */
+};
+
+
+GType MwSessionStateEnum_getType();
 
 
 G_END_DECLS

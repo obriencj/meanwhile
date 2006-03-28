@@ -141,8 +141,8 @@ static void mw_session_set_state(MwSession *session,
 static enum mw_session_state mw_session_get_state(MwSession *session) {
   MwSessionPrivate *priv;
 
-  g_return_val_if_fail(session != NULL, mw_session_UNKNOWN);
-  g_return_val_if_fail(session->private != NULL, mw_session_UNKNOWN);
+  g_return_val_if_fail(session != NULL, mw_session_stopped);
+  g_return_val_if_fail(session->private != NULL, mw_session_stopped);
   priv = session->private;
 
   return priv->state;
@@ -366,7 +366,7 @@ static void recv_HANDSHAKE_ACK(MwSession *s, MwMsgHandshakeAck *m) {
   guint auth_type, client_type;
   gchar *user;
 
-  g_return_if_fail(mw_session_get_state(s) == mw_session_HANDSHAKE);
+  g_return_if_fail(mw_session_get_state(s) == mw_session_handshake);
   
   g_return_if_fail(s->private != NULL);
   priv = s->private;
@@ -374,7 +374,7 @@ static void recv_HANDSHAKE_ACK(MwSession *s, MwMsgHandshakeAck *m) {
   priv->prop_server_ver_major = m->major;
   priv->prop_server_ver_minor = m->minor;
 
-  mw_session_set_state(s, mw_session_HANDSHAKE_ACK, NULL, NULL);
+  mw_session_set_state(s, mw_session_handshake_ack, NULL, NULL);
 
   msglogin = MwMessage_new(mw_message_LOGIN);
 
@@ -407,15 +407,15 @@ static void recv_HANDSHAKE_ACK(MwSession *s, MwMsgHandshakeAck *m) {
   msglogin->name = NULL;
   MwMessage_free(MW_MESSAGE(msglogin));
 
-  mw_session_set_state(s, mw_session_LOGIN, NULL, NULL);
+  mw_session_set_state(s, mw_session_login, NULL, NULL);
 }
 
 
 static void recv_LOGIN_REDIRECT(MwSession *s, MwMsgLoginRedirect *m) {
 
-  g_return_if_fail(mw_session_get_state(s) == mw_session_LOGIN);
+  g_return_if_fail(mw_session_get_state(s) == mw_session_login);
   
-  mw_session_set_state(s, mw_session_LOGIN_REDIRECT,
+  mw_session_set_state(s, mw_session_login_redirect,
 		       g_strdup(m->host), g_free);
 }
 
@@ -424,8 +424,8 @@ static void recv_LOGIN_ACK(MwSession *s, MwMsgLoginAck *m) {
   MwSessionClass *klass;
   MwSessionPrivate *priv;
 
-  g_return_if_fail(mw_session_get_state(s) == mw_session_LOGIN ||
-		   mw_session_get_state(s) == mw_session_LOGIN_FORCE);
+  g_return_if_fail(mw_session_get_state(s) == mw_session_login ||
+		   mw_session_get_state(s) == mw_session_login_force);
 
   klass = MW_SESSION_GET_CLASS(s);
 
@@ -439,9 +439,9 @@ static void recv_LOGIN_ACK(MwSession *s, MwMsgLoginAck *m) {
   g_signal_emit(s, klass->signal_got_status, 0, NULL);
   g_signal_emit(s, klass->signal_got_privacy, 0, NULL);
   
-  mw_session_set_state(s, mw_session_LOGIN_ACK, NULL, NULL);
+  mw_session_set_state(s, mw_session_login_ack, NULL, NULL);
 
-  mw_session_set_state(s, mw_session_STARTED, NULL, NULL);
+  mw_session_set_state(s, mw_session_started, NULL, NULL);
 }
 
 
@@ -620,7 +620,7 @@ static void mw_start(MwSession *self) {
   guint major = 0, minor = 0, type = 0;
   gchar *local_host = NULL;
 
-  mw_session_set_state(self, mw_session_STARTING, NULL, NULL);
+  mw_session_set_state(self, mw_session_starting, NULL, NULL);
 
   g_object_get(G_OBJECT(self),
 	       "client-ver-major", &major,
@@ -644,7 +644,7 @@ static void mw_start(MwSession *self) {
   MwSession_sendMessage(self, MW_MESSAGE(msg));
   MwMessage_free(MW_MESSAGE(msg));
 
-  mw_session_set_state(self, mw_session_HANDSHAKE, NULL, NULL);
+  mw_session_set_state(self, mw_session_handshake, NULL, NULL);
 }
 
 
@@ -661,7 +661,7 @@ static void mw_stop(MwSession *self, guint32 reason) {
   priv = self->private;
 
   /* let the services have a chance to catch the stopping state */
-  mw_session_set_state(self, mw_session_STOPPING, code, NULL);
+  mw_session_set_state(self, mw_session_stopping, code, NULL);
 
   /* close all channels not already closed */
   for(l = MwSession_getChannels(self); l; l = g_list_delete_link(l, l)) {
@@ -682,7 +682,7 @@ static void mw_stop(MwSession *self, guint32 reason) {
   MwMetaQueue_scour(priv->chan_queue);
 
   /* and we're stopped */
-  mw_session_set_state(self, mw_session_STOPPED, code, NULL);
+  mw_session_set_state(self, mw_session_stopped, code, NULL);
 
   mw_debug_exit();
 }
@@ -789,20 +789,15 @@ static void mw_send_keepalive(MwSession *self) {
 
 
 static void mw_send_announce(MwSession *self, gboolean may_reply,
-			     const GList *rcpt, const gchar *text) {
+			     const gchar **rcpt, const gchar *text) {
   MwMsgAnnounce *msg;
-  guint32 i = 0;
 
   msg = MwMessage_new(mw_message_ANNOUNCE);
   msg->may_reply = may_reply;
   msg->text = (gchar *) text;
 
   msg->rcpt_count = g_list_length((GList *) rcpt);
-  msg->recipients = g_new(gchar *, msg->rcpt_count);
-
-  for(; rcpt; rcpt = rcpt->next) {
-    msg->recipients[i++] = rcpt->data;
-  }
+  msg->recipients = (gchar **) rcpt;
 
   /* send our newly composed message */
   MwSession_sendMessage(self, MW_MESSAGE(msg));
@@ -825,7 +820,7 @@ static void mw_force_login(MwSession *self) {
   g_return_if_fail(self->private != NULL);
 
   priv = self->private;
-  g_return_if_fail(priv->state == mw_session_LOGIN_REDIRECT);
+  g_return_if_fail(priv->state == mw_session_login_redirect);
 
   msg = MwMessage_new(mw_message_LOGIN_FORCE);
 
@@ -833,7 +828,7 @@ static void mw_force_login(MwSession *self) {
 
   MwMessage_free(MW_MESSAGE(msg));  
 
-  mw_session_set_state(self, mw_session_LOGIN_FORCE, NULL, NULL);
+  mw_session_set_state(self, mw_session_login_force, NULL, NULL);
 }
 
 
@@ -884,14 +879,14 @@ static MwChannel *mw_get_channel(MwSession *self, guint32 id) {
 }
 
 
-static GList *mw_get_channels(MwSession *self) {
+static void mw_foreach_channel(MwSession *self, GFunc func, gpointer d) {
   MwSessionPrivate *priv;
   GHashTable *ht;
-
+  
   priv = self->private;
   ht = priv->channels;
 
-  return mw_map_collect_values(ht);
+  mw_map_foreach_val(ht, func, d);
 }
 
 
@@ -953,29 +948,6 @@ static MwCipherClass *mw_get_cipher_by_pol(MwSession *self, guint16 pol) {
 }
 
 
-static gint mw_cipher_comp(MwCipherClass *a, MwCipherClass *b) {
-  gint a_id, b_id;
-  a_id = (gint) MwCipherClass_getIdentifier(a);
-  b_id = (gint) MwCipherClass_getIdentifier(b);
-  return a_id - b_id;
-}
-
-
-static GList *mw_get_ciphers(MwSession *self) {
-  MwSessionPrivate *priv;
-  GHashTable *ht;
-  GList *l;
-
-  priv = self->private;
-  ht = priv->ciphers;
-  
-  l = mw_map_collect_values(ht);
-  l = g_list_sort(l, (GCompareFunc) mw_cipher_comp);
-  
-  return l;
-}
-
-
 static void mw_remove_cipher(MwSession *self, MwCipherClass *klass) {
   MwSessionPrivate *priv;
   GHashTable *htid, *htpol;
@@ -994,6 +966,17 @@ static void mw_remove_cipher(MwSession *self, MwCipherClass *klass) {
   
   if(g_hash_table_lookup(htpol, GUINT_TO_POINTER(pol)))
     g_hash_table_remove(htpol, GUINT_TO_POINTER(pol));
+}
+
+
+static void mw_foreach_cipher(MwSession *self, GFunc func, gpointer d) {
+  MwSessionPrivate *priv;
+  GHashTable *ht;
+  
+  priv = self->private;
+  ht = priv->ciphers;
+
+  mw_map_foreach_val(ht, func, d);
 }
 
 
@@ -1017,7 +1000,7 @@ mw_session_constructor(GType type, guint props_count,
   priv = self->private;
 
   /* start out stopped */
-  priv->state = mw_session_STOPPED;
+  priv->state = mw_session_stopped;
   priv->state_info = NULL;
   
 
@@ -1325,9 +1308,11 @@ static guint mw_signal_got_sense_service() {
 
 static void mw_session_class_init(gpointer g_class, gpointer g_class_data) {
   GObjectClass *gobject_class;
+  MwObjectClass *mwobject_class;
   MwSessionClass *klass;
 
   gobject_class = G_OBJECT_CLASS(g_class);
+  mwobject_class = MW_OBJECT_CLASS(g_class);
   klass = MW_SESSION_CLASS(g_class);
 
   parent_class = g_type_class_peek_parent(gobject_class);
@@ -1451,13 +1436,17 @@ static void mw_session_class_init(gpointer g_class, gpointer g_class_data) {
 
   klass->new_channel = mw_new_channel;
   klass->get_channel = mw_get_channel;
-  klass->get_channels = mw_get_channels;
+  klass->foreach_channel = mw_foreach_channel;
   
   klass->add_cipher = mw_add_cipher;
   klass->get_cipher = mw_get_cipher;
   klass->get_cipher_by_pol = mw_get_cipher_by_pol;
-  klass->get_ciphers = mw_get_ciphers;
+  /* klass->get_ciphers = mw_get_ciphers; */
+  klass->foreach_cipher = mw_foreach_cipher;
   klass->remove_cipher = mw_remove_cipher;
+
+  /* specify our state enumeration */
+  MwObjectClass_setStateEnum(mwobject_class, MW_TYPE_SESSION_STATE_ENUM);
 }
 
 
@@ -1573,9 +1562,9 @@ void MwSession_sendKeepalive(MwSession *session) {
 
 
 void MwSession_sendAnnounce(MwSession *session, gboolean may_reply,
-			    const GList *rcpt, const gchar *text) {
+			    const gchar **rcpt, const gchar *text) {
 
-  void (*fn)(MwSession *, gboolean, const GList *, const gchar *);
+  void (*fn)(MwSession *, gboolean, const gchar **, const gchar *);
 
   g_return_if_fail(session != NULL);
 
@@ -1624,13 +1613,29 @@ MwChannel *MwSession_getChannel(MwSession *session, guint32 id) {
 }
 
 
+void MwSession_foreachChannel(MwSession *session,
+			      GFunc func, gpointer data) {
+
+  void (*fn)(MwSession *, GFunc, gpointer);
+
+  g_return_if_fail(session != NULL);
+
+  fn = MW_SESSION_GET_CLASS(session)->foreach_channel;
+  fn(session, func, data);
+}
+
+
+void MwSession_foreachChannelClosure(MwSession *session,
+				     GClosure *closure) {
+
+  MwSession_foreachChannel(session, mw_closure_gfunc, closure);
+}
+
+
 GList *MwSession_getChannels(MwSession *session) {
-  GList *(*fn)(MwSession *);
-
-  g_return_val_if_fail(session != NULL, NULL);
-
-  fn = MW_SESSION_GET_CLASS(session)->get_channels;
-  return fn(session);
+  GList *list = NULL;
+  MwSession_foreachChannel(session, mw_collect_gfunc, &list);
+  return list;
 }
 
 
@@ -1667,13 +1672,37 @@ MwCipherClass *MwSession_getCipherByPolicy(MwSession *session,
 }
 
 
+void MwSession_foreachCipher(MwSession *session,
+			     GFunc func, gpointer data) {
+  
+  void (*fn)(MwSession *, GFunc, gpointer);
+  
+  g_return_if_fail(session != NULL);
+  
+  fn = MW_SESSION_GET_CLASS(session)->foreach_cipher;
+  fn(session, func, data);
+}
+
+
+void MwSession_foreachCipherClosure(MwSession *session,
+				    GClosure *closure) {
+
+  MwSession_foreachCipher(session, mw_closure_gfunc, closure);
+}
+
+
+static gint mw_cipher_comp(MwCipherClass *a, MwCipherClass *b) {
+  gint a_id, b_id;
+  a_id = (gint) MwCipherClass_getIdentifier(a);
+  b_id = (gint) MwCipherClass_getIdentifier(b);
+  return a_id - b_id;
+}
+
+
 GList *MwSession_getCiphers(MwSession *session) {
-  GList *(*fn)(MwSession *);
-
-  g_return_val_if_fail(session != NULL, NULL);
-
-  fn = MW_SESSION_GET_CLASS(session)->get_ciphers;
-  return fn(session);
+  GList *list = NULL;
+  MwSession_foreachCipher(session, mw_collect_gfunc, &list);
+  return g_list_sort(list, (GCompareFunc) mw_cipher_comp);;
 }
 
 
@@ -1757,6 +1786,36 @@ gboolean MwSession_handleChannel(MwSession *session, MwChannel *chan) {
   mw_debug_enter();
   MwChannel_close(chan, ERR_SERVICE_NO_SUPPORT, NULL);
   mw_debug_return_val(FALSE);
+}
+
+
+#define enum_val(val, alias) { val, #val, alias }
+
+
+static const GEnumValue values[] = {
+  enum_val(mw_session_stopped, "stopped"),
+  enum_val(mw_session_starting, "starting"),
+  enum_val(mw_session_handshake, "handshake"),
+  enum_val(mw_session_handshake_ack, "handshake_ack"),
+  enum_val(mw_session_login, "login"),
+  enum_val(mw_session_login_redirect, "login_redirect"),
+  enum_val(mw_session_login_force, "login_force"),
+  enum_val(mw_session_login_ack, "login_ack"),
+  enum_val(mw_session_started, "started"),
+  enum_val(mw_session_stopping, "stopping"),
+  enum_val(mw_session_error, "error"),
+  { 0, NULL, NULL },
+};
+
+
+GType MwSessionStateEnum_getType() {
+  static GType type = 0;
+   
+  if(type == 0) {
+    type = g_enum_register_static("MwSessionStateEnumType", values);
+  }
+
+  return type;
 }
 
 

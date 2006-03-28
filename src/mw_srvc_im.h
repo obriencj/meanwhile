@@ -206,7 +206,10 @@ struct mw_conversation_class {
   guint signal_got_data;
 
   void (*open)(MwConversation *self);
+  void (*opened)(MwConversation *self);
   void (*close)(MwConversation *self, guint32 code);
+  void (*closed)(MwConversation *self, guint32 code);
+
   void (*send_text)(MwConversation *self, const gchar *text);
   void (*send_typing)(MwConversation *self, gboolean typing);
   void (*send_data)(MwConversation *self, guint type, guint subtype,

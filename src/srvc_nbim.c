@@ -30,6 +30,11 @@ static GObjectClass *srvc_parent_class;
 static GObjectClass *conv_parent_class;
 
 
+enum srvc_properties {
+  srvc_property_compat_mode = 1,
+};
+
+
 struct mw_im_service_private {
   gboolean compat;
 };
@@ -90,12 +95,57 @@ static MwConversation *mw_new_conv(MwIMService *self,
 }
 
 
+static void mw_srvc_set_property(GObject *object,
+				 guint property_id, const GValue *value,
+				 GParamSpec *pspec) {
+  MwNBIMService *self;
+  MwNBIMServicePrivate *priv;
+
+  self = MW_NB_IM_SERVICE(object);
+  priv = self->private;
+
+  switch(property_id) {
+  case srvc_property_compat:
+    priv->compat = g_value_get_boolean(value);
+    break;
+  default:
+    ;      
+  }
+}
+
+
+static void mw_srvc_get_property(GObject *object,
+				 guint property_id, GValue *value,
+				 GParamSpec *pspec) {
+  MwNBIMService *self;
+  MwNBIMServicePrivate *priv;
+
+  self = MW_NB_IM_SERVICE(object);
+  priv = self->private;
+
+  switch(property_id) {
+  case srvc_property_compat:
+    g_value_set_boolean(value, priv->compat);
+    break;
+  default:
+    ;      
+  }
+}
+
+
 static void mw_srvc_class_init(gpointer class, gpointer gclass_data) {
   GObjectClass *gobject_class = gclass;
   MwServiceClass *service_class = gclass;
   MwIMServiceClass *imservice_class = gclass;
   
   srvc_parent_class = g_type_class_peek_parent(gobject_class);
+
+  gobject_class->set_property = mw_srvc_set_property;
+  gobject_class->get_property = mw_srvc_get_property;
+
+  mw_prop_boolean(gobject_class, srvc_property_compat,
+		  "im-compat", "get/set basic IM compatability mode",
+		  G_PARAM_READWRITE|G_PARAM_CONSTRUCTOR);
   
   service_class->get_name = mw_get_name;
   service_class->get_desc = mw_get_desc;
@@ -131,9 +181,32 @@ GType MwNBIMService_getType() {
 }
 
 
+MwNBIMService *MwNBIMService_new(MwSession *session, gboolean compat) {
+  MwNBIMService *srvc;
+
+  srvc = g_object_new(MW_NB_IM_SERVICE_TYPE,
+		      "session", session,
+		      "im-compat", compat,
+		      NULL);
+
+  return srvc;
+}
+
+
 enum conv_properties {
-  conv_property_compat = 1,
+  conv_property_allow_compat = 1,
+  conv_property_compat_mode,
 };
+
+
+static void mw_open(MwConversation *self) {
+
+}
+
+
+static void mw_close(MwConversation *self) {
+
+}
 
 
 

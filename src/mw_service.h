@@ -95,17 +95,6 @@ struct mw_service_class {
 GType MwService_getType();
 
 
-/** State-tracking for a service */
-enum mw_service_state {
-  mw_service_STOPPED,   /**< the service is not active */
-  mw_service_STARTING,  /**< the service is starting up */
-  mw_service_STARTED,   /**< the service is active */
-  mw_service_STOPPING,  /**< the service is shutting down */
-  mw_service_ERROR,     /**< error in service, shutting down */
-  mw_service_UNKNOWN,   /**< error determining state */
-};
-
-
 /** @return string short name of the service */
 const gchar *MwService_getName(MwService *service);
 
@@ -129,6 +118,7 @@ void MwService_start(MwService *service);
 
 
 void MwService_stop(MwService *service);
+
 
 
 /*

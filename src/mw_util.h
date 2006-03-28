@@ -1,4 +1,3 @@
-
 /*
   Meanwhile - Unofficial Lotus Sametime Community Client Library
   Copyright (C) 2004  Christopher (siege) O'Brien
@@ -18,6 +17,7 @@
   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
+
 #ifndef _MW_UTIL_H
 #define _MW_UTIL_H
 
@@ -25,34 +25,35 @@
 #include <glib.h>
 #include <glib/ghash.h>
 #include <glib/glist.h>
+#include <glib-object.h>
 
 
-#define mw_map_guint_new() \
-  g_hash_table_new(g_direct_hash, g_direct_equal)
+#define mw_map_guint_new()				\
+  (g_hash_table_new(g_direct_hash, g_direct_equal))
 
 
-#define mw_map_guint_new_full(valfree) \
-  g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, (valfree))
+#define mw_map_guint_new_full(valfree)					\
+  (g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, (valfree)))
 
 
-#define mw_map_guint_insert(ht, key, val) \
-  g_hash_table_insert((ht), GUINT_TO_POINTER((guint)(key)), (val))
+#define mw_map_guint_insert(ht, key, val)				\
+  (g_hash_table_insert((ht), GUINT_TO_POINTER((guint)(key)), (val)))
 
 
-#define mw_map_guint_replace(ht, key, val) \
-  g_hash_table_replace((ht), GUINT_TO_POINTER((guint)(key)), (val))
+#define mw_map_guint_replace(ht, key, val)				\
+  (g_hash_table_replace((ht), GUINT_TO_POINTER((guint)(key)), (val)))
 
 
-#define mw_map_guint_lookup(ht, key) \
-  g_hash_table_lookup((ht), GUINT_TO_POINTER((guint)(key)))
+#define mw_map_guint_lookup(ht, key)				\
+  (g_hash_table_lookup((ht), GUINT_TO_POINTER((guint)(key))))
 
 
-#define mw_map_guint_remove(ht, key) \
-  g_hash_table_remove((ht), GUINT_TO_POINTER((guint)(key)))
+#define mw_map_guint_remove(ht, key)				\
+  (g_hash_table_remove((ht), GUINT_TO_POINTER((guint)(key))))
 
 
-#define mw_map_guint_steal(ht, key) \
-  g_hash_table_steal((ht), GUINT_TO_POINTER((guint)(key)))
+#define mw_map_guint_steal(ht, key)				\
+  (g_hash_table_steal((ht), GUINT_TO_POINTER((guint)(key))))
 
 
 GList *mw_map_collect_keys(GHashTable *ht);
@@ -61,25 +62,29 @@ GList *mw_map_collect_keys(GHashTable *ht);
 GList *mw_map_collect_values(GHashTable *ht);
 
 
-struct mw_datum {
-  gpointer data;
-  GDestroyNotify clear;
-};
+/** a GFunc that appends each item to the GList** in glistpp */
+void mw_collect_gfunc(gpointer item, gpointer glistpp);
 
 
-struct mw_datum *mw_datum_new(gpointer data, GDestroyNotify clear);
+/** like g_hash_table_foreach, but uses a GFunc and only passes the
+    values of each contained mapping */
+void mw_map_foreach_val(GHashTable *ht, GFunc func, gpointer data);
 
 
-void mw_datum_set(struct mw_datum *d, gpointer data, GDestroyNotify clear);
+/** a GFunc that invokes a GClosure, passing the @p item as a GValue
+    of type G_TYPE_POINTER */
+void mw_closure_gfunc(gpointer item, gpointer closure);
 
 
-gpointer mw_datum_get(struct mw_datum *d);
+/** uses mw_map_foreach_val with mw_closure_gfunc */
+#define mw_map_foreach_val_closure(ht, gclosure)		\
+  (mw_map_foreach_val((ht), mw_closure_gfunc, (gclosure)))
 
 
-void mw_datum_clear(struct mw_datum *d);
+
+/** uses g_list_foreach with mw_closure_gfunc */
+#define mw_list_foreach_closure(glist, gclosure)		\
+  (g_list_foreach((glist), mw_closure_gfunc, (closure)))
 
 
-void mw_datum_free(struct mw_datum *d);
-
-
-#endif
+#endif /* _MW_UTIL_H */

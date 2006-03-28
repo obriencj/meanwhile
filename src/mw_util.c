@@ -18,7 +18,14 @@
   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
+
 #include "mw_util.h"
+
+
+void mw_collect_gfunc(gpointer item, gpointer data) {
+  GList **list = data;
+  *list = g_list_append(*list, item);
+}
 
 
 static void mw_collect_keys(gpointer key, gpointer val, gpointer data) {
@@ -47,34 +54,31 @@ GList *mw_map_collect_values(GHashTable *ht) {
 }
 
 
-struct mw_datum *mw_datum_new(gpointer data, GDestroyNotify clear) {
-  struct mw_datum *d = g_new(struct mw_datum, 1);
-  mw_datum_set(d, data, clear);
-  return d;
+struct ghfunc_cl {
+  GFunc func;
+  gpointer data;
+};
+
+
+/* a GHFunc that calls a GFunc */
+static void mw_foreach_ghfunc(gpointer key, gpointer val, gpointer udata) {
+  struct ghfunc_cl *ghf = udata;
+  ghf->func(val, ghf->data);
 }
 
 
-void mw_datum_set(struct mw_datum *d, gpointer data, GDestroyNotify clear) {
-  d->data = data;
-  d->clear = clear;
+void mw_map_foreach_val(GHashTable *ht, GFunc func, gpointer data) {
+  struct ghfunc_cl ghf = { .func = func, .data = data };
+  g_hash_table_foreach(ht, mw_foreach_ghfunc, &ghf);
 }
 
 
-gpointer mw_datum_get(struct mw_datum *d) {
-  return d->data;
+void mw_closure_gfunc(gpointer item, gpointer closure) {
+  GValue dv = {};
+  g_value_init(&dv, G_TYPE_POINTER);
+  g_value_set_pointer(&dv, item);
+  g_closure_invoke(closure, NULL, 1, &dv, NULL);
 }
 
 
-void mw_datum_clear(struct mw_datum *d) {
-  if(d->clear) {
-    d->clear(d->data);
-    d->clear = NULL;
-  }
-  d->data = NULL;
-}
-
-
-void mw_datum_free(struct mw_datum *d) {
-  mw_datum_clear(d);
-  g_free(d);
-}
+/* The end. */

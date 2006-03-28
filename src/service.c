@@ -61,7 +61,7 @@ static gboolean mw_starting(MwService *self) {
   guint state;
   g_object_get(G_OBJECT(self), "state", &state, NULL);
 
-  return (state == mw_service_STOPPED);
+  return (state == mw_object_stopped);
 }
 
 
@@ -71,7 +71,7 @@ static gboolean mw_start(MwService *self) {
 
 
 static void mw_started(MwService *self) {
-  g_object_set(G_OBJECT(self), "state", mw_service_STARTED, NULL);
+  g_object_set(G_OBJECT(self), "state", mw_object_started, NULL);
 }
 
 
@@ -79,8 +79,8 @@ static gboolean mw_stopping(MwService *self) {
   guint state;
   g_object_get(G_OBJECT(self), "state", &state, NULL);
 
-  return (state == mw_service_ERROR ||
-	  state == mw_service_STARTED);
+  return (state == mw_object_error ||
+	  state == mw_object_started);
 }
 
 
@@ -90,7 +90,7 @@ static gboolean mw_stop(MwService *self) {
 
 
 static void mw_stopped(MwService *self) {
-  g_object_set(G_OBJECT(self), "state", mw_service_STOPPED, NULL);
+  g_object_set(G_OBJECT(self), "state", mw_object_stopped, NULL);
 }
 
 
@@ -105,11 +105,11 @@ static void mw_auto_cb(MwSession *session, guint state, gpointer info,
     return;
 
   switch(state) {
-  case mw_session_STOPPING:
+  case mw_session_stopping:
     MwService_stop(self);
     break;
 
-  case mw_session_STARTED:
+  case mw_session_started:
     MwService_start(self);
     break;
 
@@ -218,7 +218,7 @@ mw_constructor(GType type, guint props_count,
   /* set in mw_service_init */
   priv = self->private;
   
-  priv->state = mw_service_STOPPED;
+  priv->state = mw_object_stopped;
 
   mw_setup_session(self);
 
@@ -426,7 +426,7 @@ void MwService_error(MwService *srvc) {
 
   g_debug("error in service %s", MwService_getName(srvc));
 
-  g_object_set(G_OBJECT(srvc), "state", mw_service_ERROR, NULL);
+  g_object_set(G_OBJECT(srvc), "state", mw_object_error, NULL);
   MwService_stop(srvc);
 }
 

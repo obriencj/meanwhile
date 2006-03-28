@@ -25,9 +25,6 @@
 #include "mw_object.h"
 
 
-static GObjectClass *parent_class;
-
-
 gpointer mw_gobject_ref(gpointer data) {
   if(data) {
     g_object_ref(G_OBJECT(data));
@@ -114,10 +111,10 @@ void mw_prop_str(GObjectClass *gclass,
 void mw_prop_boxed(GObjectClass *gclass,
 		   guint property_id,
 		   const gchar *name, const gchar *blurb,
-		   GType type,
+		   GType boxed_type,
 		   GParamFlags flags) {
   GParamSpec *gps;
-  gps = g_param_spec_boxed(name, NULL, blurb, type, flags);
+  gps = g_param_spec_boxed(name, NULL, blurb, boxed_type, flags);
   g_object_class_install_property(gclass, property_id, gps);
 }
 
@@ -125,10 +122,10 @@ void mw_prop_boxed(GObjectClass *gclass,
 void mw_prop_obj(GObjectClass *gclass,
 		 guint property_id,
 		 const gchar *name, const gchar *blurb,
-		 GType type,
+		 GType obj_type,
 		 GParamFlags flags) {
   GParamSpec *gps;
-  gps = g_param_spec_object(name, NULL, blurb, type, flags);
+  gps = g_param_spec_object(name, NULL, blurb, obj_type, flags);
   g_object_class_install_property(gclass, property_id, gps);
 }
 
@@ -143,6 +140,16 @@ void mw_prop_ptr(GObjectClass *gclass,
 }
 
 
+void mw_prop_int(GObjectClass *gclass,
+		  guint property_id,
+		  const gchar *name, const gchar *blurb,
+		  GParamFlags flags) {
+  GParamSpec *gps;
+  gps = g_param_spec_int(name, NULL, blurb, G_MININT, G_MAXINT, 0, flags);
+  g_object_class_install_property(gclass, property_id, gps);
+}
+
+
 void mw_prop_uint(GObjectClass *gclass,
 		  guint property_id,
 		  const gchar *name, const gchar *blurb,
@@ -153,14 +160,150 @@ void mw_prop_uint(GObjectClass *gclass,
 }
 
 
+void mw_prop_enum(GObjectClass *gclass,
+		  guint property_id,
+		  const gchar *name, const gchar *blurb,
+		  GType enum_type,
+		  GParamFlags flags) {
+  GParamSpec *gps;
+  gps = g_param_spec_enum(name, NULL, blurb, enum_type, 0, flags);
+  g_object_class_install_property(gclass, property_id, gps);
+}
+
+
+/* ----- */
+
+
+enum properties {
+  property_state = 1,
+  property_state_priv,
+};
+
+
+void MwObjectClass_setStateEnum(MwObjectClass *klass,
+				GType enum_type) {
+  GEnumClass *new_enum_class;
+  GEnumClass *old_enum_class;
+
+  mw_debug_enter();
+
+  g_return_if_fail(klass != NULL);
+  new_enum_class = g_type_class_ref(enum_type);
+
+  g_return_if_fail(new_enum_class != NULL);
+  g_return_if_fail(G_IS_ENUM_CLASS(new_enum_class));
+
+  /* set the enum class, clear the old enum class */
+  old_enum_class = klass->state_spec->enum_class;
+  klass->state_spec->enum_class = new_enum_class;
+  g_type_class_unref(old_enum_class);
+
+  /* set the spec value type */
+  klass->state_spec->parent_instance.value_type = enum_type;
+
+  mw_debug_exit();
+}
+
+
+GEnumClass *MwObjectClass_peekStateEnum(MwObjectClass *klass) {
+  g_return_val_if_fail(klass != NULL, NULL);
+  g_return_val_if_fail(klass->state_spec != NULL, NULL);
+  return klass->state_spec->enum_class;
+}
+
+
+const GEnumValue *
+MwObjectClass_getStateValue(MwObjectClass *klass, gint state) {
+  GEnumClass *enum_class = MwObjectClass_peekStateEnum(klass);
+  g_return_val_if_fail(enum_class != NULL, NULL);
+  return g_enum_get_value(enum_class, state);
+}
+
+
+const GEnumValue *
+MwObject_getStateValue(MwObject *obj) {
+  MwObjectClass *klass;
+  gint state;
+
+  g_return_val_if_fail(obj != NULL, NULL);
+
+  klass = MW_OBJECT_GET_CLASS(obj);
+  g_object_get(G_OBJECT(obj), "state", &state, NULL);
+
+  return MwObjectClass_getStateValue(klass, state);
+}
+
+
+static void mw_set_property(GObject *object,
+			    guint property_id, const GValue *value,
+			    GParamSpec *pspec) {
+
+  MwObject *self = MW_OBJECT(object);
+
+  mw_debug_enter();
+
+  switch(property_id) {
+  case property_state_priv:
+    self->state = g_value_get_enum(value);
+    break;
+
+  default:
+    ;
+  }
+
+  mw_debug_exit();
+}
+
+
+static void mw_get_property(GObject *object,
+			    guint property_id, GValue *value,
+			    GParamSpec *pspec) {
+
+  MwObject *self = MW_OBJECT(object);
+
+  mw_debug_enter();
+
+  switch(property_id) {
+  case property_state:
+    g_value_set_int(value, self->state);
+    break;
+
+  case property_state_priv:
+    g_value_set_enum(value, self->state);
+    break;
+
+  default:
+    ;
+  }
+
+  mw_debug_exit();
+}
+
+
 static void mw_object_class_init(gpointer g_class,
 				 gpointer g_class_data) {
 
   MwObjectClass *klass = g_class;
   GObjectClass *gobject_class;
+  GParamSpec *gps;
 
   gobject_class = G_OBJECT_CLASS(klass);
-  parent_class = g_type_class_peek_parent(gobject_class);
+
+  gobject_class->set_property = mw_set_property;
+  gobject_class->get_property = mw_get_property;
+
+  mw_prop_int(gobject_class, property_state,
+	      "obj-state", "get state",
+	      G_PARAM_READABLE);
+
+  gps = g_param_spec_enum("priv-state", NULL,
+			  "set state and emit the state-changed signal",
+			  MW_TYPE_OBJECT_STATE_ENUM,
+			  0, G_PARAM_READWRITE|G_PARAM_PRIVATE);
+
+  klass->state_spec = G_PARAM_SPEC_ENUM(gps);
+
+  g_object_class_install_property(gobject_class, property_state_priv, gps);
 }
 
 
@@ -184,6 +327,27 @@ GType MwObject_getType() {
 
   if(type == 0) {
     type = g_type_register_static(G_TYPE_OBJECT, "MwObjectType", &info, 0);
+  }
+
+  return type;
+}
+
+
+static const GEnumValue values[] = {
+  { mw_object_stopped,  "mw_object_stopped",  "stopped" },
+  { mw_object_starting, "mw_object_starting", "starting" },
+  { mw_object_started,  "mw_object_started",  "started" },
+  { mw_object_stopping, "mw_object_stopping", "stopping" },
+  { mw_object_error,    "mw_object_error",    "error" },
+  { 0, NULL, NULL },
+};
+
+
+GType MwObjectStateEnum_getType() {
+  static GType type = 0;
+   
+  if(type == 0) {
+    type = g_enum_register_static("MwObjectStateEnumType", values);
   }
 
   return type;

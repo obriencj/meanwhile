@@ -495,7 +495,7 @@ MwGIOSession *MwGIOSession_newFromSocket(gint fd) {
 static void mw_main_state_changed(MwSession *self, guint state, gpointer info,
 				  GMainLoop *loop) {
 
-  if(state == mw_session_STOPPED) {
+  if(state == mw_session_stopped) {
     g_main_loop_quit(loop);
   }
 }
