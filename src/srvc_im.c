@@ -93,10 +93,6 @@ static void mw_conv_setup(MwIMService *self, MwConversation *conv) {
 }
 
 
-static void mw_conv_state(MwConversation *self,
-			  enum mw_conversation_state state);
-
-
 static void mw_incoming_accept(MwSession *session, MwIMService *self,
 			       MwChannel *chan) {
   MwStatus stat;
@@ -138,9 +134,10 @@ static void mw_incoming_accept(MwSession *session, MwIMService *self,
   g_free(user);
   g_free(community);
 
-  g_object_set(G_OBJECT(conv), "channel", chan, NULL);
-
-  mw_conv_state(conv, mw_conversation_OPEN);
+  g_object_set(G_OBJECT(conv),
+	       "channel", chan,
+	       "state", mw_conversation_open,
+	       NULL);
 
   klass = MW_IM_SERVICE_GET_CLASS(self);
 
@@ -539,21 +536,6 @@ static void mw_open(MwConversation *self) {
 }
 
 
-static void mw_conv_state(MwConversation *self,
-			  enum mw_conversation_state state) {
-
-  MwConversationClass *klass;
-  MwConversationPrivate *priv;
-
-  klass = MW_CONVERSATION_GET_CLASS(self);
-  priv = self->private;
-
-  priv->state = state;
-
-  g_signal_emit(self, klass->signal_state_changed, 0, state, NULL);
-}
-
-
 static void mw_close(MwConversation *self, guint32 code) {
   MwChannel *chan;
 
@@ -581,11 +563,14 @@ static void mw_send_text(MwConversation *self, const gchar *text) {
   MwChannel *chan;
   MwPutBuffer *pb;
   MwOpaque o;
+  guint state;
 
   g_object_get(G_OBJECT(self), "channel", &chan, NULL);
 
   g_return_if_fail(chan != NULL);
-  g_return_if_fail(MW_CHANNEL_IS_OPEN(chan));
+
+  g_object_get(G_OBJECT(self), "state", &state, NULL);
+  g_return_if_fail(state == mw_channel_open);
 
   pb = MwPutBuffer_new();
   mw_uint32_put(pb, 0x01);  /* indicate text */
@@ -612,11 +597,14 @@ static void mw_send_data(MwConversation *self, guint type, guint subtype,
   MwChannel *chan;
   MwPutBuffer *pb;
   MwOpaque o;
+  guint state;
 
   g_object_get(G_OBJECT(self), "channel", &chan, NULL);
 
   g_return_if_fail(chan != NULL);
-  g_return_if_fail(MW_CHANNEL_IS_OPEN(chan));
+  
+  g_object_get(G_OBJECT(self), "state", &state, NULL);
+  g_return_if_fail(state == mw_channel_open);
 
   pb = MwPutBuffer_new();
   mw_uint32_put(pb, 0x02);  /* indicate data */
@@ -784,13 +772,13 @@ static void mw_chan_state(MwChannel *chan, guint state,
        mark conv as open, emit state changed
   */
 
-  if(state == mw_channel_CLOSED ||
-     state == mw_channel_ERROR) {
+  if(state == mw_channel_closed ||
+     state == mw_channel_error) {
 
     mw_conv_state(conv, mw_conversation_CLOSED);
     mw_conv_detach_chan(conv);
 
-  } else if(state == mw_channel_OPEN) {
+  } else if(state == mw_channel_open) {
     mw_conv_state(conv, mw_conversation_OPEN);
   }
 }
@@ -897,19 +885,6 @@ static void mw_conv_get_property(GObject *object,
 }
 
 
-static guint mw_conv_signal_state_changed() {
-  return g_signal_new("state-changed",
-		      MW_TYPE_CONVERSATION,
-		      0,
-		      0,
-		      NULL, NULL,
-		      mw_marshal_VOID__UINT,
-		      G_TYPE_NONE,
-		      1,
-		      G_TYPE_UINT);
-}
-
-
 static guint mw_conv_signal_got_text() {
   return g_signal_new("got-text",
 		      MW_TYPE_CONVERSATION,
@@ -986,7 +961,6 @@ static void mw_conv_class_init(gpointer gclass, gpointer gclass_data) {
 		"target", "get remote user,community as a MwIdentity",
 		MW_TYPE_IDENTITY, G_PARAM_READABLE);
   
-  klass->signal_state_changed = mw_conv_signal_state_changed();
   klass->signal_got_text = mw_conv_signal_got_text();
   klass->signal_got_typing = mw_conv_signal_got_typing();
   klass->signal_got_data = mw_conv_signal_got_data();

@@ -77,6 +77,7 @@ typedef struct mw_object_class MwObjectClass;
 struct mw_object_class {
   GObjectClass gobjectclass;
 
+  guint signal_state_changed;
   GParamSpecEnum *state_spec;
 };
 

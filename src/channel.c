@@ -38,11 +38,10 @@ static GObjectClass *parent_class;
 
 
 enum properties {
-  property_state = 1,
-
-  property_channel_id,
+  property_channel_id = 1,
   property_session,
-  
+  property_error,
+
   property_remote_user,
   property_remote_community,
   property_remote_client_type,
@@ -65,9 +64,9 @@ enum properties {
 
 
 struct mw_channel_private {
-  enum mw_channel_state state;
-
   guint32 id;
+
+  guint error;
 
   MwSession *session;
 
@@ -89,39 +88,6 @@ struct mw_channel_private {
 
   GHashTable *ciphers;
 };
-
-
-static void mw_channel_set_state(MwChannel *self,
-				 enum mw_channel_state state) {
-
-  MwChannelClass *klass = MW_CHANNEL_GET_CLASS(self);
-  MwChannelPrivate *priv;
-
-  g_return_if_fail(self->private != NULL);
-  priv = self->private;
-
-  priv->state = state;
-
-  g_signal_emit(G_OBJECT(self), klass->signal_state_changed, 0,
-		state, NULL);
-}
-
-
-static enum mw_channel_state mw_channel_get_state(MwChannel *self) {
-  MwChannelPrivate *priv;
-
-  g_return_val_if_fail(self->private != NULL, mw_channel_UNKNOWN);
-  priv = self->private;
-  
-  return priv->state;
-}
-
-
-static gboolean mw_channel_is_state(MwChannel *self,
-				    enum mw_channel_state state) {
-  
-  return (mw_channel_get_state(self) == state);
-}
 
 
 static void mw_add_cipher(MwChannel *self, MwCipher *ci) {
@@ -230,7 +196,7 @@ static void mw_create(MwChannel *self, const MwOpaque *info) {
   mw_msg_send(self, MW_MESSAGE(msg));
   MwMessage_free(MW_MESSAGE(msg));
 
-  mw_channel_set_state(self, mw_channel_PENDING);
+  g_object_set(G_OBJECT(self), "state", mw_channel_pending, NULL);
 
   mw_debug_exit();
 }
@@ -351,18 +317,22 @@ static void mw_accept(MwChannel *self, const MwOpaque *info) {
   mw_msg_send(self, MW_MESSAGE(msg));
   MwMessage_free(MW_MESSAGE(msg));
 
-  mw_channel_set_state(self, mw_channel_OPEN);
+  g_object_set(G_OBJECT(self), "state", mw_channel_open, NULL);
 
   mw_debug_exit();
 }
 
 
 static void mw_open(MwChannel *self, const MwOpaque *info) {
-  switch(mw_channel_get_state(self)) {
-  case mw_channel_CLOSED:
+  guint state;
+
+  g_object_get(G_OBJECT(self), "state", &state, NULL);
+
+  switch(state) {
+  case mw_channel_closed:
     mw_create(self, info);
     break;
-  case mw_channel_PENDING:
+  case mw_channel_pending:
     mw_accept(self, info);
     break;
   default:
@@ -375,11 +345,14 @@ static void mw_close(MwChannel *self, guint32 code, const MwOpaque *info) {
   MwChannelPrivate *priv;
   MwMsgChannelClose *msg;
   guint id;
+  guint state;
 
   mw_debug_enter();
 
-  if(mw_channel_is_state(self, mw_channel_ERROR) ||
-     mw_channel_is_state(self, mw_channel_CLOSED)) {
+  g_object_get(G_OBJECT(self), "state", &state, NULL);
+
+  if(state == mw_channel_error ||
+     state == mw_channel_closed) {
 
     /* prevent circular calls from a messy handler */
     return;
@@ -392,8 +365,7 @@ static void mw_close(MwChannel *self, guint32 code, const MwOpaque *info) {
   priv->close_code = code;
   MwOpaque_clone(&priv->close_info, info);
 
-  g_object_get(G_OBJECT(self),
-	       "id", &id, NULL);
+  g_object_get(G_OBJECT(self), "id", &id, NULL);
   
   msg = MwMessage_new(mw_message_CHANNEL_CLOSE);
   msg->head.channel = id;
@@ -403,8 +375,14 @@ static void mw_close(MwChannel *self, guint32 code, const MwOpaque *info) {
   mw_msg_send(self, MW_MESSAGE(msg));
   MwMessage_free(MW_MESSAGE(msg));
 
-  if(code) mw_channel_set_state(self, mw_channel_ERROR);
-  mw_channel_set_state(self, mw_channel_CLOSED);
+  if(code) {
+    g_object_set(G_OBJECT(self),
+		 "error", code,
+		 "state", mw_channel_error,
+		 NULL);
+  }
+  
+  g_object_set(G_OBJECT(self), "state", mw_channel_closed, NULL);
 
   mw_debug_exit();
 }
@@ -449,7 +427,7 @@ static void recv_CREATE(MwChannel *self, MwMsgChannelCreate *msg) {
     }
   }
 
-  mw_channel_set_state(self, mw_channel_PENDING);
+  g_object_set(G_OBJECT(self), "state", mw_channel_pending, NULL);
 }
 
 
@@ -459,6 +437,8 @@ static void recv_ACCEPT(MwChannel *self, MwMsgChannelAccept *msg) {
 
   MwChannelPrivate *priv;
   
+  mw_debug_enter();
+
   g_return_if_fail(self->private != NULL);
   priv = self->private;
 
@@ -476,7 +456,9 @@ static void recv_ACCEPT(MwChannel *self, MwMsgChannelAccept *msg) {
     priv->cipher = ci;
   }
 
-  mw_channel_set_state(self, mw_channel_OPEN);
+  g_object_set(G_OBJECT(self), "state", mw_channel_open, NULL);
+
+  mw_debug_exit();
 }
 
 
@@ -492,8 +474,14 @@ static void recv_CLOSE(MwChannel *self, MwMsgChannelClose *msg) {
   priv->close_code = msg->reason;
   MwOpaque_clone(&priv->close_info, &msg->data);
 
-  if(msg->reason) mw_channel_set_state(self, mw_channel_ERROR);
-  mw_channel_set_state(self, mw_channel_CLOSED);
+  if(msg->reason) {
+    g_object_set(G_OBJECT(self),
+		 "error", msg->reason,
+		 "state", mw_channel_error,
+		 NULL);
+  }
+
+  g_object_set(G_OBJECT(self), "state", mw_channel_closed, NULL);
 }
 
 
@@ -611,10 +599,11 @@ mw_channel_constructor(GType type, guint props_count,
   g_return_val_if_fail(self->private != NULL, NULL);
   priv = self->private;
 
-  priv->state = mw_channel_CLOSED;
   priv->ciphers = g_hash_table_new_full(g_direct_hash, g_direct_equal,
 					NULL,
 					(GDestroyNotify) mw_gobject_unref);
+
+  g_object_set(obj, "state", mw_channel_closed, NULL);
 
   mw_debug_exit();
   return obj;
@@ -657,12 +646,16 @@ static void mw_channel_dispose(GObject *obj) {
 
 
 static gboolean mw_set_requires_state(MwChannel *self,
-				      enum mw_channel_state state,
+				      enum mw_channel_state req_state,
 				      GParamSpec *pspec) {
 
   /* todo add property name and state name */
 
-  if(! mw_channel_is_state(self, state)) {
+  guint state;
+
+  g_object_get(G_OBJECT(self), "state", &state, NULL);
+
+  if(state != req_state) {
     g_warning("MwChannel property cannot be set in this state");
     return FALSE;
 
@@ -696,39 +689,39 @@ static void mw_set_property(GObject *object,
     }
     break;
   case property_remote_user:
-    if(mw_set_requires_state(self, mw_channel_CLOSED, pspec)) {
+    if(mw_set_requires_state(self, mw_channel_closed, pspec)) {
       g_free(priv->remote.id.user);
       priv->remote.id.user = g_value_dup_string(value);
     }
     break;
   case property_remote_community:
-    if(mw_set_requires_state(self, mw_channel_CLOSED, pspec)) {
+    if(mw_set_requires_state(self, mw_channel_closed, pspec)) {
       g_free(priv->remote.id.community);
       priv->remote.id.community = g_value_dup_string(value);
     }
     break;
   case property_service_id:
-    if(mw_set_requires_state(self, mw_channel_CLOSED, pspec)) {
+    if(mw_set_requires_state(self, mw_channel_closed, pspec)) {
       priv->service_id = g_value_get_uint(value);
     }
     break;
   case property_protocol_type:
-    if(mw_set_requires_state(self, mw_channel_CLOSED, pspec)) {
+    if(mw_set_requires_state(self, mw_channel_closed, pspec)) {
       priv->protocol_type = g_value_get_uint(value);
     }
     break;
   case property_protocol_version:
-    if(mw_set_requires_state(self, mw_channel_CLOSED, pspec)) {
+    if(mw_set_requires_state(self, mw_channel_closed, pspec)) {
       priv->protocol_version = g_value_get_uint(value);
     }
     break;
   case property_offered_policy:
-    if(mw_set_requires_state(self, mw_channel_CLOSED, pspec)) {
+    if(mw_set_requires_state(self, mw_channel_closed, pspec)) {
       priv->offered_policy = g_value_get_uint(value);
     }
     break;
   case property_accepted_policy:
-    if(mw_set_requires_state(self, mw_channel_PENDING, pspec)) {
+    if(mw_set_requires_state(self, mw_channel_pending, pspec)) {
       guint offered = priv->offered_policy;
       guint accepted = g_value_get_uint(value);
 
@@ -757,8 +750,8 @@ static void mw_get_property(GObject *object,
   priv = self->private;
 
   switch(property_id) {
-  case property_state:
-    g_value_set_uint(value, priv->state);
+  case property_error:
+    g_value_set_uint(value, priv->error);
     break;
   case property_channel_id:
     g_value_set_uint(value, priv->id);
@@ -814,19 +807,6 @@ static void mw_get_property(GObject *object,
 }
 
 
-static guint mw_signal_state_changed() {
-  return g_signal_new("state-changed",
-		      MW_TYPE_CHANNEL,
-		      0,
-		      0,
-		      NULL, NULL,
-		      mw_marshal_VOID__UINT,
-		      G_TYPE_NONE,
-		      1,
-		      G_TYPE_UINT);
-}
-
-
 static guint mw_signal_outgoing() {
   return g_signal_new("outgoing",
 		      MW_TYPE_CHANNEL,
@@ -856,11 +836,13 @@ static guint mw_signal_incoming() {
 
 static void mw_channel_class_init(gpointer g_class, gpointer g_class_data) {
   GObjectClass *gobject_class;
+  MwObjectClass *mwobject_class;
   MwChannelClass *klass;
 
   mw_debug_enter();
 
   gobject_class = G_OBJECT_CLASS(g_class);
+  mwobject_class = MW_OBJECT_CLASS(g_class);
   klass = MW_CHANNEL_CLASS(g_class);
 
   parent_class = g_type_class_peek_parent(gobject_class);
@@ -870,9 +852,9 @@ static void mw_channel_class_init(gpointer g_class, gpointer g_class_data) {
   gobject_class->set_property = mw_set_property;
   gobject_class->get_property = mw_get_property;
 
-  mw_prop_uint(gobject_class, property_state,
-	       "state", "get channel state",
-	       G_PARAM_READABLE);
+  mw_prop_uint(gobject_class, property_error,
+	       "error", "get/set channel state's error code",
+	       G_PARAM_READWRITE);
 
   mw_prop_uint(gobject_class, property_channel_id,
 	       "id", "get channel ID",
@@ -938,7 +920,6 @@ static void mw_channel_class_init(gpointer g_class, gpointer g_class_data) {
 		"close-info", "get the closeing info opaque",
 		MW_TYPE_OPAQUE, G_PARAM_READABLE);
 
-  klass->signal_state_changed = mw_signal_state_changed();
   klass->signal_outgoing = mw_signal_outgoing();
   klass->signal_incoming = mw_signal_incoming();
 
@@ -946,6 +927,8 @@ static void mw_channel_class_init(gpointer g_class, gpointer g_class_data) {
   klass->close = mw_close;
   klass->feed = mw_feed;
   klass->send = mw_send;
+
+  MwObjectClass_setStateEnum(mwobject_class, MW_TYPE_CHANNEL_STATE_ENUM);
 
   mw_debug_exit();
 }
@@ -1037,6 +1020,29 @@ gboolean MwChannel_isState(MwChannel *chan, enum mw_channel_state state) {
   g_object_get(G_OBJECT(chan), "state", &cs, NULL);
 
   return cs == state;
+}
+
+
+#define enum_val(val, alias) { val, #val, alias }
+
+
+static const GEnumValue values[] = {
+  enum_val(mw_channel_closed, "closed"),
+  enum_val(mw_channel_pending, "pending"),
+  enum_val(mw_channel_open, "open"),
+  enum_val(mw_channel_error, "error"),
+  { 0, NULL, NULL },
+};
+
+
+GType MwChannelStateEnum_getType() {
+  static GType type = 0;
+   
+  if(type == 0) {
+    type = g_enum_register_static("MwChannelStateEnumType", values);
+  }
+
+  return type;
 }
 
 

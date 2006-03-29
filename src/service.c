@@ -33,14 +33,12 @@ static GObjectClass *parent_class;
 
 
 enum properties {
-  property_state = 1,
-  property_session,
+  property_session = 1,
   property_auto_start,
 };
 
 
 struct mw_service_private {
-  guint state;          /**< property: state */
   MwSession *session;   /**< property: session (weak reference) */
   gboolean auto_start;  /**< property: auto start/stop with session */
   glong auto_ev;        /**< handler for session's state-changed */
@@ -94,8 +92,7 @@ static void mw_stopped(MwService *self) {
 }
 
 
-static void mw_auto_cb(MwSession *session, guint state, gpointer info,
-		       MwService *self) {
+static void mw_auto_cb(MwSession *session, guint state, MwService *self) {
 
   gboolean auto_start = FALSE;
 
@@ -148,15 +145,6 @@ static void mw_set_property(GObject *object,
   MwServicePrivate *priv = self->private;
 
   switch(property_id) {
-  case property_state:
-    {
-      MwServiceClass *klass = MW_SERVICE_GET_CLASS(self);
-      priv->state = g_value_get_uint(value);
-      g_signal_emit(self, klass->signal_state_changed, 0,
-		    priv->state, NULL);
-    }
-    break;
-
   case property_session:
     mw_gobject_unref(priv->session);
     priv->session = MW_SESSION(g_value_dup_object(value));
@@ -180,10 +168,6 @@ static void mw_get_property(GObject *object,
   MwServicePrivate *priv = self->private;
 
   switch(property_id) {
-  case property_state:
-    g_value_set_uint(value, priv->state);
-    break;
-
   case property_session:
     g_value_set_object(value, G_OBJECT(priv->session));
     break;
@@ -217,8 +201,8 @@ mw_constructor(GType type, guint props_count,
   
   /* set in mw_service_init */
   priv = self->private;
-  
-  priv->state = mw_object_stopped;
+
+  g_object_set(G_OBJECT(self), "state", mw_object_stopped, NULL);
 
   mw_setup_session(self);
 
@@ -255,19 +239,6 @@ static void mw_dispose(GObject *object) {
 }
 
 
-static guint mw_signal_state_changed() {
-  return g_signal_new("state-changed",
-		      MW_TYPE_SERVICE,
-		      0,
-		      0,
-		      NULL, NULL,
-		      mw_marshal_VOID__UINT,
-		      G_TYPE_NONE,
-		      1,
-		      G_TYPE_UINT);
-}
-
-
 static void mw_class_init(gpointer gclass, gpointer gclass_data) {
 
   GObjectClass *gobject_class = gclass;
@@ -280,10 +251,6 @@ static void mw_class_init(gpointer gclass, gpointer gclass_data) {
   gobject_class->constructor = mw_constructor;
   gobject_class->dispose = mw_dispose;
 
-  mw_prop_uint(gclass, property_state,
-	       "state", "get/set state of this service",
-	       G_PARAM_READWRITE);
-
   mw_prop_obj(gclass, property_session,
 	      "session", "get MwSession reference",
 	      MW_TYPE_SESSION, G_PARAM_READWRITE|G_PARAM_CONSTRUCT_ONLY);
@@ -293,8 +260,6 @@ static void mw_class_init(gpointer gclass, gpointer gclass_data) {
 				 " automatically start or stop with the"
 				 " session"),
 		  G_PARAM_READWRITE);
-
-  klass->signal_state_changed = mw_signal_state_changed();
   
   klass->get_name = mw_get_name;
   klass->get_desc = mw_get_desc;

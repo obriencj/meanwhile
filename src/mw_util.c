@@ -1,4 +1,3 @@
-
 /*
   Meanwhile - Unofficial Lotus Sametime Community Client Library
   Copyright (C) 2004  Christopher (siege) O'Brien
@@ -54,7 +53,7 @@ GList *mw_map_collect_values(GHashTable *ht) {
 }
 
 
-struct ghfunc_cl {
+struct ghfunc_wrap {
   GFunc func;
   gpointer data;
 };
@@ -62,21 +61,29 @@ struct ghfunc_cl {
 
 /* a GHFunc that calls a GFunc */
 static void mw_foreach_ghfunc(gpointer key, gpointer val, gpointer udata) {
-  struct ghfunc_cl *ghf = udata;
+  struct ghfunc_wrap *ghf = udata;
   ghf->func(val, ghf->data);
 }
 
 
 void mw_map_foreach_val(GHashTable *ht, GFunc func, gpointer data) {
-  struct ghfunc_cl ghf = { .func = func, .data = data };
+  struct ghfunc_wrap ghf = { .func = func, .data = data };
   g_hash_table_foreach(ht, mw_foreach_ghfunc, &ghf);
 }
 
 
-void mw_closure_gfunc(gpointer item, gpointer closure) {
+void mw_closure_gfunc_ptr(gpointer item, gpointer closure) {
   GValue dv = {};
   g_value_init(&dv, G_TYPE_POINTER);
   g_value_set_pointer(&dv, item);
+  g_closure_invoke(closure, NULL, 1, &dv, NULL);
+}
+
+
+void mw_closure_gfunc_obj(gpointer item, gpointer closure) {
+  GValue dv = {};
+  g_value_init(&dv, G_TYPE_OBJECT);
+  g_value_set_object(&dv, G_OBJECT(item));
   g_closure_invoke(closure, NULL, 1, &dv, NULL);
 }
 

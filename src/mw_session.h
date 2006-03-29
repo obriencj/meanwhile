@@ -112,7 +112,6 @@ struct mw_session_class {
 
   guint signal_pending;            /**< session has data to be written */
   guint signal_write;              /**< must be handled to write data */
-  guint signal_state_changed;      /**< session status changed */
   guint signal_channel;            /**< new incoming channel */
   guint signal_got_status;         /**< user status changed */
   guint signal_got_privacy;        /**< user privacy changed */
@@ -306,7 +305,6 @@ gboolean MwSession_handleChannel(MwSession *session, MwChannel *chan);
 #define MW_TYPE_SESSION_STATE_ENUM  (MwSessionStateEnum_getType())
 
 
-/** @see MwSession_getState */
 enum mw_session_state {
   mw_session_stopped   = mw_object_stopped,
   mw_session_starting  = mw_object_starting,

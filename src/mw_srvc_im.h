@@ -100,8 +100,7 @@ struct mw_im_service_class {
   MwConversation *(*find_conv)(MwIMService *srvc,
 			       const gchar *user, const gchar *community);
 
-  /** @see MwIMService_getConversations */
-  GList *(*get_convs)(MwIMService *srvc);
+  void (*foreach_conv)(MwIMService *srvc, GFunc func, gpointer data);
 };
 
 
@@ -218,12 +217,10 @@ struct mw_conversation_class {
 
 
 enum mw_conversation_state {
-  mw_conversation_NEW,
-  mw_conversation_PENDING,
-  mw_conversation_OPEN,
-  mw_conversation_CLOSED,
-  mw_conversation_ERROR,
-  mw_conversation_UNKNOWN,
+  mw_conversation_closed = mw_channel_closed,
+  mw_conversation_pending = mw_channel_pending,
+  mw_conversation_open = mw_channel_open,
+  mw_conversation_error = mw_channel_error,
 };
 
 

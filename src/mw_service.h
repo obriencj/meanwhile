@@ -76,8 +76,6 @@ typedef struct mw_service_class MwServiceClass;
 
 struct mw_service_class {
   MwObjectClass mwobject_class;
-
-  guint signal_state_changed;
   
   const gchar *(*get_name)(MwService *self);
   const gchar *(*get_desc)(MwService *self);

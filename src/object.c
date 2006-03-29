@@ -22,6 +22,7 @@
 #include <glib-object.h>
 #include "mw_config.h"
 #include "mw_debug.h"
+#include "mw_marshal.h"
 #include "mw_object.h"
 
 
@@ -48,7 +49,7 @@ gpointer mw_gobject_unref(gpointer data) {
     g_object_unref(G_OBJECT(data));
   }
   
-  return data;
+  return NULL;
 }
 
 
@@ -176,7 +177,6 @@ void mw_prop_enum(GObjectClass *gclass,
 
 enum properties {
   property_state = 1,
-  property_state_priv,
 };
 
 
@@ -243,8 +243,13 @@ static void mw_set_property(GObject *object,
   mw_debug_enter();
 
   switch(property_id) {
-  case property_state_priv:
-    self->state = g_value_get_enum(value);
+  case property_state:
+    {
+      guint sig;
+      self->state = g_value_get_enum(value);
+      sig = MW_OBJECT_GET_CLASS(self)->signal_state_changed;
+      g_signal_emit(object, sig, 0, self->state, NULL);
+    }
     break;
 
   default:
@@ -261,22 +266,27 @@ static void mw_get_property(GObject *object,
 
   MwObject *self = MW_OBJECT(object);
 
-  mw_debug_enter();
-
   switch(property_id) {
   case property_state:
-    g_value_set_int(value, self->state);
-    break;
-
-  case property_state_priv:
     g_value_set_enum(value, self->state);
     break;
 
   default:
     ;
   }
+}
 
-  mw_debug_exit();
+
+static guint mw_signal_state_changed() {
+  return g_signal_new("state-changed",
+		      MW_TYPE_OBJECT,
+		      0,
+		      0,
+		      NULL, NULL,
+		      mw_marshal_VOID__UINT,
+		      G_TYPE_NONE,
+		      1,
+		      G_TYPE_UINT);
 }
 
 
@@ -292,18 +302,18 @@ static void mw_object_class_init(gpointer g_class,
   gobject_class->set_property = mw_set_property;
   gobject_class->get_property = mw_get_property;
 
-  mw_prop_int(gobject_class, property_state,
-	      "obj-state", "get state",
-	      G_PARAM_READABLE);
-
-  gps = g_param_spec_enum("priv-state", NULL,
+  /* we store a copy of gps on the class, so we can't just use
+     mw_prop_enum, though that's effectively what this is */
+  gps = g_param_spec_enum("state", NULL,
 			  "set state and emit the state-changed signal",
 			  MW_TYPE_OBJECT_STATE_ENUM,
 			  0, G_PARAM_READWRITE|G_PARAM_PRIVATE);
 
+  g_object_class_install_property(gobject_class, property_state, gps);
+
   klass->state_spec = G_PARAM_SPEC_ENUM(gps);
 
-  g_object_class_install_property(gobject_class, property_state_priv, gps);
+  klass->signal_state_changed = mw_signal_state_changed();
 }
 
 

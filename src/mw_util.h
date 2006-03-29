@@ -73,18 +73,12 @@ void mw_map_foreach_val(GHashTable *ht, GFunc func, gpointer data);
 
 /** a GFunc that invokes a GClosure, passing the @p item as a GValue
     of type G_TYPE_POINTER */
-void mw_closure_gfunc(gpointer item, gpointer closure);
+void mw_closure_gfunc_ptr(gpointer item, gpointer closure);
 
 
-/** uses mw_map_foreach_val with mw_closure_gfunc */
-#define mw_map_foreach_val_closure(ht, gclosure)		\
-  (mw_map_foreach_val((ht), mw_closure_gfunc, (gclosure)))
-
-
-
-/** uses g_list_foreach with mw_closure_gfunc */
-#define mw_list_foreach_closure(glist, gclosure)		\
-  (g_list_foreach((glist), mw_closure_gfunc, (closure)))
+/** a GFunc that invokes a GClosure, passing the @p item as a GValue
+    of type G_TYPE_OBJECT */
+void mw_closure_gfunc_obj(gpointer item, gpointer closure);
 
 
 #endif /* _MW_UTIL_H */

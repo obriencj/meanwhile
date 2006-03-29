@@ -80,7 +80,6 @@ typedef struct mw_channel_class MwChannelClass;
 struct mw_channel_class {
   MwObjectClass mwobject_class;
 
-  guint signal_state_changed;
   guint signal_outgoing;  /**< passes a message to be written */
   guint signal_incoming;  /**< passes a message to be handled */
 
@@ -96,23 +95,18 @@ struct mw_channel_class {
 GType MwChannel_getType();
 
 
-/** channel status */
-enum mw_channel_state {
-  mw_channel_CLOSED,   /**< channel is closed */
-  mw_channel_PENDING,  /**< channel is waiting for accept */
-  mw_channel_OPEN,     /**< channel is accepted and open */
-  mw_channel_ERROR,    /**< channel is closing due to error */
-  mw_channel_UNKNOWN,  /**< error determining channel state */
-};
-
-
 /** Encryption policy for a channel, dictating what sort of encryption
     should be used, if any, and when.
 */
 enum mw_channel_encrypt {
-  mw_channel_encrypt_NONE      = 0x0000,  /**< encrypt none */
-  mw_channel_encrypt_WHATEVER  = 0x0001,  /**< encrypt whatever, any cipher */
-  mw_channel_encrypt_ANY       = 0x0002,  /**< encrypt all, any cipher */
+  /** no encryption permitted */
+  mw_channel_encrypt_NONE      = 0x0000,
+
+  /** may encrypt, any offered cipher permitted */
+  mw_channel_encrypt_WHATEVER  = 0x0001,
+
+  /** must encrypt, any offered cipher permitted */
+  mw_channel_encrypt_ANY       = 0x0002,
 };
 
 
@@ -122,18 +116,6 @@ enum mw_channel_encrypt {
     instead.
 */
 void MwChannel_open(MwChannel *channel, const MwOpaque *info);
-
-
-/**
-   Utility function to make checking a channel's state easier. Will use
-   g_object_get on the channel to discover the state property, and check
-   that it's equal to the specified state
-*/
-gboolean MwChannel_isState(MwChannel *channel, enum mw_channel_state state);
-
-
-#define MW_CHANNEL_IS_OPEN(chan)		\
-  (MwChannel_isState((chan), mw_channel_OPEN))
 
 
 /** Close a channel. Sends a MwMsgChannelClose message to the
@@ -162,6 +144,21 @@ void MwChannel_feed(MwChannel *chan, MwMessage *message);
 void MwChannel_send(MwChannel *chan,
 		    guint16 msg_type, const MwOpaque *msg,
 		    gboolean encrypt);
+
+
+#define MW_TYPE_CHANNEL_STATE_ENUM  (MwChannelStateEnum_getType())
+
+
+/** channel status */
+enum mw_channel_state {
+  mw_channel_closed   = mw_object_stopped,
+  mw_channel_pending  = mw_object_starting,
+  mw_channel_open     = mw_object_started,
+  mw_channel_error    = mw_object_error,
+};
+
+
+GType MwChannelStateEnum_getType();
 
 
 G_END_DECLS

@@ -40,10 +40,10 @@ static GObjectClass *parent_class;
 
 
 enum properties {
-  property_state = 1,
-  property_state_info,
+  property_master_channel = 1,
 
-  property_master_channel,
+  property_redirect_host,
+  property_error,
 
   property_auth_user,
   property_auth_type,
@@ -72,9 +72,6 @@ enum properties {
 
 
 struct mw_session_private {
-  enum mw_session_state state;
-  gpointer state_info;
-  GDestroyNotify state_info_clear;
 
   MwLogin login;
   MwPrivacy privacy;
@@ -106,47 +103,11 @@ struct mw_session_private {
   guint prop_client_ver_minor;
   guint prop_server_ver_major;
   guint prop_server_ver_minor;
+
+  /* state dependant */
+  gchar *redir_host;
+  guint32 error_code;
 };
-
-
-static void mw_session_set_state(MwSession *session,
-				 enum mw_session_state state,
-				 gpointer info, GDestroyNotify clear) {
-  MwSessionPrivate *priv;
-  MwSessionClass *klass;
-
-  mw_debug_enter();
-
-  g_return_if_fail(session != NULL);
-  g_return_if_fail(session->private != NULL);
-
-  priv = session->private;
-
-  if(priv->state_info_clear)
-    priv->state_info_clear(priv->state_info);
-
-  priv->state = state;
-  priv->state_info = info;
-  priv->state_info_clear = clear;
-
-  klass = MW_SESSION_GET_CLASS(session);
-
-  g_signal_emit(session, klass->signal_state_changed, 0,
-		state, info, NULL);
-
-  mw_debug_exit();
-}
-
-
-static enum mw_session_state mw_session_get_state(MwSession *session) {
-  MwSessionPrivate *priv;
-
-  g_return_val_if_fail(session != NULL, mw_session_stopped);
-  g_return_val_if_fail(session->private != NULL, mw_session_stopped);
-  priv = session->private;
-
-  return priv->state;
-}
 
 
 /** handles "outgoing" signal on all channels created via a session */
@@ -365,8 +326,11 @@ static void recv_HANDSHAKE_ACK(MwSession *s, MwMsgHandshakeAck *m) {
   MwMsgLogin *msglogin;
   guint auth_type, client_type;
   gchar *user;
+  guint state;
 
-  g_return_if_fail(mw_session_get_state(s) == mw_session_handshake);
+  g_object_get(G_OBJECT(s), "state", &state, NULL);
+
+  g_return_if_fail(state == mw_session_handshake);
   
   g_return_if_fail(s->private != NULL);
   priv = s->private;
@@ -374,7 +338,7 @@ static void recv_HANDSHAKE_ACK(MwSession *s, MwMsgHandshakeAck *m) {
   priv->prop_server_ver_major = m->major;
   priv->prop_server_ver_minor = m->minor;
 
-  mw_session_set_state(s, mw_session_handshake_ack, NULL, NULL);
+  g_object_set(G_OBJECT(s), "state", mw_session_handshake_ack, NULL);
 
   msglogin = MwMessage_new(mw_message_LOGIN);
 
@@ -407,25 +371,33 @@ static void recv_HANDSHAKE_ACK(MwSession *s, MwMsgHandshakeAck *m) {
   msglogin->name = NULL;
   MwMessage_free(MW_MESSAGE(msglogin));
 
-  mw_session_set_state(s, mw_session_login, NULL, NULL);
+  g_object_set(G_OBJECT(s), "state", mw_session_login, NULL);
 }
 
 
 static void recv_LOGIN_REDIRECT(MwSession *s, MwMsgLoginRedirect *m) {
+  guint state;
 
-  g_return_if_fail(mw_session_get_state(s) == mw_session_login);
+  g_object_get(G_OBJECT(s), "state", &state, NULL);
+
+  g_return_if_fail(state == mw_session_login);
   
-  mw_session_set_state(s, mw_session_login_redirect,
-		       g_strdup(m->host), g_free);
+  g_object_set(G_OBJECT(s),
+	       "redirect-host", m->host,
+	       "state", mw_session_login_redirect,
+	       NULL);
 }
 
 
 static void recv_LOGIN_ACK(MwSession *s, MwMsgLoginAck *m) {
   MwSessionClass *klass;
   MwSessionPrivate *priv;
+  guint state;
 
-  g_return_if_fail(mw_session_get_state(s) == mw_session_login ||
-		   mw_session_get_state(s) == mw_session_login_force);
+  g_object_get(G_OBJECT(s), "state", &state, NULL);
+
+  g_return_if_fail(state == mw_session_login ||
+		   state == mw_session_login_force);
 
   klass = MW_SESSION_GET_CLASS(s);
 
@@ -439,9 +411,8 @@ static void recv_LOGIN_ACK(MwSession *s, MwMsgLoginAck *m) {
   g_signal_emit(s, klass->signal_got_status, 0, NULL);
   g_signal_emit(s, klass->signal_got_privacy, 0, NULL);
   
-  mw_session_set_state(s, mw_session_login_ack, NULL, NULL);
-
-  mw_session_set_state(s, mw_session_started, NULL, NULL);
+  g_object_set(G_OBJECT(s), "state", mw_session_login_ack, NULL);
+  g_object_set(G_OBJECT(s), "state", mw_session_started, NULL);
 }
 
 
@@ -620,7 +591,7 @@ static void mw_start(MwSession *self) {
   guint major = 0, minor = 0, type = 0;
   gchar *local_host = NULL;
 
-  mw_session_set_state(self, mw_session_starting, NULL, NULL);
+  g_object_set(G_OBJECT(self), "state", mw_session_starting, NULL);
 
   g_object_get(G_OBJECT(self),
 	       "client-ver-major", &major,
@@ -644,13 +615,12 @@ static void mw_start(MwSession *self) {
   MwSession_sendMessage(self, MW_MESSAGE(msg));
   MwMessage_free(MW_MESSAGE(msg));
 
-  mw_session_set_state(self, mw_session_handshake, NULL, NULL);
+  g_object_set(G_OBJECT(self), "state", mw_session_handshake, NULL);
 }
 
 
 static void mw_stop(MwSession *self, guint32 reason) {
   MwSessionPrivate *priv;
-  gpointer code = GUINT_TO_POINTER(reason);
   MwOpaque *o;
   GList *l;
 
@@ -660,12 +630,20 @@ static void mw_stop(MwSession *self, guint32 reason) {
 
   priv = self->private;
 
-  /* let the services have a chance to catch the stopping state */
-  mw_session_set_state(self, mw_session_stopping, code, NULL);
+  if(reason) {
+    g_object_set(G_OBJECT(self),
+		 "error", reason,
+		 "state", mw_session_error,
+		 NULL);
+  }
+
+  g_object_set(G_OBJECT(self), "state", mw_session_stopping, NULL);
 
   /* close all channels not already closed */
   for(l = MwSession_getChannels(self); l; l = g_list_delete_link(l, l)) {
-    if(MW_CHANNEL_IS_OPEN(l->data)) {
+    guint chan_state;
+    g_object_get(G_OBJECT(l->data), "state", &chan_state, NULL);
+    if(chan_state == mw_channel_open) {
       MwChannel_close(l->data, 0x00, NULL);
     }
   }
@@ -682,7 +660,7 @@ static void mw_stop(MwSession *self, guint32 reason) {
   MwMetaQueue_scour(priv->chan_queue);
 
   /* and we're stopped */
-  mw_session_set_state(self, mw_session_stopped, code, NULL);
+  g_object_set(G_OBJECT(self), "state", mw_session_stopped, NULL);
 
   mw_debug_exit();
 }
@@ -814,21 +792,18 @@ static void mw_send_announce(MwSession *self, gboolean may_reply,
 
 
 static void mw_force_login(MwSession *self) {
-  MwSessionPrivate *priv;
   MwMsgLoginForce *msg;
+  guint state;
 
-  g_return_if_fail(self->private != NULL);
+  g_object_get(G_OBJECT(self), "state", &state, NULL);
 
-  priv = self->private;
-  g_return_if_fail(priv->state == mw_session_login_redirect);
+  g_return_if_fail(state == mw_session_login_redirect);
 
   msg = MwMessage_new(mw_message_LOGIN_FORCE);
-
   MwSession_sendMessage(self, MW_MESSAGE(msg));
-
   MwMessage_free(MW_MESSAGE(msg));  
 
-  mw_session_set_state(self, mw_session_login_force, NULL, NULL);
+  g_object_set(G_OBJECT(self), "state", mw_session_login_force, NULL);
 }
 
 
@@ -997,12 +972,7 @@ mw_session_constructor(GType type, guint props_count,
 
   /* this is allocated in mw_session_init */
   g_return_val_if_fail(self->private != NULL, NULL);
-  priv = self->private;
-
-  /* start out stopped */
-  priv->state = mw_session_stopped;
-  priv->state_info = NULL;
-  
+  priv = self->private;  
 
   priv->channel_counter = 0x00;
   priv->channels = g_hash_table_new(g_direct_hash, g_direct_equal);
@@ -1019,6 +989,7 @@ mw_session_constructor(GType type, guint props_count,
 
   /* set initial values for properties */
   g_object_set(obj,
+	       "state", mw_session_stopped,
 	       "auth-type", mw_auth_type_DH_RC2,
 	       "client-ver-major", MW_PROTOCOL_VERSION_MAJOR,
 	       "client-ver-minor", MW_PROTOCOL_VERSION_MINOR,
@@ -1035,8 +1006,6 @@ static void mw_set_property(GObject *object,
 
   MwSession *self = MW_SESSION(object);
   MwSessionPrivate *priv;
-
-  mw_debug_enter();
 
   g_return_if_fail(self->private != NULL);
   priv = self->private;
@@ -1071,8 +1040,6 @@ static void mw_set_property(GObject *object,
     priv->prop_client_ver_minor = g_value_get_uint(value);
     break;
   }
-
-  mw_debug_exit();
 }
 
 
@@ -1087,15 +1054,15 @@ static void mw_get_property(GObject *object,
   priv = self->private;
 
   switch(property_id) {
-  case property_state:
-    g_value_set_uint(value, priv->state);
-    break;
-  case property_state_info:
-    g_value_set_pointer(value, priv->state_info);
-    break;
-
   case property_master_channel:
     g_value_set_uint(value, priv->master_channel);
+    break;
+
+  case property_error:
+    g_value_set_uint(value, priv->error_code);
+    break;
+  case property_redirect_host:
+    g_value_set_string(value, priv->redir_host);
     break;
 
   case property_auth_user:
@@ -1215,20 +1182,6 @@ static guint mw_signal_write() {
 }
 
 
-static guint mw_signal_state_changed() {
-  return g_signal_new("state-changed",
-		      MW_TYPE_SESSION,
-		      0,
-		      0,
-		      NULL, NULL,
-		      mw_marshal_VOID__UINT_POINTER,
-		      G_TYPE_NONE,
-		      2,
-		      G_TYPE_UINT,
-		      G_TYPE_POINTER);
-}
-
-
 static guint mw_signal_channel() {
   return g_signal_new("channel",
 		      MW_TYPE_SESSION,
@@ -1322,18 +1275,18 @@ static void mw_session_class_init(gpointer g_class, gpointer g_class_data) {
   gobject_class->set_property = mw_set_property;
   gobject_class->get_property = mw_get_property;
 
-  mw_prop_uint(gobject_class, property_state,
-	       "state", "get session state",
-	       G_PARAM_READABLE);
-
-  mw_prop_ptr(gobject_class, property_state_info,
-	      "state-info", "get session state info",
-	      G_PARAM_READABLE);
-
   mw_prop_uint(gobject_class, property_master_channel,
 	       "master-channel-id", "get the master channel ID",
 	       G_PARAM_READABLE);
+
+  mw_prop_uint(gobject_class, property_error,
+	       "error", "get/set the error code",
+	       G_PARAM_READWRITE);
   
+  mw_prop_str(gobject_class, property_redirect_host,
+	      "redirect-host", "get/set the redirect host",
+	      G_PARAM_READWRITE);
+
   mw_prop_str(gobject_class, property_auth_user,
 	      "auth-user", "get/set authentication user id",
 	      G_PARAM_READWRITE);
@@ -1412,7 +1365,6 @@ static void mw_session_class_init(gpointer g_class, gpointer g_class_data) {
 
   klass->signal_pending = mw_signal_pending();
   klass->signal_write = mw_signal_write();
-  klass->signal_state_changed = mw_signal_state_changed();
   klass->signal_channel = mw_signal_channel();
   klass->signal_got_status = mw_signal_got_status();
   klass->signal_got_privacy = mw_signal_got_privacy();
@@ -1628,7 +1580,7 @@ void MwSession_foreachChannel(MwSession *session,
 void MwSession_foreachChannelClosure(MwSession *session,
 				     GClosure *closure) {
 
-  MwSession_foreachChannel(session, mw_closure_gfunc, closure);
+  MwSession_foreachChannel(session, mw_closure_gfunc_obj, closure);
 }
 
 
@@ -1687,7 +1639,7 @@ void MwSession_foreachCipher(MwSession *session,
 void MwSession_foreachCipherClosure(MwSession *session,
 				    GClosure *closure) {
 
-  MwSession_foreachCipher(session, mw_closure_gfunc, closure);
+  MwSession_foreachCipher(session, mw_closure_gfunc_obj, closure);
 }
 
 
