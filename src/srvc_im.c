@@ -276,8 +276,16 @@ static MwConversation *mw_find_conv(MwIMService *self,
 }
 
 
-static GList *mw_get_convs(MwIMService *self) {
-  return mw_map_collect_values(self->private->convs);
+static void mw_foreach_conv(MwIMService *self,
+			    GFunc func, gpointer data) {
+
+  MwIMServicePrivate *priv;
+  GHashTable *ht;
+
+  priv = self->private;
+  ht = priv->convs;
+
+  mw_map_foreach_val(ht, func, data);
 }
 
 
@@ -365,7 +373,7 @@ static void mw_srvc_class_init(gpointer gclass, gpointer gclass_data) {
   klass->new_conv = mw_new_conv;
   klass->get_conv = mw_get_conv;
   klass->find_conv = mw_find_conv;
-  klass->get_convs = mw_get_convs;
+  klass->foreach_conv = mw_foreach_conv;
 }
 
 
@@ -453,19 +461,34 @@ MwIMService_findConversation(MwIMService *self,
 }
 
 
+void MwIMService_foreachConversation(MwIMService *self,
+				     GFunc func, gpointer data) {
+
+  void (*fn)(MwIMService *, GFunc, gpointer);
+
+  g_return_if_fail(self != NULL);
+
+  fn = MW_IM_SERVICE_GET_CLASS(self)->foreach_conv;
+  fn(self, func, data);
+}
+
+
+void MwSession_foreachConversationClosure(MwIMService *self,
+					  GClosure *closure) {
+
+  MwIMService_foreachConversation(self, mw_closure_gfunc_obj, closure);
+}
+
+
 GList *MwIMService_getConversations(MwIMService *self) {
-  GList *(*fn)(MwIMService *);
-
-  g_return_val_if_fail(self != NULL, NULL);
-
-  fn = MW_IM_SERVICE_GET_CLASS(self)->get_convs;
-  return fn(self);
+  GList *list = NULL;
+  MwIMService_foreachConversation(self, mw_collect_gfunc, &list);
+  return list;
 }
 
 
 enum conv_properties {
-  conv_property_state = 1,
-  conv_property_channel,
+  conv_property_channel = 1,
   conv_property_service,
   conv_property_user,
   conv_property_community,
@@ -475,7 +498,6 @@ enum conv_properties {
 
 
 struct mw_conversation_private {
-  guint state;           /**< @see mw_conversation_state */
   MwChannel *channel;    /**< reference to backing channel */
   MwIMService *service;  /**< reference to owning service */
   MwIdentity target;     /**< targeted user,community */
@@ -550,7 +572,7 @@ static void mw_close(MwConversation *self, guint32 code) {
     g_object_set(G_OBJECT(self), "channel", NULL, NULL);
 
   } else {
-    mw_conv_state(self, mw_conversation_CLOSED);
+    g_object_set(G_OBJECT(self), "state", mw_conversation_closed, NULL);
   }
 
   mw_gobject_unref(chan);
@@ -628,7 +650,6 @@ mw_conv_constructor(GType type, guint props_count,
 
   GObject *obj;
   MwConversation *self;
-  MwConversationPrivate *priv;
 
   mw_debug_enter();
   
@@ -637,9 +658,7 @@ mw_conv_constructor(GType type, guint props_count,
   obj = conv_parent_class->constructor(type, props_count, props);
   self = (MwConversation *) obj;
 
-  priv = self->private;
-
-  priv->state = mw_conversation_NEW;
+  g_object_set(obj, "state", mw_conversation_closed, NULL);
 
   mw_debug_exit();
   return obj;
@@ -772,14 +791,22 @@ static void mw_chan_state(MwChannel *chan, guint state,
        mark conv as open, emit state changed
   */
 
-  if(state == mw_channel_closed ||
-     state == mw_channel_error) {
+  if(state == mw_channel_error) {
+    guint code;
 
-    mw_conv_state(conv, mw_conversation_CLOSED);
+    g_object_get(G_OBJECT(conv), "error", &code, NULL);
+    
+    g_object_set(G_OBJECT(conv),
+		 "error", code,
+		 "state", mw_conversation_error,
+		 NULL);
+
+  } else if(state == mw_channel_closed) {
+    g_object_set(G_OBJECT(conv), "state", mw_conversation_closed, NULL);
     mw_conv_detach_chan(conv);
 
   } else if(state == mw_channel_open) {
-    mw_conv_state(conv, mw_conversation_OPEN);
+    g_object_set(G_OBJECT(conv), "state", mw_conversation_open, NULL);
   }
 }
 
@@ -861,9 +888,6 @@ static void mw_conv_get_property(GObject *object,
   priv = self->private;
 
   switch(property_id) {
-  case conv_property_state:
-    g_value_set_uint(value, priv->state);
-    break;
   case conv_property_channel:
     g_value_set_object(value, priv->channel);
     break;
@@ -936,10 +960,6 @@ static void mw_conv_class_init(gpointer gclass, gpointer gclass_data) {
   gobject_class->dispose = mw_conv_dispose;
   gobject_class->set_property = mw_conv_set_property;
   gobject_class->get_property = mw_conv_get_property;
-
-  mw_prop_uint(gobject_class, conv_property_state,
-	       "state", "get conversation state",
-	       G_PARAM_READABLE);
 
   mw_prop_obj(gobject_class, conv_property_channel,
 	      "channel", "get conversation's backing channel",
@@ -1061,6 +1081,28 @@ void MwConversation_sendData(MwConversation *self,
   
   fn = MW_CONVERSATION_GET_CLASS(self)->send_data;
   fn(self, type, subtype, data);
+}
+
+
+#define enum_val(val, alias) { val, #val, alias }
+
+
+static const GEnumValue values[] = {
+  enum_val(mw_conversation_closed, "closed"),
+  enum_val(mw_conversation_pending, "pending"),
+  enum_val(mw_conversation_open, "open"),
+  enum_val(mw_conversation_error, "error"),
+};
+
+
+GType MwConversationStateEnum_getType() {
+  static GType type = 0;
+
+  if(type == 0) {
+    type = g_enum_register_static("MwConversationStateEnumType", values);
+  }
+
+  return type;
 }
 
 

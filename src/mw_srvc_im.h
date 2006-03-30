@@ -216,14 +216,6 @@ struct mw_conversation_class {
 };
 
 
-enum mw_conversation_state {
-  mw_conversation_closed = mw_channel_closed,
-  mw_conversation_pending = mw_channel_pending,
-  mw_conversation_open = mw_channel_open,
-  mw_conversation_error = mw_channel_error,
-};
-
-
 GType MwConversation_getType();
 
 
@@ -239,14 +231,6 @@ void MwConversation_open(MwConversation *conv);
 void MwConversation_close(MwConversation *conv, guint32 code);
 
 
-gboolean MwConversation_isState(MwConversation *conv,
-				enum mw_conversation_state state);
-
-
-#define MW_CONVERSATION_IS_OPEN(conv) \
-  (MwConversation_isState((conv), mw_conversation_OPEN))
-
-
 void MwConversation_sendText(MwConversation *conv, const gchar *text);
 
 
@@ -256,6 +240,20 @@ void MwConversation_sendTyping(MwConversation *conv, gboolean typing);
 void MwConversation_sendData(MwConversation *conv,
 			     guint32 type, guint32 subtype,
 			     const MwOpaque *data);
+
+
+#define MW_TYPE_CONVERSATION_STATE_ENUM  (MwConversationStateEnum_getType())
+
+
+enum mw_conversation_state {
+  mw_conversation_closed = mw_channel_closed,
+  mw_conversation_pending = mw_channel_pending,
+  mw_conversation_open = mw_channel_open,
+  mw_conversation_error = mw_channel_error,
+};
+
+
+GType MwConversationStateEnum_getType();
 
 
 G_END_DECLS
