@@ -180,57 +180,17 @@ enum properties {
 };
 
 
-void MwObjectClass_setStateEnum(MwObjectClass *klass,
-				GType enum_type) {
-  GEnumClass *new_enum_class;
-  GEnumClass *old_enum_class;
+static void mw_set_state(MwObject *self, const GValue *value) {
+  guint sig;
 
-  mw_debug_enter();
-
-  g_return_if_fail(klass != NULL);
-  new_enum_class = g_type_class_ref(enum_type);
-
-  g_return_if_fail(new_enum_class != NULL);
-  g_return_if_fail(G_IS_ENUM_CLASS(new_enum_class));
-
-  /* set the enum class, clear the old enum class */
-  old_enum_class = klass->state_spec->enum_class;
-  klass->state_spec->enum_class = new_enum_class;
-  g_type_class_unref(old_enum_class);
-
-  /* set the spec value type */
-  klass->state_spec->parent_instance.value_type = enum_type;
-
-  mw_debug_exit();
+  self->state = g_value_get_enum(value);
+  sig = MW_OBJECT_GET_CLASS(self)->signal_state_changed;
+  g_signal_emit(G_OBJECT(self), sig, 0, self->state, NULL);
 }
 
 
-GEnumClass *MwObjectClass_peekStateEnum(MwObjectClass *klass) {
-  g_return_val_if_fail(klass != NULL, NULL);
-  g_return_val_if_fail(klass->state_spec != NULL, NULL);
-  return klass->state_spec->enum_class;
-}
-
-
-const GEnumValue *
-MwObjectClass_getStateValue(MwObjectClass *klass, gint state) {
-  GEnumClass *enum_class = MwObjectClass_peekStateEnum(klass);
-  g_return_val_if_fail(enum_class != NULL, NULL);
-  return g_enum_get_value(enum_class, state);
-}
-
-
-const GEnumValue *
-MwObject_getStateValue(MwObject *obj) {
-  MwObjectClass *klass;
-  gint state;
-
-  g_return_val_if_fail(obj != NULL, NULL);
-
-  klass = MW_OBJECT_GET_CLASS(obj);
-  g_object_get(G_OBJECT(obj), "state", &state, NULL);
-
-  return MwObjectClass_getStateValue(klass, state);
+static void mw_get_state(MwObject *self, GValue *value) {
+  g_value_set_enum(value, self->state);
 }
 
 
@@ -240,23 +200,14 @@ static void mw_set_property(GObject *object,
 
   MwObject *self = MW_OBJECT(object);
 
-  mw_debug_enter();
-
   switch(property_id) {
   case property_state:
-    {
-      guint sig;
-      self->state = g_value_get_enum(value);
-      sig = MW_OBJECT_GET_CLASS(self)->signal_state_changed;
-      g_signal_emit(object, sig, 0, self->state, NULL);
-    }
+    MwObject_setState(self, value);
     break;
 
   default:
     ;
   }
-
-  mw_debug_exit();
 }
 
 
@@ -268,7 +219,7 @@ static void mw_get_property(GObject *object,
 
   switch(property_id) {
   case property_state:
-    g_value_set_enum(value, self->state);
+    MwObject_getState(self, value);
     break;
 
   default:
@@ -283,10 +234,10 @@ static guint mw_signal_state_changed() {
 		      0,
 		      0,
 		      NULL, NULL,
-		      mw_marshal_VOID__UINT,
+		      mw_marshal_VOID__INT,
 		      G_TYPE_NONE,
 		      1,
-		      G_TYPE_UINT);
+		      G_TYPE_INT);
 }
 
 
@@ -295,24 +246,18 @@ static void mw_object_class_init(gpointer g_class,
 
   MwObjectClass *klass = g_class;
   GObjectClass *gobject_class;
-  GParamSpec *gps;
 
   gobject_class = G_OBJECT_CLASS(klass);
 
   gobject_class->set_property = mw_set_property;
   gobject_class->get_property = mw_get_property;
 
-  /* we store a copy of gps on the class, so we can't just use
-     mw_prop_enum, though that's effectively what this is */
-  gps = g_param_spec_enum("state", NULL,
-			  "set state and emit the state-changed signal",
-			  MW_TYPE_OBJECT_STATE_ENUM,
-			  0, G_PARAM_READWRITE|G_PARAM_PRIVATE);
+  mw_prop_enum(gobject_class, property_state,
+	       "state", "set state and emit the state-changed signal",
+	       MW_TYPE_OBJECT_STATE_ENUM, G_PARAM_READWRITE);
 
-  g_object_class_install_property(gobject_class, property_state, gps);
-
-  klass->state_spec = G_PARAM_SPEC_ENUM(gps);
-
+  klass->get_state = mw_get_state;
+  klass->set_state = mw_set_state;
   klass->signal_state_changed = mw_signal_state_changed();
 }
 
@@ -340,6 +285,29 @@ GType MwObject_getType() {
   }
 
   return type;
+}
+
+
+
+void MwObject_getState(MwObject *obj, GValue *val) {
+  void (*fn)(MwObject *, GValue *);
+
+  g_return_if_fail(obj != NULL);
+  g_return_if_fail(val != NULL);
+
+  fn = MW_OBJECT_GET_CLASS(obj)->get_state;
+  fn(obj, val);
+}
+
+
+void MwObject_setState(MwObject *obj, const GValue *val) {
+  void (*fn)(MwObject *, const GValue *);
+
+  g_return_if_fail(obj != NULL);
+  g_return_if_fail(val != NULL);
+
+  fn = MW_OBJECT_GET_CLASS(obj)->set_state;
+  fn(obj, val);
 }
 
 

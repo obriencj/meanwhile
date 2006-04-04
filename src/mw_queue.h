@@ -54,6 +54,9 @@ struct mw_queue;
 MwQueue *MwQueue_new(gsize member_size, guint grow_count);
 
 
+void MwQueue_clear(MwQueue *q, GDestroyNotify clean);
+
+
 /** @since 2.0.0
 
     destroy the queue
@@ -106,6 +109,9 @@ struct mw_meta_queue;
 
 
 MwMetaQueue *MwMetaQueue_new(gsize member_size, guint grow_count);
+
+
+void MwMetaQueue_clear(MwMetaQueue *mq, GDestroyNotify cleanup);
 
 
 void MwMetaQueue_free(MwMetaQueue *mq);

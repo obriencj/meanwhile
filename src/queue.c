@@ -67,6 +67,14 @@ MwQueue *MwQueue_new(gsize member_size, guint grow_step) {
 }
 
 
+void MwQueue_clear(MwQueue *q, GDestroyNotify clean) {
+  gpointer o;
+  while( (o = MwQueue_next(q)) ) {
+    if(clean) clean(o);
+  }
+}
+
+
 void MwQueue_free(MwQueue *q) {
   if(! q) return;
   g_free(q->head);
@@ -199,6 +207,15 @@ MwMetaQueue *MwMetaQueue_new(gsize type_size, guint grow_count) {
 }
 
 
+void MwMetaQueue_clear(MwMetaQueue *mq, GDestroyNotify clean) {
+  gpointer o;
+  while( (o = MwMetaQueue_next(mq)) ) {
+    if(clean) clean(o);
+  }
+  MwMetaQueue_scour(mq);
+}
+
+
 void MwMetaQueue_free(MwMetaQueue *mq) {
   GList *l;
 
@@ -289,7 +306,7 @@ gpointer MwMetaQueue_next(MwMetaQueue *mq) {
 
 void MwMetaQueue_scour(MwMetaQueue *mq) {
   GList *l;
-
+  
   g_return_if_fail(mq != NULL);
 
   l = mq->loop;

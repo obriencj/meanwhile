@@ -40,7 +40,9 @@ static GObjectClass *parent_class;
 
 
 enum properties {
-  property_master_channel = 1,
+  property_state = 1,
+
+  property_master_channel,
 
   property_redirect_host,
   property_error,
@@ -326,7 +328,7 @@ static void recv_HANDSHAKE_ACK(MwSession *s, MwMsgHandshakeAck *m) {
   MwMsgLogin *msglogin;
   guint auth_type, client_type;
   gchar *user;
-  guint state;
+  gint state;
 
   g_object_get(G_OBJECT(s), "state", &state, NULL);
 
@@ -376,7 +378,7 @@ static void recv_HANDSHAKE_ACK(MwSession *s, MwMsgHandshakeAck *m) {
 
 
 static void recv_LOGIN_REDIRECT(MwSession *s, MwMsgLoginRedirect *m) {
-  guint state;
+  gint state;
 
   g_object_get(G_OBJECT(s), "state", &state, NULL);
 
@@ -392,7 +394,7 @@ static void recv_LOGIN_REDIRECT(MwSession *s, MwMsgLoginRedirect *m) {
 static void recv_LOGIN_ACK(MwSession *s, MwMsgLoginAck *m) {
   MwSessionClass *klass;
   MwSessionPrivate *priv;
-  guint state;
+  gint state;
 
   g_object_get(G_OBJECT(s), "state", &state, NULL);
 
@@ -619,12 +621,17 @@ static void mw_start(MwSession *self) {
 }
 
 
+static void mw_chan_close(gpointer chan, gpointer duh) {
+  guint chan_state;
+  g_object_get(G_OBJECT(chan), "state", &chan_state, NULL);
+  if(chan_state == mw_channel_open) {
+    MwChannel_close(chan, 0x00, NULL);
+  }
+}
+
+
 static void mw_stop(MwSession *self, guint32 reason) {
   MwSessionPrivate *priv;
-  MwOpaque *o;
-  GList *l;
-
-  mw_debug_enter();
 
   g_debug("stopping session %p: reason 0x%x", self, reason);
 
@@ -640,29 +647,16 @@ static void mw_stop(MwSession *self, guint32 reason) {
   g_object_set(G_OBJECT(self), "state", mw_session_stopping, NULL);
 
   /* close all channels not already closed */
-  for(l = MwSession_getChannels(self); l; l = g_list_delete_link(l, l)) {
-    guint chan_state;
-    g_object_get(G_OBJECT(l->data), "state", &chan_state, NULL);
-    if(chan_state == mw_channel_open) {
-      MwChannel_close(l->data, 0x00, NULL);
-    }
-  }
+  MwSession_foreachChannel(self, mw_chan_close, NULL);
 
   /* clear out session queue */
-  while( (o = MwQueue_next(priv->queue)) ) {
-    MwOpaque_clear(o);
-  }
+  MwQueue_clear(priv->queue, (GDestroyNotify) MwOpaque_clear);
 
   /* clear out channel queue */
-  while( (o = MwMetaQueue_next(priv->chan_queue)) ) {
-    MwOpaque_clear(o);
-  }
-  MwMetaQueue_scour(priv->chan_queue);
+  MwMetaQueue_clear(priv->chan_queue, (GDestroyNotify) MwOpaque_clear);
 
   /* and we're stopped */
   g_object_set(G_OBJECT(self), "state", mw_session_stopped, NULL);
-
-  mw_debug_exit();
 }
 
 
@@ -793,7 +787,7 @@ static void mw_send_announce(MwSession *self, gboolean may_reply,
 
 static void mw_force_login(MwSession *self) {
   MwMsgLoginForce *msg;
-  guint state;
+  gint state;
 
   g_object_get(G_OBJECT(self), "state", &state, NULL);
 
@@ -1011,6 +1005,10 @@ static void mw_set_property(GObject *object,
   priv = self->private;
 
   switch(property_id) {
+  case property_state:
+    MwObject_setState(MW_OBJECT(object), value);
+    break;
+
   case property_auth_user:
     g_free(priv->login.id.user);
     priv->login.id.user = g_value_dup_string(value);
@@ -1054,6 +1052,10 @@ static void mw_get_property(GObject *object,
   priv = self->private;
 
   switch(property_id) {
+  case property_state:
+    MwObject_getState(MW_OBJECT(self), value);
+    break;
+
   case property_master_channel:
     g_value_set_uint(value, priv->master_channel);
     break;
@@ -1363,6 +1365,10 @@ static void mw_session_class_init(gpointer g_class, gpointer g_class_data) {
 	       "server-ver-minor", "get server minor version number",
 	       G_PARAM_READABLE);
 
+  mw_prop_enum(gobject_class, property_state,
+	       "state", "get session state",
+	       MW_TYPE_SESSION_STATE_ENUM, G_PARAM_READWRITE);
+
   klass->signal_pending = mw_signal_pending();
   klass->signal_write = mw_signal_write();
   klass->signal_channel = mw_signal_channel();
@@ -1393,12 +1399,8 @@ static void mw_session_class_init(gpointer g_class, gpointer g_class_data) {
   klass->add_cipher = mw_add_cipher;
   klass->get_cipher = mw_get_cipher;
   klass->get_cipher_by_pol = mw_get_cipher_by_pol;
-  /* klass->get_ciphers = mw_get_ciphers; */
   klass->foreach_cipher = mw_foreach_cipher;
   klass->remove_cipher = mw_remove_cipher;
-
-  /* specify our state enumeration */
-  MwObjectClass_setStateEnum(mwobject_class, MW_TYPE_SESSION_STATE_ENUM);
 }
 
 

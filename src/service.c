@@ -33,8 +33,12 @@ static GObjectClass *parent_class;
 
 
 enum properties {
-  property_session = 1,
+  property_state = 1,
+  property_session,
   property_auto_start,
+
+  property_name,
+  property_desc,
 };
 
 
@@ -56,43 +60,66 @@ static const gchar *mw_get_desc(MwService *self) {
 
 
 static gboolean mw_starting(MwService *self) {
-  guint state;
-  g_object_get(G_OBJECT(self), "state", &state, NULL);
+  gint state;
+  gboolean ok;
 
-  return (state == mw_object_stopped);
+  g_object_get(G_OBJECT(self), "state", &state, NULL);
+  ok = (state == mw_service_stopped);
+
+  if(ok) {
+    g_object_set(G_OBJECT(self), "state", mw_service_starting, NULL);
+  }
+
+  return ok;
 }
 
 
 static gboolean mw_start(MwService *self) {
+  gint state;
+
+  g_object_get(G_OBJECT(self), "state", &state, NULL);
+  g_return_val_if_fail(state == mw_service_starting, FALSE);
+
   return TRUE;
 }
 
 
 static void mw_started(MwService *self) {
-  g_object_set(G_OBJECT(self), "state", mw_object_started, NULL);
+  g_object_set(G_OBJECT(self), "state", mw_service_started, NULL);
 }
 
 
 static gboolean mw_stopping(MwService *self) {
-  guint state;
-  g_object_get(G_OBJECT(self), "state", &state, NULL);
+  gint state;
+  gboolean ok;
 
-  return (state == mw_object_error ||
-	  state == mw_object_started);
+  g_object_get(G_OBJECT(self), "state", &state, NULL);
+  ok = (state == mw_service_error || state == mw_service_started);
+  
+  if(ok) {
+    g_object_set(G_OBJECT(self), "state", mw_service_stopping, NULL);
+  }
+
+  return ok;
 }
 
 
 static gboolean mw_stop(MwService *self) {
+  gint state;
+
+  g_object_get(G_OBJECT(self), "state", &state, NULL);
+  g_return_val_if_fail(state == mw_service_stopping, FALSE);
+
   return TRUE;
 }
 
 
 static void mw_stopped(MwService *self) {
-  g_object_set(G_OBJECT(self), "state", mw_object_stopped, NULL);
+  g_object_set(G_OBJECT(self), "state", mw_service_stopped, NULL);
 }
 
 
-static void mw_auto_cb(MwSession *session, guint state, MwService *self) {
+static void mw_auto_cb(MwSession *session, gint state, MwService *self) {
 
   gboolean auto_start = FALSE;
 
@@ -145,6 +172,10 @@ static void mw_set_property(GObject *object,
   MwServicePrivate *priv = self->private;
 
   switch(property_id) {
+  case property_state:
+    MwObject_setState(MW_OBJECT(self), value);
+    break;
+
   case property_session:
     mw_gobject_unref(priv->session);
     priv->session = MW_SESSION(g_value_dup_object(value));
@@ -168,12 +199,24 @@ static void mw_get_property(GObject *object,
   MwServicePrivate *priv = self->private;
 
   switch(property_id) {
+  case property_state:
+    MwObject_getState(MW_OBJECT(self), value);
+    break;
+
   case property_session:
     g_value_set_object(value, G_OBJECT(priv->session));
     break;
 
   case property_auto_start:
     g_value_set_boolean(value, priv->auto_start);
+    break;
+
+  case property_name:
+    g_value_set_string(value, MwService_getName(self));
+    break;
+
+  case property_desc:
+    g_value_set_string(value, MwService_getDescription(self));
     break;
 
   default:
@@ -202,7 +245,7 @@ mw_constructor(GType type, guint props_count,
   /* set in mw_service_init */
   priv = self->private;
 
-  g_object_set(G_OBJECT(self), "state", mw_object_stopped, NULL);
+  g_object_set(G_OBJECT(self), "state", mw_service_stopped, NULL);
 
   mw_setup_session(self);
 
@@ -260,6 +303,18 @@ static void mw_class_init(gpointer gclass, gpointer gclass_data) {
 				 " automatically start or stop with the"
 				 " session"),
 		  G_PARAM_READWRITE);
+
+  mw_prop_enum(gclass, property_state,
+	       "state", "set state",
+	       MW_TYPE_SERVICE_STATE_ENUM, G_PARAM_READWRITE);
+
+  mw_prop_str(gclass, property_name,
+	      "name", "get the service name",
+	      G_PARAM_READABLE);
+
+  mw_prop_str(gclass, property_desc,
+	      "description", "get the service description",
+	      G_PARAM_READABLE);
   
   klass->get_name = mw_get_name;
   klass->get_desc = mw_get_desc;
@@ -391,8 +446,32 @@ void MwService_error(MwService *srvc) {
 
   g_debug("error in service %s", MwService_getName(srvc));
 
-  g_object_set(G_OBJECT(srvc), "state", mw_object_error, NULL);
+  g_object_set(G_OBJECT(srvc), "state", mw_service_error, NULL);
   MwService_stop(srvc);
+}
+
+
+#define enum_val(val, alias) { val, #val, alias }
+
+
+static const GEnumValue values[] = {
+  enum_val(mw_service_stopped, "stopped"),
+  enum_val(mw_service_starting, "starting"),
+  enum_val(mw_service_started, "started"),
+  enum_val(mw_service_stopping, "stopping"),
+  enum_val(mw_service_error, "error"),
+  { 0, NULL, NULL },
+};
+
+
+GType MwServiceStateEnum_getType() {
+  static GType type = 0;
+
+  if(type == 0) {
+    type = g_enum_register_static("MwServiceStateEnumType", values);
+  }
+
+  return type;
 }
 
 

@@ -561,8 +561,6 @@ static void mw_open(MwConversation *self) {
 static void mw_close(MwConversation *self, guint32 code) {
   MwChannel *chan;
 
-  mw_debug_enter();
-
   g_object_get(G_OBJECT(self), "channel", &chan, NULL);
 
   if(chan) {
@@ -576,8 +574,6 @@ static void mw_close(MwConversation *self, guint32 code) {
   }
 
   mw_gobject_unref(chan);
-
-  mw_debug_exit();
 }
 
 
@@ -585,7 +581,7 @@ static void mw_send_text(MwConversation *self, const gchar *text) {
   MwChannel *chan;
   MwPutBuffer *pb;
   MwOpaque o;
-  guint state;
+  gint state;
 
   g_object_get(G_OBJECT(self), "channel", &chan, NULL);
 
@@ -619,7 +615,7 @@ static void mw_send_data(MwConversation *self, guint type, guint subtype,
   MwChannel *chan;
   MwPutBuffer *pb;
   MwOpaque o;
-  guint state;
+  gint state;
 
   g_object_get(G_OBJECT(self), "channel", &chan, NULL);
 
@@ -692,8 +688,6 @@ static void mw_conv_detach_chan(MwConversation *conv) {
   MwConversationPrivate *priv;
   MwChannel *chan;
   
-  mw_debug_enter();
-
   priv = conv->private;
   if(! priv) return;
 
@@ -709,8 +703,6 @@ static void mw_conv_detach_chan(MwConversation *conv) {
   
   mw_gobject_unref(chan);
   priv->channel = NULL;
-
-  mw_debug_exit();
 }
 
 
@@ -782,7 +774,7 @@ static void mw_chan_recv(MwChannel *chan, guint type, const MwOpaque *msg,
 }
 
 
-static void mw_chan_state(MwChannel *chan, guint state,
+static void mw_chan_state(MwChannel *chan, gint state,
 			  MwConversation *conv) {
 
   /* if state is closed or error,
@@ -1092,6 +1084,7 @@ static const GEnumValue values[] = {
   enum_val(mw_conversation_pending, "pending"),
   enum_val(mw_conversation_open, "open"),
   enum_val(mw_conversation_error, "error"),
+  { 0, NULL, NULL },
 };
 
 

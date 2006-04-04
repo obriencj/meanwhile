@@ -98,7 +98,7 @@ const gchar *MwService_getName(MwService *service);
 
 
 /** @return string short description of the service */
-const gchar *mwService_getDesc(MwService *service);
+const gchar *MwService_getDescription(MwService *service);
 
 
 /**
@@ -117,6 +117,20 @@ void MwService_start(MwService *service);
 
 void MwService_stop(MwService *service);
 
+
+#define MW_TYPE_SERVICE_STATE_ENUM  (MwServiceStateEnum_getType())
+
+
+enum mw_service_state {
+  mw_service_stopped = mw_object_stopped,
+  mw_service_starting = mw_object_starting,
+  mw_service_started = mw_object_started,
+  mw_service_stopping = mw_object_stopping,
+  mw_service_error = mw_object_error,
+};
+
+
+GType MwServiceStateEnum_getType();
 
 
 /*

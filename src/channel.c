@@ -38,7 +38,9 @@ static GObjectClass *parent_class;
 
 
 enum properties {
-  property_channel_id = 1,
+  property_state = 1,
+
+  property_channel_id,
   property_session,
   property_error,
 
@@ -137,8 +139,6 @@ static void mw_create(MwChannel *self, const MwOpaque *info) {
   MwMsgChannelCreate *msg;
   guint id, service, proto_type, proto_ver, policy;
 
-  mw_debug_enter();
-
   priv = self->private;
   MwOpaque_clone(&priv->offered_info, info);
 
@@ -197,8 +197,6 @@ static void mw_create(MwChannel *self, const MwOpaque *info) {
   MwMessage_free(MW_MESSAGE(msg));
 
   g_object_set(G_OBJECT(self), "state", mw_channel_pending, NULL);
-
-  mw_debug_exit();
 }
 
 
@@ -253,8 +251,6 @@ static void mw_accept(MwChannel *self, const MwOpaque *info) {
   MwMsgChannelAccept *msg;
   guint id, service, proto_type, proto_ver, o_policy, a_policy;
   MwCipher *cipher = NULL;
-
-  mw_debug_enter();
 
   priv = self->private;
   MwOpaque_clone(&priv->accepted_info, info);
@@ -318,13 +314,11 @@ static void mw_accept(MwChannel *self, const MwOpaque *info) {
   MwMessage_free(MW_MESSAGE(msg));
 
   g_object_set(G_OBJECT(self), "state", mw_channel_open, NULL);
-
-  mw_debug_exit();
 }
 
 
 static void mw_open(MwChannel *self, const MwOpaque *info) {
-  guint state;
+  gint state;
 
   g_object_get(G_OBJECT(self), "state", &state, NULL);
 
@@ -345,9 +339,7 @@ static void mw_close(MwChannel *self, guint32 code, const MwOpaque *info) {
   MwChannelPrivate *priv;
   MwMsgChannelClose *msg;
   guint id;
-  guint state;
-
-  mw_debug_enter();
+  gint state;
 
   g_object_get(G_OBJECT(self), "state", &state, NULL);
 
@@ -383,8 +375,6 @@ static void mw_close(MwChannel *self, guint32 code, const MwOpaque *info) {
   }
   
   g_object_set(G_OBJECT(self), "state", mw_channel_closed, NULL);
-
-  mw_debug_exit();
 }
 
 
@@ -437,8 +427,6 @@ static void recv_ACCEPT(MwChannel *self, MwMsgChannelAccept *msg) {
 
   MwChannelPrivate *priv;
   
-  mw_debug_enter();
-
   g_return_if_fail(self->private != NULL);
   priv = self->private;
 
@@ -457,8 +445,6 @@ static void recv_ACCEPT(MwChannel *self, MwMsgChannelAccept *msg) {
   }
 
   g_object_set(G_OBJECT(self), "state", mw_channel_open, NULL);
-
-  mw_debug_exit();
 }
 
 
@@ -491,8 +477,6 @@ static void recv_SEND(MwChannel *self, MwMsgChannelSend *msg) {
 
   MwChannelClass *klass = MW_CHANNEL_GET_CLASS(self);
 
-  mw_debug_enter();
-
   if(msg->head.options & mw_message_option_ENCRYPT) {
     MwOpaque dec;
     MwCipher *cipher;
@@ -510,8 +494,6 @@ static void recv_SEND(MwChannel *self, MwMsgChannelSend *msg) {
     g_signal_emit(G_OBJECT(self), klass->signal_incoming, 0,
 		  (guint) msg->type, &msg->data, NULL);
   }
-
-  mw_debug_exit();
 }
 
 
@@ -544,8 +526,6 @@ static void mw_send(MwChannel *self, guint16 type, const MwOpaque *data,
   MwMsgChannelSend *msg;
   guint id, policy;
   
-  mw_debug_enter();
-
   priv = self->private;
 
   g_object_get(G_OBJECT(self),
@@ -574,8 +554,6 @@ static void mw_send(MwChannel *self, guint16 type, const MwOpaque *data,
   MwMessage_free(MW_MESSAGE(msg));
 
   mw_gobject_unref(cipher);
-
-  mw_debug_exit();
 }
 
 
@@ -651,7 +629,7 @@ static gboolean mw_set_requires_state(MwChannel *self,
 
   /* todo add property name and state name */
 
-  guint state;
+  gint state;
 
   g_object_get(G_OBJECT(self), "state", &state, NULL);
 
@@ -676,6 +654,10 @@ static void mw_set_property(GObject *object,
   priv = self->private;
 
   switch(property_id) {
+  case property_state:
+    MwObject_setState(MW_OBJECT(object), value);
+    break;
+
   case property_channel_id:
     priv->id = g_value_get_uint(value);
     break;
@@ -750,6 +732,9 @@ static void mw_get_property(GObject *object,
   priv = self->private;
 
   switch(property_id) {
+  case property_state:
+    MwObject_getState(MW_OBJECT(self), value);
+    break;
   case property_error:
     g_value_set_uint(value, priv->error);
     break;
@@ -839,8 +824,6 @@ static void mw_channel_class_init(gpointer g_class, gpointer g_class_data) {
   MwObjectClass *mwobject_class;
   MwChannelClass *klass;
 
-  mw_debug_enter();
-
   gobject_class = G_OBJECT_CLASS(g_class);
   mwobject_class = MW_OBJECT_CLASS(g_class);
   klass = MW_CHANNEL_CLASS(g_class);
@@ -920,6 +903,10 @@ static void mw_channel_class_init(gpointer g_class, gpointer g_class_data) {
 		"close-info", "get the closeing info opaque",
 		MW_TYPE_OPAQUE, G_PARAM_READABLE);
 
+  mw_prop_enum(gobject_class, property_state,
+	       "state", "get the channel state",
+	       MW_TYPE_CHANNEL_STATE_ENUM, G_PARAM_READWRITE);
+
   klass->signal_outgoing = mw_signal_outgoing();
   klass->signal_incoming = mw_signal_incoming();
 
@@ -927,10 +914,6 @@ static void mw_channel_class_init(gpointer g_class, gpointer g_class_data) {
   klass->close = mw_close;
   klass->feed = mw_feed;
   klass->send = mw_send;
-
-  MwObjectClass_setStateEnum(mwobject_class, MW_TYPE_CHANNEL_STATE_ENUM);
-
-  mw_debug_exit();
 }
 
 

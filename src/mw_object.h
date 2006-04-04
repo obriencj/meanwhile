@@ -77,8 +77,9 @@ typedef struct mw_object_class MwObjectClass;
 struct mw_object_class {
   GObjectClass gobjectclass;
 
+  void (*get_state)(MwObject *,GValue *);
+  void (*set_state)(MwObject *,const GValue *);
   guint signal_state_changed;
-  GParamSpecEnum *state_spec;
 };
 
 
@@ -86,17 +87,10 @@ struct mw_object_class {
 GType MwObject_getType();
 
 
-const GEnumValue *MwObject_getStateValue(MwObject *obj);
+void MwObject_getState(MwObject *obj, GValue *val);
 
 
-void MwObjectClass_setStateEnum(MwObjectClass *klass, GType enum_type);
-
-
-GEnumClass *MwObjectCass_peekStateEnum(MwObject *obj);
-
-
-const GEnumValue *
-MwObjectClass_getStateValue(MwObjectClass *klass, gint state);
+void MwObject_setState(MwObject *obj, const GValue *val);
 
 
 #define MW_TYPE_OBJECT_STATE_ENUM  (MwObjectStateEnum_getType())
@@ -174,7 +168,7 @@ void mw_gobject_clear_weak_pointer(gpointer *where);
     add a gboolean property to a GObjectClass */
 void mw_prop_boolean(GObjectClass *gclass,
 		     guint property_id,
-		     const char *name, const char *blurb,
+		     const gchar *name, const gchar *blurb,
 		     GParamFlags flags);
 
 
@@ -183,7 +177,7 @@ void mw_prop_boolean(GObjectClass *gclass,
     add a string property to a GObjectClass */
 void mw_prop_str(GObjectClass *gclass,
 		 guint property_id,
-		 const char *name, const char *blurb,
+		 const gchar *name, const gchar *blurb,
 		 GParamFlags flags);
 
 
@@ -192,7 +186,7 @@ void mw_prop_str(GObjectClass *gclass,
     add a gpointer property to a GObjectClass */
 void mw_prop_ptr(GObjectClass *gclass,
 		 guint property_id,
-		 const char *name, const char *blurb,
+		 const gchar *name, const gchar *blurb,
 		 GParamFlags flags);
 
 
@@ -201,7 +195,7 @@ void mw_prop_ptr(GObjectClass *gclass,
     add a reference to GObject to a GObjectClass */
 void mw_prop_obj(GObjectClass *gclass,
 		 guint property_id,
-		 const char *name, const char *blurb,
+		 const gchar *name, const gchar *blurb,
 		 GType type,
 		 GParamFlags flags);
 
@@ -211,7 +205,7 @@ void mw_prop_obj(GObjectClass *gclass,
     add a gint property to a GObjectClass */
 void mw_prop_int(GObjectClass *gclass,
 		 guint property_id,
-		 const char *name, const char *blurb,
+		 const gchar *name, const gchar *blurb,
 		 GParamFlags flags);
 
 
@@ -220,7 +214,7 @@ void mw_prop_int(GObjectClass *gclass,
     add a guint property to a GObjectClass */
 void mw_prop_uint(GObjectClass *gclass,
 		  guint property_id,
-		  const char *name, const char *blurb,
+		  const gchar *name, const gchar *blurb,
 		  GParamFlags flags);
 
 
@@ -229,9 +223,23 @@ void mw_prop_uint(GObjectClass *gclass,
     add a boxed type property to a GObjectClass */
 void mw_prop_boxed(GObjectClass *gclass,
 		   guint property_id,
-		   const char *name, const char *blurb,
+		   const gchar *name, const gchar *blurb,
 		   GType type,
 		   GParamFlags flags);
+
+
+void mw_prop_enum(GObjectClass *gclass,
+		  guint property_id,
+		  const gchar *name, const gchar *blurb,
+		  GType type,
+		  GParamFlags flags);
+
+
+void mw_over_enum(GObjectClass *gclass,
+		  guint property_id,
+		  const gchar *name, const gchar *blurb,
+		  GType type,
+		  GParamFlags flags);
 
 
 /* @} */

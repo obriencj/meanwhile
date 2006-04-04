@@ -353,8 +353,6 @@ static void mw_stop(MwSession *session, guint32 reason) {
   MwGIOSessionPrivate *priv;
   void (*fn)(MwSession *, guint32);
 
-  mw_debug_enter();
-  
   self = MW_GIO_SESSION(session);
 
   g_return_if_fail(self->private != NULL);
@@ -373,8 +371,6 @@ static void mw_stop(MwSession *session, guint32 reason) {
   /* call overridden stop method */
   fn = MW_SESSION_CLASS(parent_class)->stop;
   fn(session, reason);
-
-  mw_debug_exit();
 }
 
 
@@ -471,7 +467,6 @@ MwGIOSession *MwGIOSession_newFromChannel(GIOChannel *chan) {
 }
 
 
-
 MwGIOSession *MwGIOSession_newFromSocket(gint fd) {
   MwGIOSession *ret;
   GIOChannel *chan = NULL;
@@ -492,9 +487,8 @@ MwGIOSession *MwGIOSession_newFromSocket(gint fd) {
 }
 
 
-static void mw_main_state_changed(MwSession *self, guint state, gpointer info,
+static void mw_main_state_changed(MwSession *self, gint state,
 				  GMainLoop *loop) {
-
   if(state == mw_session_stopped) {
     g_main_loop_quit(loop);
   }
@@ -503,6 +497,8 @@ static void mw_main_state_changed(MwSession *self, guint state, gpointer info,
 
 void MwGIOSession_main(MwGIOSession *session) {
   GMainLoop *loop;
+
+  mw_debug_enter();
 
   g_return_if_fail(session != NULL);
 
@@ -515,6 +511,8 @@ void MwGIOSession_main(MwGIOSession *session) {
 
   g_main_loop_run(loop);
   g_main_loop_unref(loop);
+
+  mw_debug_exit();
 }
 
 
