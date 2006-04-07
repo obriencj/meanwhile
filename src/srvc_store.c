@@ -50,13 +50,8 @@ typedef struct mw_storage_request MwStorageRequest;
 
 struct mw_storage_request {
   guint32 event_id;            /**< unique id for this request */
-
   guint32 key;
-  MwOpaque unit;               /**< only used for load requests */
-
-  guint32 result_code;         /**< result code for completed request */
   enum storage_action action;  /**< load or save */
-
   MwStorageCallback cb;        /**< callback to notify upon completion */
   gpointer data;               /**< user data to pass with callback */
 };
@@ -81,59 +76,43 @@ MwStorageRequest *request_new(MwStorageService *srvc) {
 }
 
 
-static void request_get(MwGetBuffer *b, MwStorageRequest *req) {
-  guint32 id, count, junk;
+static void request_send(MwStorageService *srvc,
+			 MwStorageRequest *req,
+			 const MwOpaque *data) {
 
-  if(MwGetBuffer_error(b)) return;
-
-  mw_uint32_get(b, &id);
-  mw_uint32_get(b, &req->result_code);
-
-  if(req->action == action_loaded) {
-    mw_uint32_get(b, &count);
-
-    if(count > 0) {
-      mw_uint32_get(b, &junk);
-      mw_uint32_get(b, &req->key);
-      MwOpaque_get(b, &req->unit.data);
-    }
-  }
-}
-
-
-static void request_put(MwPutBuffer *b, const MwStorageRequest *req) {
-
-  mw_uint32_put(b, req->event_id);
-  mw_uint32_put(b, 1);
-
-  if(req->action == action_save) {
-    mw_uint32_put(b, 20 + req->unit.len); /* ugh, offset garbage */
-    mw_uint32_put(b, req->key);
-    MwOpaque_put(b, &req->unit.data);
-
-  } else {
-    mw_uint32_put(b, req->key);
-  }
-}
-
-
-static void request_send(MwChannel *chan, const MwStorageRequest *req) {
+  MwChannel *chan = NULL;
   MwPutBuffer *b;
   MwOpaque o;
+  enum storage_action act = req->action;
+
+  g_object_get(G_OBJECT(self), "channel", &chan, NULL);
+
+  g_return_if_fail(chan != NULL);
 
   b = MwPutBuffer_new();
-  request_put(b, req);
 
-  MwPutBuffer_free(b, &o);
-  MwChannel_send(chan, req->action, &o);
-  MwOpaque_clear(&o);
+  mw_uint32_put(b, req->event);
+  mw_uint32_put(b, 1);
 
-  if(req->action == action_save) {
+  if(act == action_save) {
     req->action = action_saved;
 
-  } else if(req->action == action_load) {
+    mw_uint32_put(b, 20 + data? data->len: 0);
+    mw_uint32_put(b, req->key);
+    MwOpaque_put(b, data);
+
+  } else if(act == action_load) {
     req->action = action_loaded;
+
+    mw_uint32_put(b, req->key);
   }
+
+  MwPutBuffer_free(b, &o);
+
+  MwChannel_send(chan, act, &o);
+  MwOpaque_clear(&o);
+
+  mw_gobject_unref(chan);
 }
 
 
@@ -155,11 +134,13 @@ static void request_debug(MwStorageRequest *req) {
 
 
 static void request_trigger(MwStorageService *srvc,
-			    MwStorageRequest *req) {
+			    MwStorageRequest *req,
+			    const MwOpaque *unit) {
   request_debug(req);
-
-  if(req->cb)
-    req->cb(srvc, req->result_code, req->key, &req->unit, req->data);
+  
+  if(req->cb) {
+    req->cb(srvc, req->event, req->result_code, req->key, unit, req->data);
+  }
 }
 
 
@@ -192,39 +173,64 @@ static const gchar *get_desc(struct mwService *srvc) {
 }
 
 
+static void mw_recv_action_loaded(MwStorageService *self, MwGetBuffer *gb) {
+  guint32 id, code;
+  MwStorageRequest *req;
+  guint32 count, key;
+  MwOpaque o;
+
+  mw_uint32_get(gb, &id);
+  mw_uint32_get(gb, &code);
+
+  req = request_find(srvc_stor, id);
+
+  if(! req) {
+    g_warning("no pending storage request: 0x%x", id);
+    MwGetBuffer_free(gb);
+    return;
+  }
+  
+  g_return_if_fail(req->action == action_loaded);
+
+  mw_uint32_get(gb, &count);
+  g_return_if_fail(count > 0);
+
+  mw_uint32_skip(gb);
+  mw_uint32_get(gb, &key);
+  MwOpaque_steal(gb, &o);
+
+  request_trigger(self, req, &o);
+  request_remove(self, id);
+}
+
+
 static void mw_channel_recv(MwChannel *chan,
 			    guint type, const MwOpaque *msg,
 			    MwStorageService *self) {
 
   /* process into results, trigger callbacks */
 
-  MwGetBuffer *gb;
-  guint32 id;
-  MwStorageRequest *req;
+  MwGetBuffer *gb = MwGetBuffer_wrap(data);
 
-  gb = MwGetBuffer_wrap(data);
-
-  id = guint32_peek(gb);
-  req = request_find(srvc_stor, id);
-
-  if(! req) {
-    g_warning("couldn't find request 0x%x in storage service", id);
-    MwGetBuffer_free(gb);
-    return;
+  switch(type) {
+  case action_loaded:
+    mw_recv_action_loaded(self, gb);
+    break;
+  case action_saved:
+    mw_recv_action_saved(self, gb);
+    break;
+  case action_updated:
+    mw_recv_action_updated(self, gb);
+    break;
+  default:
+    ;
   }
-
-  g_return_if_fail(req->action == type);
-  request_get(gb, req);
 
   if(MwGetBuffer_error(b)) {
     mw_mailme_opaque(msg, "storage request 0x%x, type: 0x%x", id, type);
-
-  } else {
-    request_trigger(self, req);
   }
 
-  MwGetBuffer_free(b);
-  request_remove(self, req);
+  MwGetBuffer_free(gb);
 }
 
 
@@ -322,6 +328,57 @@ static gboolean mw_stop(MwService *self) {
 }
 
 
+static guint mw_load(MwStorageService *self, guint32 key,
+		     MwStorageCallback cb, gpointer user_data) {
+  /* 
+     create a storage request
+     set it to load
+     send it
+  */
+
+  MwStorageRequest *req;
+  
+  mw_object_require_state(self, mw_service_started, 0);
+  
+  req = request_new(self, key);
+  req->action = action_load;
+  req->cb = cb;
+  req->data = user_data;
+
+  request_send, self, req, NULL);
+}
+
+
+static guint mw_save(MwStorageService *self,
+		     guint32 key, const MwOpaque *unit,
+		     MwStorageCallback cb, gpointer user_data) {
+  /*
+    create a storage request
+    set it to save
+    send it
+  */
+
+  MwStorageRequest *req;
+
+  mw_object_require_state(self, mw_service_started, 0);
+  
+  req = request_new(self, key);
+  req->action = action_save;
+  req->cb = cb;
+  req->data = user_data;
+
+  request_send(self, req, unit);
+}
+
+
+static void mw_cancel(MwStorageService *self, guint event) {
+  /*
+    find a storage request
+    remove it
+  */
+}
+
+
 static GObject *
 mw_srvc_constructor(GType type, guint props_count,
 		    GObjectConstructParam *props) {
@@ -348,17 +405,33 @@ mw_srvc_constructor(GType type, guint props_count,
 }
 
 
+static guint mw_signal_key_updated() {
+  return g_signal_new("key-updated",
+		      MW_TYPE_STORAGE_SERVICE,
+		      0,
+		      0,
+		      NULL, NULL,
+		      mw_marshal_VOID__UINT,
+		      G_TYPE_NONE,
+		      1,
+		      G_TYPE_UINT);
+}
+
+
 static void mw_srvc_class_init(gpointer gclass, gpointer gclass_data) {
   GObjectClass *gobject_class = gclass;
   MwServiceClass *service_class = gclass;
-  MwIMServiceClass *klass = gclass;
+  MwStorageServiceClass *klass = gclass;
 
   srvc_parent_class = g_type_class_peek_parent(gobject_class);
 
   gobject_class->constructor = mw_srvc_constructor;
   gobject_class->dispose = mw_srvc_dispose;
 
-  /* ... */
+  klass->signal_key_updated = mw_signal_key_updated();
+
+  /* properties:
+     channel */
 }
 
 
@@ -472,25 +545,6 @@ guint MwStorageService_saveClosure(MwStorageService *srvc,
 
   return MwStorageService_save(srvc, key, unit,
 			       mw_closure_storage_cb, closure);
-}
-
-
-guint MwStorageService_watch(MwStorageService *srvc, guint32 key,
-			     MwStorageCallback cb, gpointer user_data) {
-
-  guint (*fn)(MwStorageService *, guint32, MwStorageCallback, gpointer);
-
-  g_return_val_if_fail(srvc != NULL, NULL);
-
-  fn = MW_STORAGE_SERVICE_GET_CLASS(srvc)->watch;
-  return fn(srvc, key, cb, user_data);
-}
-
-
-guint MwStorageService_watchClosure(MwStorageService *srvc, guint32 key,
-				    GClosure *closure) {
-  
-  return MwStorageService_watch(srvc, key, mw_closure_storage_cb, closure);
 }
 
 

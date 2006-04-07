@@ -36,7 +36,7 @@ G_BEGIN_DECLS
 
 /** Cast a pointer to a message subtype (eg, MwMsgHandshake,
     MwMsgAdmin) into a pointer to a MwMessage */
-#define MW_MESSAGE(msg) (&msg->head)
+#define MW_MESSAGE(msg) (&(msg)->head)
 
 
 /** Indicates the type of a message. */
@@ -52,6 +52,8 @@ enum mw_message_type {
   mw_message_CHANNEL_CLOSE    = 0x0003,  /**< MwMsgChannelClose */
   mw_message_CHANNEL_SEND     = 0x0004,  /**< MwMsgChannelSend */
   mw_message_CHANNEL_ACCEPT   = 0x0006,  /**< MwMsgChannelAccept */
+
+  mw_message_ONE_TIME         = 0x0007,  /**< MwMsgOneTime */
 
   mw_message_STATUS           = 0x0009,  /**< MwMsgStatus */
   mw_message_PRIVACY          = 0x000b,  /**< MwMsgPrivacy */
@@ -247,6 +249,22 @@ struct mw_msg_channel_close {
   MwOpaque data;   /**< additional information */
 };
 
+
+typedef struct mw_msg_one_time MwMsgOneTime;
+
+
+struct mw_msg_one_time {
+  MwMessage head;
+
+  guint32 id;
+  MwIdentity target;
+  guint32 service;
+  guint32 proto_type;
+  guint32 proto_ver;
+
+  guint16 type;
+  MwOpaque data;
+};
 
 
 typedef struct mw_msg_status MwMsgStatus;

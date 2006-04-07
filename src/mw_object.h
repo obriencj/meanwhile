@@ -156,6 +156,28 @@ void mw_gobject_set_weak_pointer(gpointer obj, gpointer *where);
 void mw_gobject_clear_weak_pointer(gpointer *where);
 
 
+/**
+   assertion macro, with optional return value
+
+   tests the state property of the given object for equality to
+   state_req. If the two do not match, a warning message is printed
+   and the parent function returns
+
+   @param obj        GObject to get "state" parameter from
+   @param state_req  value to test "state" parameter against
+   @param retval     optional return value on failure
+*/
+#define mw_object_require_state(obj, state_req, retval...)		\
+  {									\
+    gint obj_state = 0;							\
+    g_object_get(G_OBJECT(obj), "state", &obj_state, NULL);		\
+    if(obj_state != (state_req)) {					\
+      g_warning("object " #obj " state is not "	#state_req);		\
+      return retval;							\
+    }									\
+  }
+
+
 /* @} */
 
 

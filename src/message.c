@@ -483,6 +483,36 @@ static void MwMsgChannelClose_clear(MwMsgChannelClose *msg) {
 }
 
 
+static void MwMsgOneTime_put(MwPutBuffer *b, const MwMsgOneTime *msg) {
+  mw_uint32_put(b, msg->id);
+  MwIdentity_put(b, &msg->target);
+  mw_uint32_put(b, msg->service);
+  mw_uint32_put(b, msg->proto_type);
+  mw_uint32_put(b, msg->proto_ver);
+  mw_uint16_put(b, msg->type);
+  MwOpaque_put(b, &msg->data);
+}
+
+
+static void MwMsgOneTime_get(MwGetBuffer *b, MwMsgOneTime *msg) {
+  if(MwGetBuffer_error(b)) return;
+
+  mw_uint32_get(b, &msg->id);
+  MwIdentity_get(b, &msg->target);
+  mw_uint32_get(b, &msg->service);
+  mw_uint32_get(b, &msg->proto_type);
+  mw_uint32_get(b, &msg->proto_ver);
+  mw_uint16_get(b, &msg->type);
+  MwOpaque_get(b, &msg->data);
+}
+
+
+static void MwMsgOneTime_clear(MwMsgOneTime *msg) {
+  MwIdentity_clear(&msg->target, TRUE);
+  MwOpaque_clear(&msg->data);
+}
+
+
 static void MwMsgStatus_put(MwPutBuffer *b,
 			    const MwMsgStatus *msg) {
   MwStatus_put(b, &msg->status);
@@ -662,6 +692,10 @@ gpointer MwMessage_new(enum mw_message_type type) {
     msg = MW_MESSAGE(g_new0(MwMsgChannelAccept, 1));
     break;
     
+  case mw_message_ONE_TIME:
+    msg = MW_MESSAGE(g_new0(MwMsgOneTime, 1));
+    break;
+
   case mw_message_STATUS:
     msg = MW_MESSAGE(g_new0(MwMsgStatus, 1));
     break;
@@ -750,6 +784,11 @@ gpointer MwMessage_get(MwGetBuffer *b) {
     MwMsgChannelAccept_get(b, msg);
     break;
 
+  case mw_message_ONE_TIME:
+    msg = g_new0(MwMsgOneTime, 1);
+    MwMsgOneTime_get(b, msg);
+    break;
+
   case mw_message_STATUS:
     msg = g_new0(MwMsgStatus, 1);
     MwMsgStatus_get(b, msg);
@@ -834,6 +873,10 @@ void MwMessage_put(MwPutBuffer *b, const MwMessage *msg) {
     MwMsgChannelAccept_put(b, mptr);
     break;
 
+  case mw_message_ONE_TIME:
+    MwMsgOneTime_put(b, mptr);
+    break;
+
   case mw_message_STATUS:
     MwMsgStatus_put(b, mptr);
     break;
@@ -898,6 +941,10 @@ void MwMessage_clear(MwMessage *msg) {
     break;
   case mw_message_CHANNEL_ACCEPT:
     MwMsgChannelAccept_clear(mptr);
+    break;
+
+  case mw_message_ONE_TIME:
+    MwMsgOneTime_clear(mptr);
     break;
 
   case mw_message_STATUS:

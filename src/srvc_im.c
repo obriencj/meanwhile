@@ -510,6 +510,8 @@ struct mw_conversation_private {
 static void mw_open(MwConversation *self) {
   MwChannel *chan;
 
+  mw_object_require_state(self, mw_conversation_closed);
+
   g_object_get(G_OBJECT(self), "channel", &chan, NULL);
 
   if(! chan) {
@@ -733,9 +735,8 @@ static void mw_conv_recv_data(MwConversation *self, MwGetBuffer *gb) {
   } else {
     MwOpaque data;
 
-    MwOpaque_get(gb, &data);
+    MwOpaque_steal(gb, &data);
     g_signal_emit(self, klass->signal_got_data, 0, type, subtype, &data, NULL);
-    MwOpaque_clear(&data);
   }
 }
 

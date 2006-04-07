@@ -120,10 +120,9 @@ struct mw_storage_service_class {
 		guint32 key, const MwOpaque *unit,
 		MwStorageCallback cb, gpointer user_data);
 
-  guint (*watch)(MwStorageService *self, guint32 key,
-		 MwStorageCallback cb, gpointer user_data);
+  void (*cancel)(MwStorageService *self, guint event);
 
-  guint (*cancel)(MwStorageService *self, guint event);
+  guint signal_key_updated;
 };
 
 
@@ -151,14 +150,11 @@ guint MwStorageService_saveClosure(MwStorageService *srvc,
 				   GClosure *closure);
 
 
-guint MwStorageService_watch(MwStorageService *srvc, guint32 key,
-			     MwStorageCallback cb, gpointer user_data);
-
-
-guint MwStorageService_watchClosure(MwStorageService *srvc, guint32 key,
-				    GClosure *closure);
-
-
+/**
+   prevents the triggering of the callback associated with the given
+   event id, but does not cancel the actual load or save operation, as
+   that will likely have already been sent to the server
+*/
 void MwStorageService_cancel(MwStorageService *srvc, guint event);
 
 

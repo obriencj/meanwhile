@@ -465,6 +465,15 @@ void MwOpaque_put(MwPutBuffer *b, const MwOpaque *o) {
 
 
 void MwOpaque_get(MwGetBuffer *b, MwOpaque *o) {
+  g_return_if_fail(b != NULL);
+  g_return_if_fail(o != NULL);
+
+  MwOpaque_steal(b, o);
+  o->data = g_memdup(o->data, o->len);
+}
+
+
+void MwOpaque_steal(MwGetBuffer *b, MwOpaque *o) {
   guint32 tmp = 0;
 
   g_return_if_fail(b != NULL);
@@ -474,13 +483,14 @@ void MwOpaque_get(MwGetBuffer *b, MwOpaque *o) {
   o->data = NULL;
   
   if(b->error) return;
-  mw_uint32_get(b, &tmp);
 
+  mw_uint32_get(b, &tmp);
   g_return_if_fail(check_buffer(b, (gsize) tmp));
 
-  o->len = (gsize) tmp;
-  if(tmp > 0) {
-    o->data = g_memdup(b->ptr, tmp);
+  if(tmp) {
+    o->len = (gsize) tmp;
+    o->data = b->ptr;
+
     b->ptr += tmp;
     b->rem -= tmp;
   }

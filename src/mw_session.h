@@ -113,6 +113,7 @@ struct mw_session_class {
   guint signal_pending;            /**< session has data to be written */
   guint signal_write;              /**< must be handled to write data */
   guint signal_channel;            /**< new incoming channel */
+  guint signal_got_otm;            /**< incoming one time message */
   guint signal_got_status;         /**< user status changed */
   guint signal_got_privacy;        /**< user privacy changed */
   guint signal_got_admin;          /**< incoming admin message */
@@ -131,8 +132,7 @@ struct mw_session_class {
   void (*feed)(MwSession *self, const guchar *buf, gsize len);
   guint (*pending)(MwSession *self);
   void (*flush)(MwSession *self);
-  void (*send_message)(MwSession *self, MwMessage *msg);
-  void (*send_channel)(MwSession *self, MwChannel *chan, MwMessage *msg);
+  void (*send_message)(MwSession *self, const MwMessage *msg);
   void (*send_keepalive)(MwSession *self);
   void (*send_announce)(MwSession *self, gboolean may_reply,
 			const gchar **recipients, const gchar *text);
@@ -196,7 +196,7 @@ guint MwSession_pending(MwSession *session);
 void MwSession_flush(MwSession *session);
 
 
-void MwSession_sendMessage(MwSession *self, MwMessage *msg);
+void MwSession_sendMessage(MwSession *self, const MwMessage *msg);
 
 
 /** Cause the write signal to be emitted with a keepalive byte */
@@ -207,6 +207,7 @@ void MwSession_sendKeepalive(MwSession *self);
     recipient list is an array of strings in the following format
 
     @li "\@U userid" to indicate a user on your community
+    @li "\@L loginid" to indicate a login on your community
     @li "\@G groupid" to indicate all users in a Notes Address Book group
     @li "\@E externaluserid" to indicate a user via a SIP gateway
 */
@@ -216,11 +217,19 @@ void MwSession_sendAnnounce(MwSession *session, gboolean may_reply,
 
 /** Force a session to continue the authentication process against the
     current server connection. This is only valid when the session
-    state is mw_session_OGIN_REDIR. */
+    state is mw_session_LOGIN_REDIR. */
 void MwSession_forceLogin(MwSession *session);
 
 
 void MwSession_senseService(MwSession *session, guint32 type);
+
+
+/** Sends a One Time Message (OTM) to the target */
+void MwSession_sendOneTime(MwSession *session,
+			   const MwIdentity *target,
+			   guint32 service,
+			   guint32 proto_type, guint32 proto_ver,
+			   guint16 type, const MwOpaque *data);
 
 
 /** allocate a new outgoing channel */

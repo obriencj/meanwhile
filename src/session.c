@@ -125,8 +125,6 @@ static void mw_channel_outgoing(MwChannel *chan, MwMessage *msg,
 
   mw_debug_enter();
 
-  g_debug("channel %p with refcount %u", chan, mw_gobject_refcount(chan));
-
   g_return_if_fail(session->private != NULL);
   priv = session->private;
   mq = priv->chan_queue;
@@ -466,6 +464,18 @@ static void recv_CHANNEL_ACCEPT(MwSession *s, MwMsgChannelAccept *m) {
 }
 
 
+static void recv_ONE_TIME(MwSession *s, MwMsgOneTime *m) {
+  MwSessionClass *klass;
+
+  mw_debug_enter();
+  
+  klass = MW_SESSION_GET_CLASS(s);
+  g_signal_emit(s, klass->signal_got_otm, 0, m);
+
+  mw_debug_exit();
+}
+
+
 static void recv_STATUS(MwSession *s, MwMsgStatus *m) {
   MwSessionClass *klass;
   MwSessionPrivate *priv;
@@ -535,7 +545,10 @@ static void recv_msg(MwParser *parser,
   msg = MwMessage_get(b);
   MwGetBuffer_free(b);
 
-  g_return_if_fail(msg != NULL);
+  if(! msg) {
+    mw_debug_data(buf, len, "Unknown message data");
+    return;
+  }
 
   switch(msg->type) {
   case mw_message_HANDSHAKE_ACK:
@@ -559,6 +572,10 @@ static void recv_msg(MwParser *parser,
     break;
   case mw_message_CHANNEL_ACCEPT:
     recv_CHANNEL_ACCEPT(session, (MwMsgChannelAccept *) msg);
+    break;
+
+  case mw_message_ONE_TIME:
+    recv_ONE_TIME(session, (MwMsgOneTime *) msg);
     break;
     
   case mw_message_STATUS:
@@ -715,24 +732,44 @@ static void mw_flush(MwSession *self) {
 }
 
 
-static void mw_send_message(MwSession *self, MwMessage *msg) {
-  MwQueue *q;
-  MwOpaque tmp;
+__attribute__((__used__))
+static void mw_write_msg(MwSession *self, const MwOpaque *msg) {
   MwPutBuffer *pb;
+  MwQueue *q;
   gint sig;
   gboolean ret = FALSE;
-  
+
   g_return_if_fail(self->private != NULL);
   q = self->private->queue;
-  
+
+  pb = MwPutBuffer_new();
+  MwOpaque_put(pb, msg);
+  MwPutBuffer_free(pb, MwQueue_push(q));
+
+  sig = MW_SESSION_GET_CLASS(self)->signal_pending;
+  g_signal_emit(self, sig, 0, &ret);
+}
+
+
+static void mw_send_message(MwSession *self, const MwMessage *msg) {
+  MwOpaque tmp;
+  MwPutBuffer *pb;
+  MwQueue *q;
+  gint sig;
+  gboolean ret = FALSE;
+
+  g_return_if_fail(self->private != NULL);
+  q = self->private->queue;
+
   /* render the message */
   pb = MwPutBuffer_new();
   MwMessage_put(pb, msg);
   MwPutBuffer_free(pb, &tmp);
 
-  /* prepending the length this time */
+  /* wrap the rendered message */
   pb = MwPutBuffer_new();
   MwOpaque_put(pb, &tmp);
+  MwOpaque_clear(&tmp);
   MwPutBuffer_free(pb, MwQueue_push(q));
 
   sig = MW_SESSION_GET_CLASS(self)->signal_pending;
@@ -1494,8 +1531,8 @@ void MwSession_flush(MwSession *session) {
 }
 
 
-void MwSession_sendMessage(MwSession *session, MwMessage *msg) {
-  void (*fn)(MwSession *, MwMessage *);
+void MwSession_sendMessage(MwSession *session, const MwMessage *msg) {
+  void (*fn)(MwSession *, const MwMessage *);
 
   g_return_if_fail(session != NULL);
   g_return_if_fail(msg != NULL);
@@ -1545,6 +1582,28 @@ void MwSession_senseService(MwSession *session, guint32 id) {
   fn = MW_SESSION_GET_CLASS(session)->sense_service;
   fn(session, id);
 }
+
+
+void MwSession_sendOneTime(MwSession *session,
+			   const MwIdentity *target,
+			   guint32 service,
+			   guint32 proto_type, guint32 proto_ver,
+			   guint16 type, const MwOpaque *data) {
+
+  MwMsgOneTime *otm;
+
+  otm = MwMessage_new(mw_message_ONE_TIME);
+  MwIdentity_clone(&otm->target, target, TRUE);
+  otm->service = service;
+  otm->proto_type = proto_type;
+  otm->proto_ver = proto_ver;
+  otm->type = type;
+  MwOpaque_clone(&otm->data, data);
+  
+  MwSession_sendMessage(session, MW_MESSAGE(otm));
+
+  MwMessage_free(MW_MESSAGE(otm));
+}			   
 
 
 MwChannel *MwSession_newChannel(MwSession *session) {

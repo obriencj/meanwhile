@@ -107,11 +107,11 @@ struct mw_identity {
     below or submit an RFE to the meanwhile tracker.
 */
 enum mw_client_type {
-  mw_client_LIB           = 0x1000,  /**< official Lotus binary library */
-  mw_client_JAVA_WEB      = 0x1001,  /**< official Lotus Java applet */
-  mw_client_BINARY        = 0x1002,  /**< official Lotus binary application */
-  mw_client_JAVA_APP      = 0x1003,  /**< official Lotus Java application */
-  mw_client_LINKS         = 0x100a,  /**< official Sametime Links toolkit */
+  mw_client_LIB       = 0x1000,  /**< official Lotus binary library */
+  mw_client_JAVA_WEB  = 0x1001,  /**< official Lotus Java applet */
+  mw_client_BINARY    = 0x1002,  /**< official Lotus binary application */
+  mw_client_JAVA_APP  = 0x1003,  /**< official Lotus Java application */
+  mw_client_LINKS     = 0x100a,  /**< official Sametime Links toolkit */
 
   /* now we're getting crazy */
   mw_client_NOTES_6_5        = 0x1200,
@@ -315,7 +315,18 @@ gboolean mw_str_equal(const gchar *stra, const gchar *strb);
 void MwOpaque_put(MwPutBuffer *b, const MwOpaque *o);
 
 
+/** copies opaque data from @p b into &p o, which will need to be
+    cleaned up later via MwOpaque_clear */
 void MwOpaque_get(MwGetBuffer *b, MwOpaque *o);
+
+
+/** like MwOpaque_get, but rather than duplicating the data from &p b
+    into &p o, the data field of &p o is set to point to the same
+    chunk of memory. This is useful where the opaque needs to only be
+    used briefly, and would normally be cleaned immediately
+    afterwards, as this opaque doesn't need to be cleaned later.
+*/
+void MwOpaque_steal(MwGetBuffer *b, MwOpaque *o);
 
 
 void MwOpaque_skip(MwGetBuffer *b);
