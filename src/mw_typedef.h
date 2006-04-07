@@ -68,8 +68,12 @@ typedef struct mw_place MwPlace;
 typedef struct mw_service MwService;
 
 
-/* @see mw_service_im.h */
+/* @see mw_srvc_im.h */
 typedef struct mw_im_service MwIMService;
+
+
+/* @see mw_srvc_store.h */
+typedef struct mw_storage_service MwStorageService;
 
 
 /* @see mw_session.h */

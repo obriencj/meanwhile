@@ -29,6 +29,9 @@
 
 #include <glib.h>
 #include "mw_common.h"
+#include "mw_object.h"
+#include "mw_service.h"
+#include "mw_typedef.h"
 
 
 G_BEGIN_DECLS
@@ -69,6 +72,9 @@ typedef void (*MwStorageCallback)
   (MwStorageService *srvc, guint event,
    guint32 code, guint32 key, const MwOpaque *unit,
    gpointer data);
+
+
+#define MW_TYPE_STORAGE_SERVICE  (MwStorageService_getType())
 
 
 #define MW_STORAGE_SERVICE(obj)						\
