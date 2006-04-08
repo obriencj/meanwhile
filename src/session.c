@@ -73,6 +73,13 @@ enum properties {
 };
 
 
+#define MW_SESSION_GET_PRIVATE(o)					\
+  (G_TYPE_INSTANCE_GET_PRIVATE((o), MW_TYPE_SESSION, MwSessionPrivate))
+
+
+typedef struct mw_session_private MwSessionPrivate;
+
+
 struct mw_session_private {
 
   MwLogin login;
@@ -125,8 +132,7 @@ static void mw_channel_outgoing(MwChannel *chan, MwMessage *msg,
 
   mw_debug_enter();
 
-  g_return_if_fail(session->private != NULL);
-  priv = session->private;
+  priv = MW_SESSION_GET_PRIVATE(session);
   mq = priv->chan_queue;
 
   /* take the outgoing message, write it to a buffer, stick it in the
@@ -155,7 +161,7 @@ static void mw_channel_weak_cb(gpointer data, GObject *gone) {
   MwSessionPrivate *priv;
 
   session = mem[0];
-  priv = session->private;
+  priv = MW_SESSION_GET_PRIVATE(session);
 
   if(priv) {
     g_hash_table_remove(priv->channels, mem[1]);
@@ -172,7 +178,7 @@ static void mw_chan_setup(MwSession *s, MwChannel *chan) {
   guint id;
   gpointer *mem;
 
-  priv = s->private;
+  priv = MW_SESSION_GET_PRIVATE(s);
   ht = priv->channels;
 
   g_object_get(G_OBJECT(chan), "id", &id, NULL);
@@ -332,8 +338,7 @@ static void recv_HANDSHAKE_ACK(MwSession *s, MwMsgHandshakeAck *m) {
 
   g_return_if_fail(state == mw_session_handshake);
   
-  g_return_if_fail(s->private != NULL);
-  priv = s->private;
+  priv = MW_SESSION_GET_PRIVATE(s);
 
   priv->prop_server_ver_major = m->major;
   priv->prop_server_ver_minor = m->minor;
@@ -401,8 +406,7 @@ static void recv_LOGIN_ACK(MwSession *s, MwMsgLoginAck *m) {
 
   klass = MW_SESSION_GET_CLASS(s);
 
-  g_return_if_fail(s->private != NULL);
-  priv = s->private;
+  priv = MW_SESSION_GET_PRIVATE(s);
 
   MwLogin_clone(&priv->login, &m->login, TRUE);
   MwPrivacy_clone(&priv->privacy, &m->privacy, TRUE);
@@ -483,7 +487,7 @@ static void recv_STATUS(MwSession *s, MwMsgStatus *m) {
   mw_debug_enter();
 
   klass = MW_SESSION_GET_CLASS(s);
-  priv = s->private;
+  priv = MW_SESSION_GET_PRIVATE(s);
 
   MwStatus_clone(&priv->status, &m->status, TRUE);
   g_signal_emit(s, klass->signal_got_status, 0, NULL);
@@ -499,7 +503,7 @@ static void recv_PRIVACY(MwSession *s, MwMsgPrivacy *m) {
   mw_debug_enter();
 
   klass = MW_SESSION_GET_CLASS(s);
-  priv = s->private;
+  priv = MW_SESSION_GET_PRIVATE(s);
 
   MwPrivacy_clone(&priv->privacy, &m->privacy, TRUE);
   g_signal_emit(s, klass->signal_got_privacy, 0, NULL);
@@ -652,7 +656,7 @@ static void mw_stop(MwSession *self, guint32 reason) {
 
   g_debug("stopping session %p: reason 0x%x", self, reason);
 
-  priv = self->private;
+  priv = MW_SESSION_GET_PRIVATE(self);
 
   if(reason) {
     g_object_set(G_OBJECT(self),
@@ -678,24 +682,25 @@ static void mw_stop(MwSession *self, guint32 reason) {
 
 
 static void mw_feed(MwSession *self, const guchar *buf, gsize len) {
+  MwSessionPrivate *priv;
   MwParser *parser;
-
-  g_return_if_fail(self->private != NULL);
   
-  parser = self->private->parser;
+  priv = MW_SESSION_GET_PRIVATE(self);
+  parser = priv->parser;
   MwParser_feed(parser, buf, len);
 }
 
 
 static guint mw_pending(MwSession *self) {
+  MwSessionPrivate *priv;
   MwQueue *q;
   MwMetaQueue *mq;
   guint a, b, c;
   
-  g_return_val_if_fail(self->private != NULL, FALSE);
+  priv = MW_SESSION_GET_PRIVATE(self);
 
-  q = self->private->queue;
-  mq = self->private->chan_queue;
+  q = priv->queue;
+  mq = priv->chan_queue;
 
   a = MwQueue_size(q);
   b = MwMetaQueue_size(mq);
@@ -713,8 +718,8 @@ static void mw_flush(MwSession *self) {
   MwMetaQueue *mq;
   MwOpaque *o;
   
-  g_return_if_fail(self->private != NULL);
-  priv = self->private;
+  priv = MW_SESSION_GET_PRIVATE(self);
+
   q = priv->queue;
   mq = priv->chan_queue;
 
@@ -734,13 +739,14 @@ static void mw_flush(MwSession *self) {
 
 __attribute__((__used__))
 static void mw_write_msg(MwSession *self, const MwOpaque *msg) {
+  MwSessionPrivate *priv;
   MwPutBuffer *pb;
   MwQueue *q;
   gint sig;
   gboolean ret = FALSE;
 
-  g_return_if_fail(self->private != NULL);
-  q = self->private->queue;
+  priv = MW_SESSION_GET_PRIVATE(self);
+  q = priv->queue;
 
   pb = MwPutBuffer_new();
   MwOpaque_put(pb, msg);
@@ -752,14 +758,15 @@ static void mw_write_msg(MwSession *self, const MwOpaque *msg) {
 
 
 static void mw_send_message(MwSession *self, const MwMessage *msg) {
+  MwSessionPrivate *priv;
   MwOpaque tmp;
   MwPutBuffer *pb;
   MwQueue *q;
   gint sig;
   gboolean ret = FALSE;
 
-  g_return_if_fail(self->private != NULL);
-  q = self->private->queue;
+  priv = MW_SESSION_GET_PRIVATE(self);
+  q = priv->queue;
 
   /* render the message */
   pb = MwPutBuffer_new();
@@ -778,15 +785,16 @@ static void mw_send_message(MwSession *self, const MwMessage *msg) {
 
 
 static void mw_send_keepalive(MwSession *self) {
+  MwSessionPrivate *priv;
   guchar poke = 0x80;
   MwQueue *q;
   MwOpaque *o;
   gint sig;
   gboolean ret = FALSE;
 
-  g_return_if_fail(self->private != NULL);
+  priv = MW_SESSION_GET_PRIVATE(self);
 
-  q = self->private->queue;
+  q = priv->queue;
   o = MwQueue_push(q);
 
   o->len = 1;
@@ -862,8 +870,7 @@ static MwChannel *mw_new_channel(MwSession *self) {
   MwChannel *chan;
   guint32 id;
 
-  g_return_val_if_fail(self->private != NULL, NULL);
-  priv = self->private;
+  priv = MW_SESSION_GET_PRIVATE(self);
   
   id = mw_next_channel_id(&priv->channel_counter);
   chan = g_object_new(MW_TYPE_CHANNEL, "session", self, "id", id, NULL);
@@ -878,7 +885,7 @@ static MwChannel *mw_get_channel(MwSession *self, guint32 id) {
   MwSessionPrivate *priv;
   GHashTable *ht;
 
-  priv = self->private;
+  priv = MW_SESSION_GET_PRIVATE(self);
   ht = priv->channels;
 
   return g_hash_table_lookup(ht, GUINT_TO_POINTER(id));
@@ -889,7 +896,7 @@ static void mw_foreach_channel(MwSession *self, GFunc func, gpointer d) {
   MwSessionPrivate *priv;
   GHashTable *ht;
   
-  priv = self->private;
+  priv = MW_SESSION_GET_PRIVATE(self);
   ht = priv->channels;
 
   mw_map_foreach_val(ht, func, d);
@@ -901,7 +908,7 @@ static gboolean mw_add_cipher(MwSession *self, MwCipherClass *klass) {
   GHashTable *htid, *htpol;
   guint id, pol;
 
-  priv = self->private;
+  priv = MW_SESSION_GET_PRIVATE(self);
 
   htid = priv->ciphers;
   htpol = priv->ciphers_by_pol;
@@ -932,7 +939,7 @@ static MwCipherClass *mw_get_cipher(MwSession *self, guint16 id) {
 
   g_debug("looking for cipher id 0x%x", key);
 
-  priv = self->private;
+  priv = MW_SESSION_GET_PRIVATE(self);
   ht = priv->ciphers;
 
   cc = g_hash_table_lookup(ht, GUINT_TO_POINTER(key));
@@ -947,7 +954,7 @@ static MwCipherClass *mw_get_cipher_by_pol(MwSession *self, guint16 pol) {
   GHashTable *ht;
   guint key = (guint) pol;
 
-  priv = self->private;
+  priv = MW_SESSION_GET_PRIVATE(self);
   ht = priv->ciphers_by_pol;
 
   return g_hash_table_lookup(ht, GUINT_TO_POINTER(key));
@@ -959,7 +966,7 @@ static void mw_remove_cipher(MwSession *self, MwCipherClass *klass) {
   GHashTable *htid, *htpol;
   guint id, pol;
 
-  priv = self->private;
+  priv = MW_SESSION_GET_PRIVATE(self);
 
   htid = priv->ciphers;
   htpol = priv->ciphers_by_pol;
@@ -979,7 +986,7 @@ static void mw_foreach_cipher(MwSession *self, GFunc func, gpointer d) {
   MwSessionPrivate *priv;
   GHashTable *ht;
   
-  priv = self->private;
+  priv = MW_SESSION_GET_PRIVATE(self);
   ht = priv->ciphers;
 
   mw_map_foreach_val(ht, func, d);
@@ -1001,9 +1008,7 @@ mw_session_constructor(GType type, guint props_count,
   obj = parent_class->constructor(type, props_count, props);
   self = (MwSession *) obj;
 
-  /* this is allocated in mw_session_init */
-  g_return_val_if_fail(self->private != NULL, NULL);
-  priv = self->private;  
+  priv = MW_SESSION_GET_PRIVATE(self);
 
   priv->channel_counter = 0x00;
   priv->channels = g_hash_table_new(g_direct_hash, g_direct_equal);
@@ -1038,8 +1043,7 @@ static void mw_set_property(GObject *object,
   MwSession *self = MW_SESSION(object);
   MwSessionPrivate *priv;
 
-  g_return_if_fail(self->private != NULL);
-  priv = self->private;
+  priv = MW_SESSION_GET_PRIVATE(self);
 
   switch(property_id) {
   case property_state:
@@ -1085,8 +1089,7 @@ static void mw_get_property(GObject *object,
   MwSession *self = MW_SESSION(object);
   MwSessionPrivate *priv;
 
-  g_return_if_fail(self->private != NULL);
-  priv = self->private;
+  priv = MW_SESSION_GET_PRIVATE(self);
 
   switch(property_id) {
   case property_state:
@@ -1176,18 +1179,13 @@ static void mw_session_dispose(GObject *obj) {
 
   mw_debug_enter();
 
-  priv = self->private;
-  self->private = NULL;
+  priv = MW_SESSION_GET_PRIVATE(self);
 
-  if(priv) {
-    g_hash_table_destroy(priv->channels);
-    g_hash_table_destroy(priv->ciphers);
-    MwQueue_free(priv->queue);
-    MwMetaQueue_free(priv->chan_queue);
-    MwParser_free(priv->parser);
-    
-    g_free(priv);
-  }
+  g_hash_table_destroy(priv->channels);
+  g_hash_table_destroy(priv->ciphers);
+  MwQueue_free(priv->queue);
+  MwMetaQueue_free(priv->chan_queue);
+  MwParser_free(priv->parser);
 
   parent_class->dispose(obj);
 
@@ -1313,6 +1311,8 @@ static void mw_session_class_init(gpointer g_class, gpointer g_class_data) {
   gobject_class->dispose = mw_session_dispose;
   gobject_class->set_property = mw_set_property;
   gobject_class->get_property = mw_get_property;
+
+  g_type_class_add_private(klass, sizeof(MwSessionPrivate));
 
   mw_prop_uint(gobject_class, property_master_channel,
 	       "master-channel-id", "get the master channel ID",
@@ -1441,14 +1441,6 @@ static void mw_session_class_init(gpointer g_class, gpointer g_class_data) {
 }
 
 
-static void mw_session_init(GTypeInstance *instance, gpointer g_class) {
-  MwSession *self;
-  
-  self = (MwSession *) instance;
-  self->private = g_new0(MwSessionPrivate, 1);;
-}
-
-
 static const GTypeInfo info = {
   .class_size = sizeof(MwSessionClass),
   .base_init = NULL,
@@ -1458,7 +1450,7 @@ static const GTypeInfo info = {
   .class_data = NULL,
   .instance_size = sizeof(MwSession),
   .n_preallocs = 0,
-  .instance_init = mw_session_init,
+  .instance_init = NULL,
   .value_table = NULL,
 };
 
@@ -1732,9 +1724,10 @@ void MwSession_removeCipher(MwSession *session, MwCipherClass *klass) {
 
 const MwLogin *MwSession_getLogin(MwSession *session) {
   MwSessionPrivate *priv;
+
   g_return_val_if_fail(session != NULL, NULL);
-  g_return_val_if_fail(session->private != NULL, NULL);
-  priv = session->private;
+
+  priv = MW_SESSION_GET_PRIVATE(session);
   return &priv->login;
 }
 
@@ -1744,8 +1737,8 @@ void MwSession_setLogin(MwSession *session, const MwLogin *login) {
   MwLogin interim;
 
   g_return_if_fail(session != NULL);
-  g_return_if_fail(session->private != NULL);
-  priv = session->private;
+
+  priv = MW_SESSION_GET_PRIVATE(session);
 
   MwLogin_clone(&interim, login, TRUE);
   MwLogin_clear(&priv->login, TRUE);
@@ -1755,9 +1748,10 @@ void MwSession_setLogin(MwSession *session, const MwLogin *login) {
 
 const MwPrivacy *MwSession_getPrivacy(MwSession *session) {
   MwSessionPrivate *priv;
+
   g_return_val_if_fail(session != NULL, NULL);
-  g_return_val_if_fail(session->private != NULL, NULL);
-  priv = session->private;
+
+  priv = MW_SESSION_GET_PRIVATE(session);
   return &priv->privacy;
 }
 

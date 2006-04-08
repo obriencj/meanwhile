@@ -91,16 +91,8 @@ enum mw_auth_type {
   (G_TYPE_INSTANCE_GET_CLASS((obj), MW_TYPE_SESSION, MwSessionClass))
 
 
-typedef struct mw_session_private MwSessionPrivate;
-
-
-struct mw_session_private;
-
-
 struct mw_session {
   MwObject mwobject;
-
-  MwSessionPrivate *private;
 };
 
 

@@ -62,7 +62,6 @@ G_BEGIN_DECLS
   (G_TYPE_INSTANCE_GET_CLASS((obj), MW_TYPE_OBJECT, MwObjectClass))
 
 
-
 struct mw_object {
   GObject gobject;
   
