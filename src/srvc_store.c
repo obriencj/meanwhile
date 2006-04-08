@@ -295,10 +295,10 @@ static gboolean mw_start(MwService *self) {
     
     g_object_set(G_OBJECT(self), "channel", chan, NULL);
 
-    g_object_connect(G_OBJECT(chan), "incoming",
+    g_signal_connect(G_OBJECT(chan), "incoming",
 		     G_CALLBACK(mw_channel_recv), self);
 
-    g_object_connect(G_OBJECT(chan), "state-changed",
+    g_signal_connect(G_OBJECT(chan), "state-changed",
 		     G_CALLBACK(mw_channel_state), self);
   }
 
@@ -395,6 +395,43 @@ static void mw_cancel(MwStorageService *self, guint event) {
 }
 
 
+static void mw_set_property(GObject *object,
+			    guint property_id, const GValue *value,
+			    GParamSpec *pspec) {
+
+  MwStorageService *self = MW_STORAGE_SERVICE(object);
+  MwStorageServicePrivate *priv = self->private;
+
+  switch(property_id) {
+  case property_channel:
+    mw_gobject_unref(priv->channel);
+    priv->channel = MW_CHANNEL(g_value_dup_object(value));
+    break;
+
+  default:
+    ;
+  }
+}
+
+
+static void mw_get_property(GObject *object,
+			    guint property_id, GValue *value,
+			    GParamSpec *pspec) {
+
+  MwStorageService *self = MW_STORAGE_SERVICE(object);
+  MwStorageServicePrivate *priv = self->private;
+
+  switch(property_id) {
+  case property_channel:
+    g_value_set_object(value, G_OBJECT(priv->channel));
+    break;
+
+  default:
+    ;
+  }
+}
+
+
 static GObject *
 mw_srvc_constructor(GType type, guint props_count,
 		    GObjectConstructParam *props) {
@@ -449,6 +486,8 @@ static void mw_srvc_class_init(gpointer gclass, gpointer gclass_data) {
 
   gobject_class->constructor = mw_srvc_constructor;
   gobject_class->dispose = mw_srvc_dispose;
+  gobject_class->set_property = mw_set_property;
+  gobject_class->get_property = mw_get_property;
 
   klass->signal_key_updated = mw_signal_key_updated();
 
@@ -490,7 +529,7 @@ static const GTypeInfo mw_srvc_info = {
 
 
 GType MwStorageService_getType() {
-  GType type = 0;
+  static GType type = 0;
 
   if(type == 0) {
     type = g_type_register_static(MW_TYPE_SERVICE, "MwStorageServiceType",
@@ -518,7 +557,7 @@ static void mw_closure_storage_cb(MwStorageService *srvc, guint event,
 				  guint32 code,
 				  guint32 key, const MwOpaque *unit,
 				  gpointer closure) {
-  GValue val[4];
+  GValue val[4] = {};
 
   g_value_init(val+0, G_TYPE_UINT);
   g_value_set_uint(val+0, event);
@@ -533,8 +572,6 @@ static void mw_closure_storage_cb(MwStorageService *srvc, guint event,
   g_value_set_boxed(val+3, unit);
 
   g_closure_invoke(closure, NULL, 4, val, NULL);
-
-  g_boxed_free(MW_TYPE_OPAQUE, val+3);
 }
 				  
 
