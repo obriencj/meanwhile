@@ -736,7 +736,7 @@ static void mw_flush(MwSession *self) {
 
   if(o) {
     gint sig = MW_SESSION_GET_CLASS(self)->signal_write;
-    g_signal_emit(self, sig, 0, o->data, o->len, NULL);
+    g_signal_emit(self, sig, 0, o, NULL);
     MwOpaque_clear(o);
   }
 }
@@ -1253,11 +1253,10 @@ static guint mw_signal_write() {
 		      0,
 		      0,
 		      NULL, NULL,
-		      mw_marshal_VOID__POINTER_UINT,
+		      mw_marshal_VOID__POINTER,
 		      G_TYPE_NONE,
-		      2,
-		      G_TYPE_POINTER,
-		      G_TYPE_UINT);
+		      1,
+		      MW_TYPE_OPAQUE);
 }
 
 
@@ -1320,8 +1319,8 @@ static guint mw_signal_got_announce() {
 		      G_TYPE_NONE,
 		      3,
 		      G_TYPE_BOOLEAN,
-		      G_TYPE_POINTER,  /* sender */
-		      G_TYPE_POINTER); /* text */
+		      G_TYPE_STRING,  /* sender */
+		      G_TYPE_STRING); /* text */
 }
 
 

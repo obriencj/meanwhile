@@ -187,7 +187,7 @@ static gboolean mw_incoming_channel(MwSession *session, MwChannel *chan,
 
     ret = TRUE;
   }
-  
+
   mw_debug_exit();
   return ret;
 }

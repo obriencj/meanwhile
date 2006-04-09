@@ -182,12 +182,15 @@ static gboolean cb_write_ready(GIOChannel *chan, GIOCondition cond,
 
 
 /** called when the session writes a message */
-static void mw_write_cb(MwSession *ses, const guchar *buf, gsize len,
+static void mw_write_cb(MwSession *ses, const MwOpaque *msg,
 			gpointer junk) {
 
   MwGIOSession *self;
   MwGIOSessionPrivate *priv;
   GIOStatus stat;
+
+  const guchar *buf = msg->data;
+  gsize len = msg->len;
 
   self = MW_GIO_SESSION(ses);
   

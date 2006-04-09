@@ -135,10 +135,13 @@ static void request_trigger(MwStorageService *srvc,
 			    MwStorageRequest *req,
 			    guint32 code,
 			    const MwOpaque *unit) {
+  mw_debug_enter();
 
   if(req->cb) {
     req->cb(srvc, req->event_id, code, req->key, unit, req->data);
   }
+
+  mw_debug_exit();
 }
 
 
@@ -211,7 +214,24 @@ static void mw_recv_action_loaded(MwStorageService *self, MwGetBuffer *gb) {
 
 
 static void mw_recv_action_saved(MwStorageService *self, MwGetBuffer *gb) {
+  guint32 id, code;
+  MwStorageRequest *req;
 
+  mw_uint32_get(gb, &id);
+  mw_uint32_get(gb, &code);
+
+  req = request_find(self, id);
+
+  if(! req) {
+    g_warning("no pending storage request: 0x%x", id);
+    MwGetBuffer_free(gb);
+    return;
+  }
+
+  g_return_if_fail(req->action == action_saved);
+
+  request_trigger(self, req, code, NULL);
+  request_remove(self, id);
 }
 
 
@@ -371,6 +391,8 @@ static guint mw_save(MwStorageService *self,
 
   MwStorageRequest *req;
 
+  mw_debug_enter();
+
   mw_object_require_state(self, mw_service_started, 0);
   
   req = request_new(self);
@@ -381,6 +403,7 @@ static guint mw_save(MwStorageService *self,
 
   request_send(self, req, unit);
 
+  mw_debug_exit();
   return req->event_id;
 }
 
@@ -557,21 +580,24 @@ static void mw_closure_storage_cb(MwStorageService *srvc, guint event,
 				  guint32 code,
 				  guint32 key, const MwOpaque *unit,
 				  gpointer closure) {
-  GValue val[4] = {};
+  GValue val[5] = {};
 
-  g_value_init(val+0, G_TYPE_UINT);
-  g_value_set_uint(val+0, event);
+  g_value_init(val+0, MW_TYPE_STORAGE_SERVICE);
+  g_value_set_object(val+0, G_OBJECT(srvc));
 
   g_value_init(val+1, G_TYPE_UINT);
-  g_value_set_uint(val+1, code);
+  g_value_set_uint(val+1, event);
 
   g_value_init(val+2, G_TYPE_UINT);
-  g_value_set_uint(val+2, key);
+  g_value_set_uint(val+2, code);
 
-  g_value_init(val+3, MW_TYPE_OPAQUE);
-  g_value_set_boxed(val+3, unit);
+  g_value_init(val+3, G_TYPE_UINT);
+  g_value_set_uint(val+3, key);
 
-  g_closure_invoke(closure, NULL, 4, val, NULL);
+  g_value_init(val+4, MW_TYPE_OPAQUE);
+  g_value_set_boxed(val+4, unit);
+
+  g_closure_invoke(closure, NULL, 5, val, NULL);
 }
 				  
 
