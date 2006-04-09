@@ -813,13 +813,20 @@ static void mw_send_keepalive(MwSession *self) {
 static void mw_send_announce(MwSession *self, gboolean may_reply,
 			     const gchar **rcpt, const gchar *text) {
   MwMsgAnnounce *msg;
+  gchar **r = (gchar **) rcpt;
 
   msg = MwMessage_new(mw_message_ANNOUNCE);
   msg->may_reply = may_reply;
   msg->text = (gchar *) text;
 
-  msg->rcpt_count = g_list_length((GList *) rcpt);
-  msg->recipients = (gchar **) rcpt;
+  msg->rcpt_count = g_strv_length(r);
+  msg->recipients = r;
+
+  {
+    guint c = msg->rcpt_count;
+    g_debug("sending announce to %u recipients", c);
+    while(c--) g_debug(" rcpt: %s", r[c]);
+  }
 
   /* send our newly composed message */
   MwSession_sendMessage(self, MW_MESSAGE(msg));
@@ -827,8 +834,7 @@ static void mw_send_announce(MwSession *self, gboolean may_reply,
   /* didn't make a copy, so steal it back before freeing msg */
   msg->text = NULL;
 
-  /* didn't make a deep copy, so steal it back */
-  g_free(msg->recipients);
+  /* didn't make a copy, so steal it back */
   msg->recipients = NULL;
 
   MwMessage_free(MW_MESSAGE(msg));
@@ -1264,7 +1270,7 @@ static guint mw_signal_channel() {
 		      mw_marshal_BOOLEAN__POINTER,
 		      G_TYPE_BOOLEAN,
 		      1,
-		      G_TYPE_POINTER);
+		      MW_TYPE_CHANNEL);
 }
 
 
@@ -1314,8 +1320,8 @@ static guint mw_signal_got_announce() {
 		      G_TYPE_NONE,
 		      3,
 		      G_TYPE_BOOLEAN,
-		      G_TYPE_POINTER,
-		      G_TYPE_POINTER);
+		      G_TYPE_POINTER,  /* sender */
+		      G_TYPE_POINTER); /* text */
 }
 
 
@@ -1346,7 +1352,7 @@ static guint mw_signal_got_one_time() {
 		      G_TYPE_UINT, /* protocol type */
 		      G_TYPE_UINT, /* protocol version */
 		      G_TYPE_UINT, /* type */
-		      G_TYPE_POINTER);
+		      MW_TYPE_OPAQUE);
 }
 
 

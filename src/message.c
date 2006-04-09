@@ -614,7 +614,7 @@ static void MwMsgAnnounce_put(MwPutBuffer *b, const MwMsgAnnounce *msg) {
   MwOpaque o = { 0, 0 };
   MwPutBuffer *pb;
   guint32 i, count;
-  
+
   mw_boolean_put(b, msg->sender_flag);
   if(msg->sender_flag)
     MwLogin_put(b, &msg->sender);
@@ -631,24 +631,20 @@ static void MwMsgAnnounce_put(MwPutBuffer *b, const MwMsgAnnounce *msg) {
 
   count = msg->rcpt_count;
   mw_uint32_put(b, count);
+
   for(i = 0; i < count; i++) {
-    mw_str_put(pb, msg->recipients[i]);
+    mw_str_put(b, msg->recipients[i]);
   }
 }
 
 
 static void MwMsgAnnounce_clear(MwMsgAnnounce *msg) {
-  guint32 i;
-  
   MwLogin_clear(&msg->sender, TRUE);
 
   g_free(msg->text);
   msg->text = NULL;
   
-  for(i = msg->rcpt_count; i--; ) {
-    g_free(msg->recipients + i);
-  }
-  g_free(msg->recipients);
+  g_strfreev(msg->recipients);
   msg->recipients = NULL;
 }
 
