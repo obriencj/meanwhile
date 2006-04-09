@@ -116,6 +116,9 @@ struct mw_session_private {
   /* state dependant */
   gchar *redir_host;
   guint32 error_code;
+
+  /** counter for outgoing one time messages */
+  guint32 otm_counter;
 };
 
 
@@ -474,8 +477,10 @@ static void recv_ONE_TIME(MwSession *s, MwMsgOneTime *m) {
   mw_debug_enter();
   
   klass = MW_SESSION_GET_CLASS(s);
-  g_signal_emit(s, klass->signal_got_otm, 0, m);
-
+  g_signal_emit(s, klass->signal_got_one_time, 0,
+		m->id, m->service, m->proto_type, m->proto_ver,
+		m->type, &m->data, NULL);
+  
   mw_debug_exit();
 }
 
@@ -856,6 +861,37 @@ static void mw_sense_service(MwSession *self, guint32 id) {
 
   MwMessage_free(MW_MESSAGE(msg));
 }
+
+
+guint mw_send_one_time(MwSession *self,
+		       const MwIdentity *target,
+		       guint32 service,
+		       guint32 proto_type, guint32 proto_ver,
+		       guint16 type, const MwOpaque *data) {
+
+  MwSessionPrivate *priv;
+  MwMsgOneTime *otm;
+  guint32 id;
+
+  priv = MW_SESSION_GET_PRIVATE(self);
+
+  id = ++(priv->otm_counter);
+
+  otm = MwMessage_new(mw_message_ONE_TIME);
+  otm->id = id;
+  MwIdentity_clone(&otm->target, target, TRUE);
+  otm->service = service;
+  otm->proto_type = proto_type;
+  otm->proto_ver = proto_ver;
+  otm->type = type;
+  MwOpaque_clone(&otm->data, data);
+  
+  MwSession_sendMessage(self, MW_MESSAGE(otm));
+
+  MwMessage_free(MW_MESSAGE(otm));
+
+  return id;
+}			   
 
 
 static guint32 mw_next_channel_id(guint32 *cur) {
@@ -1296,6 +1332,24 @@ static guint mw_signal_got_sense_service() {
 }
 
 
+static guint mw_signal_got_one_time() {
+  return g_signal_new("got-one-time",
+		      MW_TYPE_SESSION,
+		      0,
+		      0,
+		      NULL, NULL,
+		      mw_marshal_VOID__UINT_UINT_UINT_UINT_UINT_POINTER,
+		      G_TYPE_NONE,
+		      6,
+		      G_TYPE_UINT, /* id */
+		      G_TYPE_UINT, /* service */
+		      G_TYPE_UINT, /* protocol type */
+		      G_TYPE_UINT, /* protocol version */
+		      G_TYPE_UINT, /* type */
+		      G_TYPE_POINTER);
+}
+
+
 static void mw_session_class_init(gpointer g_class, gpointer g_class_data) {
   GObjectClass *gobject_class;
   MwObjectClass *mwobject_class;
@@ -1414,6 +1468,7 @@ static void mw_session_class_init(gpointer g_class, gpointer g_class_data) {
   klass->signal_got_admin = mw_signal_got_admin();
   klass->signal_got_announce = mw_signal_got_announce();
   klass->signal_got_sense_service = mw_signal_got_sense_service();
+  klass->signal_got_one_time = mw_signal_got_one_time();
 
   klass->handle_pending = MwSession_handlePending;
   klass->handle_channel = MwSession_handleChannel;
@@ -1428,6 +1483,7 @@ static void mw_session_class_init(gpointer g_class, gpointer g_class_data) {
   klass->send_announce = mw_send_announce;
   klass->force_login = mw_force_login;
   klass->sense_service = mw_sense_service;
+  klass->send_one_time = mw_send_one_time;
 
   klass->new_channel = mw_new_channel;
   klass->get_channel = mw_get_channel;
@@ -1576,26 +1632,20 @@ void MwSession_senseService(MwSession *session, guint32 id) {
 }
 
 
-void MwSession_sendOneTime(MwSession *session,
-			   const MwIdentity *target,
-			   guint32 service,
-			   guint32 proto_type, guint32 proto_ver,
-			   guint16 type, const MwOpaque *data) {
-
-  MwMsgOneTime *otm;
-
-  otm = MwMessage_new(mw_message_ONE_TIME);
-  MwIdentity_clone(&otm->target, target, TRUE);
-  otm->service = service;
-  otm->proto_type = proto_type;
-  otm->proto_ver = proto_ver;
-  otm->type = type;
-  MwOpaque_clone(&otm->data, data);
+guint MwSession_sendOneTime(MwSession *session,
+			    const MwIdentity *target,
+			    guint32 service,
+			    guint32 proto_type, guint32 proto_ver,
+			    guint16 type, const MwOpaque *data) {
   
-  MwSession_sendMessage(session, MW_MESSAGE(otm));
+  guint (*fn)(MwSession *, const MwIdentity *,
+	      guint32, guint32, guint32, guint16, const MwOpaque *);
+  
+  g_return_val_if_fail(session != NULL, 0x00);
 
-  MwMessage_free(MW_MESSAGE(otm));
-}			   
+  fn = MW_SESSION_GET_CLASS(session)->send_one_time;
+  return fn(session, target, service, proto_type, proto_ver, type, data);
+}
 
 
 MwChannel *MwSession_newChannel(MwSession *session) {

@@ -176,9 +176,54 @@ mw_marshal_VOID__UINT_UINT_UINT_POINTER (GClosure     *closure,
             data2);
 }
 
-/* VOID:POINTER (marshal.list:13) */
+/* VOID:UINT,UINT,UINT,UINT,UINT,POINTER (marshal.list:13) */
+void
+mw_marshal_VOID__UINT_UINT_UINT_UINT_UINT_POINTER (GClosure     *closure,
+                                                   GValue       *return_value,
+                                                   guint         n_param_values,
+                                                   const GValue *param_values,
+                                                   gpointer      invocation_hint,
+                                                   gpointer      marshal_data)
+{
+  typedef void (*GMarshalFunc_VOID__UINT_UINT_UINT_UINT_UINT_POINTER) (gpointer     data1,
+                                                                       guint        arg_1,
+                                                                       guint        arg_2,
+                                                                       guint        arg_3,
+                                                                       guint        arg_4,
+                                                                       guint        arg_5,
+                                                                       gpointer     arg_6,
+                                                                       gpointer     data2);
+  register GMarshalFunc_VOID__UINT_UINT_UINT_UINT_UINT_POINTER callback;
+  register GCClosure *cc = (GCClosure*) closure;
+  register gpointer data1, data2;
 
-/* VOID:POINTER,UINT (marshal.list:14) */
+  g_return_if_fail (n_param_values == 7);
+
+  if (G_CCLOSURE_SWAP_DATA (closure))
+    {
+      data1 = closure->data;
+      data2 = g_value_peek_pointer (param_values + 0);
+    }
+  else
+    {
+      data1 = g_value_peek_pointer (param_values + 0);
+      data2 = closure->data;
+    }
+  callback = (GMarshalFunc_VOID__UINT_UINT_UINT_UINT_UINT_POINTER) (marshal_data ? marshal_data : cc->callback);
+
+  callback (data1,
+            g_marshal_value_peek_uint (param_values + 1),
+            g_marshal_value_peek_uint (param_values + 2),
+            g_marshal_value_peek_uint (param_values + 3),
+            g_marshal_value_peek_uint (param_values + 4),
+            g_marshal_value_peek_uint (param_values + 5),
+            g_marshal_value_peek_pointer (param_values + 6),
+            data2);
+}
+
+/* VOID:POINTER (marshal.list:14) */
+
+/* VOID:POINTER,UINT (marshal.list:15) */
 void
 mw_marshal_VOID__POINTER_UINT (GClosure     *closure,
                                GValue       *return_value,
@@ -215,7 +260,7 @@ mw_marshal_VOID__POINTER_UINT (GClosure     *closure,
             data2);
 }
 
-/* BOOLEAN:VOID (marshal.list:16) */
+/* BOOLEAN:VOID (marshal.list:17) */
 void
 mw_marshal_BOOLEAN__VOID (GClosure     *closure,
                           GValue       *return_value,
@@ -252,7 +297,7 @@ mw_marshal_BOOLEAN__VOID (GClosure     *closure,
   g_value_set_boolean (return_value, v_return);
 }
 
-/* BOOLEAN:POINTER (marshal.list:17) */
+/* BOOLEAN:POINTER (marshal.list:18) */
 void
 mw_marshal_BOOLEAN__POINTER (GClosure     *closure,
                              GValue       *return_value,

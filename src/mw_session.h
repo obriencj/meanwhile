@@ -111,6 +111,7 @@ struct mw_session_class {
   guint signal_got_admin;          /**< incoming admin message */
   guint signal_got_announce;       /**< incoming announcement */
   guint signal_got_sense_service;  /**< service is available */
+  guint signal_got_one_time;       /**< incoming one time message */
 
   /** default signal handler for "pending" */
   gboolean (*handle_pending)(MwSession *self);
@@ -129,7 +130,11 @@ struct mw_session_class {
   void (*send_announce)(MwSession *self, gboolean may_reply,
 			const gchar **recipients, const gchar *text);
   void (*force_login)(MwSession *self);
-  void (*sense_service)(MwSession *session, guint32 id);
+  void (*sense_service)(MwSession *self, guint32 id);
+
+  guint (*send_one_time)(MwSession *self, const MwIdentity *target,
+			 guint32 srvc, guint32 proto_type, guint32 proto_ver,
+			 guint16 type, const MwOpaque *message);
 
   MwChannel *(*new_channel)(MwSession *self);
   MwChannel *(*get_channel)(MwSession *self, guint32 id);
@@ -217,11 +222,11 @@ void MwSession_senseService(MwSession *session, guint32 type);
 
 
 /** Sends a One Time Message (OTM) to the target */
-void MwSession_sendOneTime(MwSession *session,
-			   const MwIdentity *target,
-			   guint32 service,
-			   guint32 proto_type, guint32 proto_ver,
-			   guint16 type, const MwOpaque *data);
+guint MwSession_sendOneTime(MwSession *session,
+			    const MwIdentity *target,
+			    guint32 service,
+			    guint32 proto_type, guint32 proto_ver,
+			    guint16 type, const MwOpaque *data);
 
 
 /** allocate a new outgoing channel */
