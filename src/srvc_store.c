@@ -36,15 +36,15 @@
 static GObjectClass *parent_class = NULL;
 
 
+#define MW_STORAGE_SERVICE_GET_PRIVATE(o)			\
+  (G_TYPE_INSTANCE_GET_PRIVATE((o), MW_TYPE_STORAGE_SERVICE,	\
+			       MwStorageServicePrivate))
+
+
 /* channel identifiers for the storage service */
 #define MW_SERVICE_ID  0x00000018
 #define MW_PROTO_TYPE  0x00000025
 #define MW_PROTO_VER   0x00000001
-
-
-enum properties {
-  property_channel = 1,
-};
 
 
 /* channel message types, also used in mw_storage_request */
@@ -68,6 +68,9 @@ struct mw_storage_request {
 };
 
 
+typedef struct mw_storage_service_private MwStorageServicePrivate;
+
+
 struct mw_storage_service_private {
   GHashTable *pending;
   MwChannel *channel;
@@ -79,8 +82,7 @@ MwStorageRequest *request_new(MwStorageService *srvc) {
   MwStorageServicePrivate *priv;
   MwStorageRequest *req;
 
-  priv = srvc->private;
-  g_return_val_if_fail(priv != NULL, NULL);
+  priv = MW_STORAGE_SERVICE_GET_PRIVATE(srvc);
 
   req = g_new0(MwStorageRequest, 1);
   req->event_id = ++(priv->event_counter);
@@ -95,14 +97,14 @@ static void request_send(MwStorageService *self,
 			 MwStorageRequest *req,
 			 const MwOpaque *data) {
 
+  MwStorageServicePrivate *priv;
   MwChannel *chan = NULL;
   MwPutBuffer *b;
   MwOpaque o;
   enum storage_action act = req->action;
 
-  g_object_get(G_OBJECT(self), "channel", &chan, NULL);
-
-  g_return_if_fail(chan != NULL);
+  priv = MW_STORAGE_SERVICE_GET_PRIVATE(self);
+  chan = priv->channel;
 
   b = MwPutBuffer_new();
 
@@ -126,8 +128,6 @@ static void request_send(MwStorageService *self,
 
   MwChannel_send(chan, act, &o, TRUE);
   MwOpaque_clear(&o);
-
-  mw_gobject_unref(chan);
 }
 
 
@@ -155,8 +155,7 @@ static MwStorageRequest *
 request_find(MwStorageService *self, guint event) {
   MwStorageServicePrivate *priv;
 
-  priv = self->private;
-  g_return_val_if_fail(priv != NULL, NULL);
+  priv = MW_STORAGE_SERVICE_GET_PRIVATE(self);
 
   return g_hash_table_lookup(priv->pending, GUINT_TO_POINTER(event));
 }
@@ -165,8 +164,7 @@ request_find(MwStorageService *self, guint event) {
 static void request_remove(MwStorageService *self, guint event) {
   MwStorageServicePrivate *priv;
 
-  priv = self->private;
-  g_return_if_fail(priv != NULL);
+  priv = MW_STORAGE_SERVICE_GET_PRIVATE(self);
 
   g_hash_table_remove(priv->pending, GUINT_TO_POINTER(event));
 }
@@ -287,24 +285,31 @@ static void mw_channel_state(MwChannel *chan, gint state, MwService *self) {
       } else {
 	MwService_stop(self);
       }
-      break;
     }
+    break;
+
+  default:
+    ;
   }
 }
 
 
 static gboolean mw_start(MwService *self) {
+  MwStorageServicePrivate *priv;
   MwChannel *chan = NULL;
-  MwSession *session = NULL;
 
-  g_object_get(G_OBJECT(self),
-	       "channel", &chan,
-	       "session", &session,
-	       NULL);
+  priv = MW_STORAGE_SERVICE_GET_PRIVATE(self);
+  chan = priv->channel;
 
   /* create the chanel if we don't have one sitting around */
   if(! chan) {
+    MwSession *session = NULL;
+
+    g_object_get(G_OBJECT(self), "session", &session, NULL);
+  
     chan = MwSession_newChannel(session);
+
+    mw_gobject_unref(session);
 
     g_object_set(G_OBJECT(chan),
 		 "service-id", MW_SERVICE_ID,
@@ -313,20 +318,17 @@ static gboolean mw_start(MwService *self) {
 		 "offered-policy", mw_channel_encrypt_WHATEVER,
 		 NULL);
     
-    g_object_set(G_OBJECT(self), "channel", chan, NULL);
-
     g_signal_connect(G_OBJECT(chan), "incoming",
 		     G_CALLBACK(mw_channel_recv), self);
 
     g_signal_connect(G_OBJECT(chan), "state-changed",
 		     G_CALLBACK(mw_channel_state), self);
+
+    priv->channel = chan;
   }
 
   /* open/re-open our channel */
   MwChannel_open(chan, NULL);
-
-  mw_gobject_unref(session);
-  mw_gobject_unref(chan);
 
   /* we're not fully started until the channel is open */
   return FALSE;
@@ -334,9 +336,12 @@ static gboolean mw_start(MwService *self) {
 
 
 static gboolean mw_stop(MwService *self) {
+  MwStorageServicePrivate *priv;
   MwChannel *chan;
+  gboolean ret = TRUE;
 
-  g_object_get(G_OBJECT(self), "channel", &chan, NULL);
+  priv = MW_STORAGE_SERVICE_GET_PRIVATE(self);
+  chan = priv->channel;
 
   /* @todo clear out all the existing events */
 
@@ -348,11 +353,11 @@ static gboolean mw_stop(MwService *self) {
        chan_state == mw_channel_pending) {
 
       MwChannel_close(chan, 0x00, NULL);
-      return FALSE;
+      ret = FALSE;
     }
   }
 
-  return TRUE;
+  return ret;
 }
 
 
@@ -418,43 +423,6 @@ static void mw_cancel(MwStorageService *self, guint event) {
 }
 
 
-static void mw_set_property(GObject *object,
-			    guint property_id, const GValue *value,
-			    GParamSpec *pspec) {
-
-  MwStorageService *self = MW_STORAGE_SERVICE(object);
-  MwStorageServicePrivate *priv = self->private;
-
-  switch(property_id) {
-  case property_channel:
-    mw_gobject_unref(priv->channel);
-    priv->channel = MW_CHANNEL(g_value_dup_object(value));
-    break;
-
-  default:
-    ;
-  }
-}
-
-
-static void mw_get_property(GObject *object,
-			    guint property_id, GValue *value,
-			    GParamSpec *pspec) {
-
-  MwStorageService *self = MW_STORAGE_SERVICE(object);
-  MwStorageServicePrivate *priv = self->private;
-
-  switch(property_id) {
-  case property_channel:
-    g_value_set_object(value, G_OBJECT(priv->channel));
-    break;
-
-  default:
-    ;
-  }
-}
-
-
 static GObject *
 mw_srvc_constructor(GType type, guint props_count,
 		    GObjectConstructParam *props) {
@@ -472,7 +440,7 @@ mw_srvc_constructor(GType type, guint props_count,
   obj = parent_class->constructor(type, props_count, props);
   self = (MwStorageService *) obj;
 
-  priv = self->private;
+  priv = MW_STORAGE_SERVICE_GET_PRIVATE(self);
 
   priv->pending = g_hash_table_new_full(g_direct_hash, g_direct_equal,
 					NULL, (GDestroyNotify) request_free);
@@ -483,7 +451,21 @@ mw_srvc_constructor(GType type, guint props_count,
 
 
 static void mw_srvc_dispose(GObject *object) {
-  /* todo, cleanup */
+  MwStorageService *self;
+  MwStorageServicePrivate *priv;
+
+  mw_debug_enter();
+
+  self = MW_STORAGE_SERVICE(object);
+  priv = MW_STORAGE_SERVICE_GET_PRIVATE(self);
+
+  g_hash_table_destroy(priv->pending);
+  priv->pending = NULL;
+
+  mw_gobject_unref(priv->channel);
+  priv->channel = NULL;
+
+  mw_debug_exit();
 }
 
 
@@ -509,14 +491,10 @@ static void mw_srvc_class_init(gpointer gclass, gpointer gclass_data) {
 
   gobject_class->constructor = mw_srvc_constructor;
   gobject_class->dispose = mw_srvc_dispose;
-  gobject_class->set_property = mw_set_property;
-  gobject_class->get_property = mw_get_property;
+
+  g_type_class_add_private(klass, sizeof(MwStorageServicePrivate));
 
   klass->signal_key_updated = mw_signal_key_updated();
-
-  mw_prop_obj(gobject_class, property_channel,
-	      "channel", "get/set backing channel",
-	      MW_TYPE_CHANNEL, G_PARAM_READWRITE|G_PARAM_PRIVATE);
 
   service_class->start = mw_start;
   service_class->stop = mw_stop;
@@ -529,14 +507,6 @@ static void mw_srvc_class_init(gpointer gclass, gpointer gclass_data) {
 }
 
 
-static void mw_srvc_init(GTypeInstance *instance, gpointer g_class) {
-  MwStorageService *self;
-
-  self = (MwStorageService *) instance;
-  self->private = g_new0(MwStorageServicePrivate, 1);
-}
-
-
 static const GTypeInfo mw_srvc_info = {
   .class_size = sizeof(MwStorageServiceClass),
   .base_init = NULL,
@@ -546,7 +516,7 @@ static const GTypeInfo mw_srvc_info = {
   .class_data = NULL,
   .instance_size = sizeof(MwStorageService),
   .n_preallocs = 0,
-  .instance_init = mw_srvc_init,
+  .instance_init = NULL,
   .value_table = NULL,
 };
 

@@ -100,16 +100,8 @@ typedef void (*MwStorageCallback)
 			     MwStorageServiceClass))
 
 
-typedef struct mw_storage_service_private MwStorageServicePrivate;
-
-
-struct mw_storage_service_private;
-
-
 struct mw_storage_service {
   MwService mwservice;
-
-  MwStorageServicePrivate *private;
 };
 
 

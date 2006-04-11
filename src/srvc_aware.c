@@ -1,4 +1,3 @@
-
 /*
   Meanwhile - Unofficial Lotus Sametime Community Client Library
   Copyright (C) 2004  Christopher (siege) O'Brien
@@ -18,6 +17,7 @@
   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
+
 #include <glib.h>
 #include <glib/ghash.h>
 #include <glib/glist.h>
@@ -31,6 +31,354 @@
 #include "mw_session.h"
 #include "mw_srvc_aware.h"
 #include "mw_util.h"
+
+
+#define MW_SERVICE_ID  0x00000011
+#define MW_PROTO_TYPE  0x00000011
+#define MW_PROTO_VER   0x00030005
+
+
+static GObjectClass *srvc_parent_class;
+static GObjectClass *list_parent_class;
+static GObjectClass *aware_parent_class;
+
+
+#define MW_AWARE_SERVICE_GET_PRIVATE(o)				\
+  (G_TYPE_INSTANCE_GET_PRIVATE((o), MW_TYPE_AWARE_SERVICE,	\
+			       MwAwareServicePrivate))
+
+
+typedef struct mw_aware_service_private MwAwareServicePrivate;
+
+
+struct mw_aware_service_private {
+  GHashTable *awares;
+  MwChannel *channel;
+};
+
+
+static const gchar *mw_get_name(MwService *self) {
+  return "Presence Awareness";
+}
+
+
+static const gchar *mw_get_desc(MwService *self) {
+  return "Presence Awareness Service";
+}
+
+
+static void mw_aware_weak_cb(gpointer data, GObject *gone) {
+  gpointer *mem = data;
+  MwAwareService *self;
+  MwAwareServicePrivate *priv;
+
+  self = mem[0];
+  priv = MW_AWARE_SERVICE_GET_PRIVATE(self);
+
+  g_hash_table_remove(priv->awares, mem[1]);
+  g_free(mem);
+}
+
+
+static void mw_aware_setup(MwAwareService *self, MwAware *aware) {
+  MwAwareServicePrivate *priv;
+  MwIdentity *id;
+  gpointer *mem;
+
+  priv = MW_AWARE_SERVICE_GET_PRIVATE(self);
+
+  /* id will be free'd as a key when the hash table is destroyed */
+  g_object_get(G_OBJECT(aware), "identity", &id, NULL);
+
+  g_hash_table_insert(priv->awares, id, aware);
+
+  mem = g_new(gpointer, 2);
+  mem[0] = self;
+  mem[1] = id;
+  g_object_weak_ref(G_OBJECT(aware), mw_aware_weak_cb, mem);
+}
+
+
+static void mw_channel_recv(MwChannel *chan,
+			    guint type, const MwOpaque *msg,
+			    MwAwareService *self) {
+
+  MwGetBuffer *gb = MwGetBuffer_wrap(msg);
+
+  switch(type) {
+  case msg_AWARE_SNAPSHOT:
+    break;
+
+  case msg_AWARE_UPDATE:
+    break;
+
+  case msg_AWARE_GROUP:
+    break;
+
+  case msg_OPT_GOT_SET:
+    break;
+
+  case msg_OPT_GOT_UNSET:
+    break;
+
+  case msg_OPT_GOT_UNKNOWN:
+  case msg_OPT_DID_SET:
+  case msg_OPT_DID_UNSET:
+  case msg_OPT_DID_ERROR:
+    break;
+
+  default:
+    mw_mailme_opaque(msg, "unknown message in aware service: 0x%x", type);
+  }
+
+  if(MwGetBuffer_error(gb)) {
+    mw_mailme_opaque(msg, "aware service message type: 0x%x", type);
+  }
+
+  MwGetBuffer_free(gb);
+}
+
+
+static void mw_channel_state(MwChannel *chan, gint state, MwService *self) {
+  switch(state) {
+  case mw_channel_open:
+    MwService_started(self);
+    break;
+
+  case mw_channel_error:
+    MwService_error(self);
+    break;
+
+  case mw_channel_closed:
+    {
+      gint srvc_state;
+      g_object_get(G_OBJECT(self), "state", &srvc_state, NULL);
+
+      if(srvc_state == mw_service_stopping) {
+	MwService_stopped(self);
+      } else {
+	MwService_stop(self);
+      }
+    }
+    break;
+
+  default:
+    ;
+  }
+}
+
+
+static gboolean mw_start(MwService *self) {
+  MwChannel *chan = NULL;
+  MwSession *session = NULL;
+
+  g_object_get(G_OBJECT(self),
+	       "channel", &chan,
+	       "session", &session,
+	       NULL);
+
+  if(! chan) {
+    chan = MwSession_newChannel(session);
+
+    g_object_set(G_OBJECT(chan),
+		 "service-id", MW_SERVICE_ID,
+		 "protocol-type", MW_PROTO_TYPE,
+		 "protocol-version", MW_PROTO_VER,
+		 "offered-policy", mw_channel_encrypt_WHATEVER,
+		 NULL);
+
+    g_object_set(G_OBJECT(self), "channe", chan, NULL);
+
+    g_signal_connect(G_OBJECT(chan), "incoming",
+		     G_CALLBACK(mw_channel_recv), self);
+
+    g_signal_connect(G_OBJECT(chan), "state-changed",
+		     G_CALLBACK(mw_channel_state), self);
+  }
+
+  MwChannel_open(chan, NULL);
+
+  mw_gobject_unref(session);
+  mw_gobject_unref(chan);
+
+  return FALSE;
+}
+
+
+static gboolean mw_stop(MwService *self) {
+  MwChannel *chan;
+  gboolean ret = TRUE;
+
+  g_object_get(G_OBJECT(self), "channel", &chan, NULL);
+
+  if(chan) {
+    gint chan_state;
+    g_object_get(G_OBJECT(chan), "state", &chan_state, NULL);
+
+    if(chan_state == mw_channel_open ||
+       chan_state == mw_channel_pending) {
+
+      MwChannel_close(chan, 0x00, NULL);
+      ret = FALSE;
+    }
+  }
+
+  mw_gobject_unref(chan);
+  return ret;
+}
+
+
+static GObject *
+mw_srvc_constructor(GType type, guint props_count,
+		    GObjectConstructParam *props) {
+
+  MwAwareServiceClass *klass;
+
+  GObject obj;
+  MwAwareService *self;
+  MwAwareServicePrivate *priv;
+
+  mw_debug_enter();
+  
+  klass = MW_AWARE_SERVICE_CLASS(g_type_class_peek(MW_TYPE_AWARE_SERVICE));
+
+  obj = srvc_parent_class->constructor(type, props_count, props);
+  self = (MwAwareService *) obj;
+
+  priv = MW_AWARE_SERVICE_GET_PRIVATE(self);
+
+  priv->awares = g_hash_tabe_new_full((GHashFunc) MwIdentity_hash,
+				      (GEqualFunc) MwIdentity_equal,
+				      (GDestroyNotify) MwIdentity_free,
+				      NULL);
+
+  mw_debug_exit();
+  return obj;
+}
+
+
+static void mw_srvc_dispose(GObject *object) {
+  MwAwareService *self;
+  MwAwareServicePrivate *priv;
+
+  mw_debug_enter();
+
+  self = MW_AWARE_SERVICE(object);
+  priv = MW_AWARE_SERVICE_PRIVATE(self);
+
+  g_hash_table_destroy(priv->awares);
+  priv->awares = NULL;
+
+  srvc_parent_class->dispose(object);
+
+  mw_debug_exit();
+}
+
+
+static void mw_srvc_class_init(gpointer gclass, gpointer gclass_data) {
+  GObjectClass *gobject_class = gclass;
+  MwServiceClass *service_class = gclass;
+  MwIMServiceClass *klass = gclass;
+
+  srvc_parent_class = g_type_class_peek_parent(gobject_class);
+
+  gobject_class->constructor = mw_srvc_constructor;
+  gobject_class->dispose = mw_srvc_dispose;
+
+  g_type_class_add_private(klass, sizeof(MwAwareServicePrivate));
+}
+
+
+static const GTypeInfo mw_srvc_info = {
+  .class_size = sizeof(MwAwareServiceClass),
+  .base_init = NULL,
+  .base_finalize = NULL,
+  .class_init = mw_srvc_class_init,
+  .class_finalize = NULL,
+  .class_data = NULL,
+  .instance_size = sizeof(MwAwareService),
+  .n_preallocs = 0,
+  .instance_init = NULL,
+  .value_table = NULL,
+};
+
+
+GType MwAwareService_getType() {
+  static GType type = 0;
+
+  if(type == 0) {
+    type = g_type_register_static(MW_TYPE_SERVICE, "MwAwareServiceType",
+				  &mw_srvc_info, 0);
+  }
+
+  return type;
+}
+
+
+MwAwareService *MwAwareService_new(MwSession *session) {
+  MwAwareService *srvc;
+
+  srvc = g_object_new(MW_TYPE_AWARE_SERVICE,
+		      "session", session,
+		      "auto-start", TRUE,
+		      NULL);
+
+  return srvc;
+}
+
+
+MwAware *MwAwareService_getAware(MwAwareService *self,
+				 enum mw_aware_type type,
+				 const gchar *user,
+				 const gchar *community) {
+
+  MwAware *(*fn)(MwAwareService *, enum mw_aware_type,
+		 const gchar *, const gchar *);
+
+  g_return_val_if_fail(self != NULL, NULL);
+  g_return_val_if_fail(user != NULL, NULL);
+
+  fn = MW_AWARE_SERVICE_GET_CLASS(self)->get_aware;
+  return fn(self, type, user, community);
+}
+
+
+MwAware *MwAwareService_findAware(MwAwareService *self,
+				  enum mw_aware_type type,
+				  const gchar *user,
+				  const gchar *community) {
+
+  MwAware *(*fn)(MwAwareService *, enum mw_aware_type,
+		 const gchar *, const gchar *);
+
+  g_return_val_if_fail(self != NULL, NULL);
+  g_return_val_if_fail(user != NULL, NULL);
+
+  fn = MW_AWARE_SERVICE_GET_CLASS(self)->find_aware;
+  return fn(self, type, user, community);
+}
+
+
+void MwAwareService_foreachAware(MwAwareService *self,
+				 GFunc func, gpointer data) {
+
+  void (*fn)(MwAwareService *self, GFunc, gpointer);
+
+  g_return_if_fail(self != NULL);
+
+  fn = MW_AWARE_SERVICE_GET_CLASS(self)->foreach_aware;
+  fn(self, func, data);
+}
+
+
+void MwAwareService_foreachAwareClosure(MwAwareService *self,
+					GClosure *closure) {
+
+  MwAwareService_foreachAware(self, mw_closure_gfunc_obj, closure);
+}
+
+
+/* --- */
 
 
 struct mwServiceAware {

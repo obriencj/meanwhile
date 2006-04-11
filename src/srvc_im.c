@@ -74,19 +74,17 @@ static void mw_conv_weak_cb(gpointer data, GObject *gone) {
 
 static void mw_conv_setup(MwIMService *self, MwConversation *conv) {
   MwIMServicePrivate *priv;
-  GHashTable *ht;
   MwIdentity *id;
   gpointer *mem;
 
   priv = self->private;
-  ht = priv->convs;
 
   /* id will be free'd as a key when the hash table is destroyed */
   g_object_get(G_OBJECT(conv), "target", &id, NULL);
 
-  g_hash_table_insert(ht, id, conv);
+  g_hash_table_insert(priv->convs, id, conv);
 
-  mem = g_new0(gpointer, 2);
+  mem = g_new(gpointer, 2);
   mem[0] = self;
   mem[1] = id;
   g_object_weak_ref(G_OBJECT(conv), mw_conv_weak_cb, mem);
@@ -419,19 +417,6 @@ MwIMService *MwIMService_new(MwSession *session) {
 		      "auto-start", TRUE,
 		      NULL);
   return self;
-}
-
-
-MwConversation *
-MwIMService_newConversation(MwIMService *self,
-			    const gchar *user, const gchar *community) {
-
-  MwConversation *(*fn)(MwIMService *, const gchar *, const gchar *);
-
-  g_return_val_if_fail(self != NULL, NULL);
-  g_return_val_if_fail(user != NULL, NULL);
-
-  return fn(self, user, community);
 }
 
 

@@ -1,3 +1,6 @@
+#ifndef _MW_SRVC_AWARE_H
+#define _MW_SRVC_AWARE_H
+
 
 /*
   Meanwhile - Unofficial Lotus Sametime Community Client Library
@@ -18,28 +21,265 @@
   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
-#ifndef _MW_SRVC_AWARE_H
-#define _MW_SRVC_AWARE_H
-
 
 /** @file mw_srvc_aware.h
 
     The aware service...
-
-    @todo remove the whole idea of an instantiated mwAwareList and
-    instead use arbitrary pointers (including NULL) as keys to
-    internally stored lists. This removes the problem of the service
-    free'ing its lists and invalidating mwAwareList references from
-    client code.
 */
 
 
+#include <glib.h>
 #include "mw_common.h"
+#include "mw_service.h"
+#include "mw_session.h"
 
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+G_BEGIN_DECLS
+
+
+#define MW_TYPE_AWARE_TYPE_ENUM  (MwAwareTypeEnum_getType())
+
+
+/**
+   Types of awareness. Either a user, a group, or a server.
+*/
+enum mw_aware_type {
+  mw_aware_user   = 0x0002,
+  mw_aware_group  = 0x0003,
+  mw_aware_server = 0x0008,
+};
+
+
+GType MwAwareTypeEnum_getType();
+
+
+#define MW_TYPE_AWARE_ATTRIBUTE_ENUM  (MwAwareAttributeEnum_getType())
+
+
+/**
+   A collection of the most commonly used aware attributes. This is by
+   no means an exhaustive list, as any guint32 can be used as an
+   attribute key, and clients can define their own attributes at
+   run-time.
+*/
+enum mw_aware_attribute {
+
+  /** A/V prefs have been specified, gboolean */
+  mw_aware_attrib_av_prefs_set   = 0x01,
+  mw_aware_attrib_microphone     = 0x02, /**< has a microphone, gboolean */
+  mw_aware_attrib_speakers       = 0x03, /**< has speakers, gboolean */
+  mw_aware_attrib_video_camera   = 0x04, /**< has a video camera, gboolean */
+
+  /** supports file transfers, gboolean */
+  mw_aware_attrib_file_transfer  = 0x06,
+};
+
+
+GType MwAwareAttributeEnum_getType();
+
+
+#define MW_TYPE_AWARE_SERVICE  (MwAwareService_getType())
+
+
+#define MW_AWARE_SERVICE(obj)						\
+  (G_TYPE_CHECK_INSTANCE_CAST((obj), MW_TYPE_AWARE_SERVICE,		\
+			      MwAwareService))
+
+
+#define MW_AWARE_SERVICE_CLASS(klass)					\
+  (G_TYPE_CHECK_CLASS_CAST((klass), MW_TYPE_AWARE_SERVICE,		\
+			   MwAwareServiceClass))
+
+
+#define MW_IS_AWARE_SERVICE(obj)				\
+  (G_TYPE_CHECK_INSTANCE_TYPE((obj), MW_TYPE_AWARE_SERVICE))
+
+
+#define MW_IS_AWARE_SERVICE_CLASS(klass)			\
+  (G_TYPE_CHECK_CLASS_TYPE((klass), MW_TYPE_AWARE_SERVICE))
+
+
+#define MW_AWARE_SERVICE_GET_CLASS(obj)					\
+  (G_TYPE_INSTANCE_GET_CLASS((obj), MW_TYPE_AWARE_SERVICE,		\
+			     MwAwareServiceClass))
+
+
+struct mw_aware_service {
+  MwService mwservice;
+};
+
+
+typedef struct mw_aware_service_class MwAwareServiceClass;
+
+
+struct mw_aware_service_class {
+  MwServiceClass mwservice_class;
+  
+  MwAware *(*new_aware)(MwAwareService *self, enum mw_aware_type type,
+			const gchar *user, const gchar *community);
+  MwAware *(*get_aware)(MwAwareService *self, enum mw_aware_type type,
+			const gchar *user, const gchar *community);
+  MwAware *(*find_aware)(MwAwareService *self, enum mw_aware_type type,
+			 const gchar *user, const gchar *community);
+  void (*foreach_aware)(MwAwareService *self, GFunc func, gpointer data);
+
+  void (*watch_attrib)(MwAwareService *self, guint32 key);
+  void (*unwatch_attrib)(MwAwareService *self, guint32 key);
+
+  void (*set_attrib)(MwAwareService *self, guint32 key, const MwOpaque *val);
+  const MwOpaque *(get_attrib)(MwAwareService *self, guint32 key);
+
+  guint signal_attrib_changed;
+};
+
+
+GType MwAwareService_getType();
+
+
+MwAwareService *MwAwareService_new(MwSession *session);
+
+
+MwAware *MwAwareService_getAware(MwAwareService *self,
+				 enum mw_aware_type type,
+				 const gchar *user, const gchar *community);
+
+
+MwAware *MwAwareService_findAware(MwAwareService *self,
+				  enum mw_aware_type type,
+				  const gchar *user, const gchar *community);
+
+
+void MwAwareService_foreachAware(MwAwareService *self,
+				 GFunc func, gpointer data);
+
+
+void MwAwareService_foreachAwareClosure(MwAwareService *self,
+					GClosure *closure);
+
+
+#define MW_TYPE_AWARE  (MwAware_getType())
+
+
+#define MW_AWARE(obj)						\
+  (G_TYPE_CHECK_INSTANCE_CAST((obj), MW_TYPE_AWARE, MwAware))
+
+
+#define MW_AWARE_CLASS(klass)						\
+  (G_TYPE_CHECK_CLASS_CAST((klass), MW_TYPE_AWARE, MwAwareClass))
+
+
+#define MW_IS_AWARE(obj)				\
+  (G_TYPE_CHECK_INSTANCE_TYPE((obj), MW_TYPE_AWARE))
+
+
+#define MW_IS_AWARE_CLASS(klass)			\
+  (G_TYPE_CHECK_CLASS_TYPE((klass), MW_TYPE_AWARE))
+
+
+#define MW_AWARE_GET_CLASS(obj)						\
+  (G_TYPE_INSTANCE_GET_CLASS((obj), MW_TYPE_AWARE, MwAwareClass))
+
+
+typedef struct mw_aware MwAware;
+
+
+struct mw_aware {
+  MwObject mwobject;
+};
+
+
+typedef struct mw_aware_class MwAwareClass;
+
+
+struct mw_aware_class {
+  MwObjectClass mwobject_class;
+
+  void (*set_attrib)(MwAware *self, guint32 key, const MwOpaque *val);
+  const MwOpaque *(*get_attrib)(MwAware *self, guint32 key);
+
+  guint signal_attrib_changed;
+};
+
+
+GType MwAware_getType();
+
+
+const MwOpaque *MwAware_getAttribute(MwAware *self, guint32 key);
+
+
+gboolean MwAware_getBoolean(MwAware *self, guint32 key);
+
+
+#define MW_TYPE_AWARE_LIST  (MwAwareList_getType())
+
+
+#define MW_AWARE_LIST(obj)						\
+  (G_TYPE_CHECK_INSTANCE_CAST((obj), MW_TYPE_AWARE_LIST, MwAwareList))
+
+
+#define MW_AWARE_LIST_CLASS(klass)					\
+  (G_TYPE_CHECK_CLASS_CAST((klass), MW_TYPE_AWARE_LIST, MwAwareListClass))
+
+
+#define MW_IS_AWARE_LIST(obj)					\
+  (G_TYPE_CHECK_INSTANCE_TYPE((obj), MW_TYPE_AWARE_LIST))
+
+
+#define MW_IS_AWARE_LIST_CLASS(klass)				\
+  (G_TYPE_CHECK_CLASS_TYPE((klass), MW_TYPE_AWARE_LIST))
+
+
+#define MW_AWARE_LIST_GET_CLASS(obj)					\
+  (G_TYPE_INSTANCE_GET_CLASS((obj), MW_TYPE_AWARE_LIST, MwAwareListClass))
+
+
+typedef struct mw_aware_list MwAwareList;
+
+
+struct mw_aware_list {
+  GObject gobject;
+};
+
+
+typedef struct mw_aware_list_class MwAwareListClass;
+
+
+struct mw_aware_list_class {
+  GObjectClass gobject_class;
+
+  gboolean (*add_aware)(MwAwareList *self, MwAware *aware);
+  gboolean (*rem_aware)(MwAwareList *self, MwAware *aware);
+  void (*foreach_aware)(MwAwareList *self, GFunc func, gpointer data);
+
+  guint signal_aware_changed;
+};
+
+
+MwAwareList *MwAwareList_new();
+
+
+gboolean MwAwareList_addAware(MwAwareList *self, MwAware *aware);
+
+
+gboolean MwAwareList_removeAware(MwAwareList *self, MwAware *aware);
+
+
+void MwAwareList_foreachAware(MwAwareList *self, GFunc func, gpointer data);
+
+
+void MwAwareList_foreachAwareClosure(MwAwareList *self, GClosure *closure);
+
+
+G_END_DECLS
+
+
+#endif /* _MW_SRVC_AWARE_H */
+
+
+#if 0
+
+
+/* -- old below -- */
 
 
 /** Type identifier for the aware service */
@@ -78,11 +318,6 @@ struct mwAwareAttribute;
 /** Predefined keys appropriate for a mwAwareAttribute
  */
 enum mwAwareAttributeKeys {
-  mwAttribute_AV_PREFS_SET   = 0x01, /**< A/V prefs specified, gboolean */
-  mwAttribute_MICROPHONE     = 0x02, /**< has a microphone, gboolean */
-  mwAttribute_SPEAKERS       = 0x03, /**< has speakers, gboolean */
-  mwAttribute_VIDEO_CAMERA   = 0x04, /**< has a video camera, gboolean */
-  mwAttribute_FILE_TRANSFER  = 0x06, /**< supports file transfers, gboolean */
 };
 
 
@@ -269,11 +504,4 @@ mwServiceAware_getAttribute(struct mwServiceAware *srvc,
 			    struct mwAwareIdBlock *user,
 			    guint32 key);
 
-
-#ifdef __cplusplus
-}
-#endif
-
-
-#endif /* _MW_SRVC_AWARE_H */
-
+#endif /* 0 */
