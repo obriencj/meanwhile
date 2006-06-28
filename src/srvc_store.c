@@ -75,6 +75,10 @@ struct mw_storage_service_private {
   GHashTable *pending;
   MwChannel *channel;
   guint event_counter;
+
+  gulong in_event;
+  gulong state_event;
+  gulong otm_event;
 };
 
 
@@ -260,9 +264,52 @@ static void mw_channel_recv(MwChannel *chan,
 }
 
 
+static void mw_got_one_time(MwSession *sess, guint id,
+			    const gchar *user, const gchar *community,
+			    guint srvc, guint srvc_type, guint srvc_ver,
+			    guint type, const MwOpaque *data) {
+
+  if(srvc == 0x80000026 && srvc_type == 0x80000022 && srvc_ver == 0) {
+    /* it's for us, handle it */
+  }
+}
+
+
+static void watch_one_time(MwStorageService *self) {
+  MwSession *session = NULL;
+  MwStorageServicePrivate *priv;
+
+  priv = MW_STORAGE_SERVICE_GET_PRIVATE(self);
+  g_object_get(G_OBJECT(self), "session", &session, NULL);
+
+  g_return_if_fail(session != NULL);
+
+  priv->otm_event = g_signal_connect(G_OBJECT(session), "got-one-time",
+				     G_CALLBACK(mw_got_one_time), self);
+}
+
+
+static void unwatch_one_time(MwStorageService *self) {
+  MwSession *session = NULL;
+  MwStorageServicePrivate *priv;
+
+  priv = MW_STORAGE_SERVICE_GET_PRIVATE(self);
+
+  if(priv->otm_event) {
+    g_object_get(G_OBJECT(self), "session", &session, NULL);
+    g_signal_handler_disconnect(session, priv->otm_event);
+    priv->otm_event = 0;
+  }
+}
+
+
 static void mw_channel_state(MwChannel *chan, gint state, MwService *self) {
   switch(state) {
+
   case mw_channel_open:
+    /* start watching for remote updates */
+    watch_one_time(MW_STORAGE_SERVICE(self));
+
     /* ok, we're fully started now */
     MwService_started(self);
     break;
@@ -318,11 +365,11 @@ static gboolean mw_start(MwService *self) {
 		 "offered-policy", mw_channel_encrypt_WHATEVER,
 		 NULL);
     
-    g_signal_connect(G_OBJECT(chan), "incoming",
-		     G_CALLBACK(mw_channel_recv), self);
+    priv->in_event = g_signal_connect(G_OBJECT(chan), "incoming",
+				      G_CALLBACK(mw_channel_recv), self);
 
-    g_signal_connect(G_OBJECT(chan), "state-changed",
-		     G_CALLBACK(mw_channel_state), self);
+    priv->state_event = g_signal_connect(G_OBJECT(chan), "state-changed",
+					 G_CALLBACK(mw_channel_state), self);
 
     priv->channel = chan;
   }
@@ -335,15 +382,19 @@ static gboolean mw_start(MwService *self) {
 }
 
 
-static gboolean mw_stop(MwService *self) {
+static gboolean mw_stop(MwService *srvc) {
+  MwStorageService *self;
   MwStorageServicePrivate *priv;
   MwChannel *chan;
   gboolean ret = TRUE;
 
+  self = MW_STORAGE_SERVICE(srvc);
   priv = MW_STORAGE_SERVICE_GET_PRIVATE(self);
   chan = priv->channel;
 
   /* @todo clear out all the existing events */
+
+  unwatch_one_time(self);
 
   if(chan) {
     gint chan_state;

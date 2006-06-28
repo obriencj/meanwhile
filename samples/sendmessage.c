@@ -1,6 +1,6 @@
 /*
   Meanwhile - Unofficial Lotus Sametime Community Client Library
-  Copyright (C) 2004  Christopher (siege) O'Brien
+  Copyright (C) 2004 - 2006  Christopher (siege) O'Brien
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Library General Public
@@ -85,10 +85,10 @@ static gint init_sock(const gchar *host, gint port) {
 }
 
 
-static void conv_state_changed(MwConversation *conv, guint state,
+static void conv_state_changed(MwConversation *conv, gint state,
 			       gpointer data) {
 
-  if(state == mw_conversation_OPEN) {
+  if(state == mw_conversation_open) {
     MwIMService *srvc;
     const gchar *message;
 
@@ -99,16 +99,16 @@ static void conv_state_changed(MwConversation *conv, guint state,
     mw_gobject_unref(srvc);
 
     MwConversation_sendText(conv, message);
-    MwConversation_close(conv);
+    MwConversation_close(conv, 0x00);
     MwGIOSession_politeStop(data);
   }
 }
 
 
-static void srvc_state_changed(MwIMService *srvc, guint state,
+static void srvc_state_changed(MwIMService *srvc, gint state,
 			       gpointer data) {
 
-  if(state == mw_service_STARTED) {
+  if(state == mw_object_started) {
     MwConversation *conv;
     const gchar *user;
 
@@ -151,7 +151,6 @@ gint main(gint argc, gchar *argv[]) {
   g_object_set(G_OBJECT(session),
 	       "auth-user", argv[3],
 	       "auth-password", argv[4],
-	       "auth-type", mw_auth_type_RC2,
 	       NULL);
 
   /* provide a cipher */

@@ -111,7 +111,7 @@ static void state_changed(MwSession *self, gpointer data) {
   g_object_get(G_OBJECT(self), "state", &state, NULL);
 
   switch(state) {
-  case mw_session_STARTING:
+  case mw_session_starting:
     {
       guint major, minor;
 
@@ -123,7 +123,7 @@ static void state_changed(MwSession *self, gpointer data) {
       g_debug("client version: %u.%u", major, minor);
     }
     break;
-  case mw_session_HANDSHAKE_ACK:
+  case mw_session_handshake_ack:
     {
       guint major, minor;
 
@@ -135,7 +135,7 @@ static void state_changed(MwSession *self, gpointer data) {
       g_debug("server version: %u.%u", major, minor);
     }
     break;
-  case mw_session_LOGIN_ACK:
+  case mw_session_login_ack:
     {
       gchar *srvr;
       g_object_get(G_OBJECT(self), "server-id", &srvr, NULL);
@@ -143,7 +143,7 @@ static void state_changed(MwSession *self, gpointer data) {
       g_free(srvr);
     }
     break;
-  case mw_session_STARTED:
+  case mw_session_started:
     {
       MwStatus stat;
       stat.status = mw_status_ACTIVE;
@@ -152,9 +152,9 @@ static void state_changed(MwSession *self, gpointer data) {
       MwSession_setStatus(self, &stat);
     }
     break;
-  case mw_session_STOPPING:
+  case mw_session_stopping:
     break;
-  case mw_session_STOPPED:
+  case mw_session_stopped:
     break;
   default:
     ;
@@ -171,7 +171,7 @@ static void got_text(MwConversation *conv, const gchar *msg,
   g_debug("%s sent: %s", user, msg);
 
   if(! strcmp(msg, "shutdown")) {
-    MwConversation_close(conv);
+    MwConversation_close(conv, 0x00);
     MwGIOSession_politeStop(data);
 
   } else {

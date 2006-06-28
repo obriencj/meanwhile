@@ -1,7 +1,7 @@
 
 
 #SUBDIRS = doc samples src
-SUBDIRS = src swig
+SUBDIRS = src
 
 
 EXTRA_DIST =	meanwhile.spec \

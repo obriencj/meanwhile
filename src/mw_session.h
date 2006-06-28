@@ -165,11 +165,7 @@ void MwSession_feed(MwSession *session, const guchar *buf, gsize len);
 
 
 /** Feed data to a session's internal message parser */
-#define MwSession_feedOpaque(session, opaque)			\
-  {								\
-    const MwOpaque *o = (opaque);				\
-    MwSession_feed((session), o->buf, o->len);			\
-  }
+void MwSession_feedOpaque(MwSession *session, const MwOpaque *data);
 
 
 /**

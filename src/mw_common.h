@@ -342,10 +342,12 @@ void MwOpaque_free(MwOpaque *o);
 
 
 /** duplicate the internal buffer from one opaque to another */
+/* XXX rename to MwOpaque_copy  */
 void MwOpaque_clone(MwOpaque *to, const MwOpaque *from);
 
 
 /** allocate a new opaque and duplicate the internal buffer from @p o */
+/* XXX rename to MwOpaque_dup */
 MwOpaque *MwOpaque_copy(const MwOpaque *o);
 
 
@@ -375,9 +377,11 @@ void MwIdentity_clear(MwIdentity *id, gboolean deep);
 void MwIdentity_free(MwIdentity *id, gboolean deep);
 
 
+/* XXX rename to MwIdentity_copy  */
 void MwIdentity_clone(MwIdentity *to, const MwIdentity *from, gboolean deep);
 
 
+/* XXX rename to MwIdentity_dup */
 MwIdentity *MwIdentity_copy(const MwIdentity *orig);
 
 
@@ -409,6 +413,7 @@ void MwLogin_get(MwGetBuffer *b, MwLogin *login);
 void MwLogin_clear(MwLogin *login, gboolean deep);
 
 
+/* XXX rename to MwLogin_copy */
 void MwLogin_clone(MwLogin *to, const MwLogin *from, gboolean deep);
 
 
@@ -421,6 +426,7 @@ void MwPrivacy_get(MwGetBuffer *b, MwPrivacy *info);
 void MwPrivacy_clear(MwPrivacy *info, gboolean deep);
 
 
+/* XXX rename to MwPrivacy_copy */
 void MwPrivacy_clone(MwPrivacy *to, const MwPrivacy *from, gboolean deep);
 
 
@@ -433,6 +439,7 @@ void MwStatus_get(MwGetBuffer *b, MwStatus *stat);
 void MwStatus_clear(MwStatus *stat, gboolean deep);
 
 
+/* XXX rename to MwStatus_copy */
 void MwStatus_clone(MwStatus *to, const MwStatus *from, gboolean deep);
 
 
@@ -442,7 +449,7 @@ void MwStatus_clone(MwStatus *to, const MwStatus *from, gboolean deep);
 /** @section Library Version Information
 
     The following functions can be used to get the version information
-    for the in-use version of the Meanwhile library.
+    for the run-time version of the Meanwhile library.
 */
 /* @{ */
 

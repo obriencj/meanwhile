@@ -491,6 +491,10 @@ static void MwMsgOneTime_put(MwPutBuffer *b, const MwMsgOneTime *msg) {
   mw_uint32_put(b, msg->proto_ver);
   mw_uint16_put(b, msg->type);
   MwOpaque_put(b, &msg->data);
+  mw_boolean_put(b, msg->sender_flag);
+
+  if(msg->sender_flag)
+    MwLogin_put(b, &msg->sender);
 }
 
 
@@ -504,12 +508,17 @@ static void MwMsgOneTime_get(MwGetBuffer *b, MwMsgOneTime *msg) {
   mw_uint32_get(b, &msg->proto_ver);
   mw_uint16_get(b, &msg->type);
   MwOpaque_get(b, &msg->data);
+  mw_boolean_get(b, &msg->sender_flag);
+
+  if(msg->sender_flag)
+    MwLogin_get(b, &msg->sender);
 }
 
 
 static void MwMsgOneTime_clear(MwMsgOneTime *msg) {
   MwIdentity_clear(&msg->target, TRUE);
   MwOpaque_clear(&msg->data);
+  MwLogin_clear(&msg->sender, TRUE);
 }
 
 

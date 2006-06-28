@@ -161,7 +161,10 @@ MwParser *MwParser_new(MwParserCallback cb, gpointer data) {
 
 void MwParser_feed(MwParser *parser, const guchar *buf, gsize len) {
   g_return_if_fail(parser != NULL);
-  if(len > 0) g_return_if_fail(buf != NULL);
+
+  if(len > 0) {
+    g_return_if_fail(buf != NULL);
+  }
   
   while(len > 0) {
     switch(parser->state) {

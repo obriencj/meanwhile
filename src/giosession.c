@@ -125,7 +125,7 @@ static GIOStatus write_loop(GIOChannel *chan, const guchar **b, gsize *l) {
     if(! written)
       break;
 
-    g_debug("wrote %u", written);
+    g_debug("wrote %" G_GSIZE_FORMAT " bytes", written);
     len -= written;
     buf += written;
   }

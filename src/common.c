@@ -450,9 +450,10 @@ void MwOpaque_put(MwPutBuffer *b, const MwOpaque *o) {
   }
 
   len = o->len;
-  if(len)
+  if(len) {
     g_return_if_fail(o->data != NULL);
-  
+  }
+
   mw_uint32_put(b, (guint32) len);
 
   if(len) {
@@ -893,3 +894,4 @@ const gchar *mw_version_release() {
 }
 
 
+/* The end. */

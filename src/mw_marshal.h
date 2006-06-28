@@ -45,13 +45,13 @@ extern void mw_marshal_VOID__UINT_UINT_UINT_POINTER (GClosure     *closure,
                                                      gpointer      invocation_hint,
                                                      gpointer      marshal_data);
 
-/* VOID:UINT,UINT,UINT,UINT,UINT,POINTER (marshal.list:13) */
-extern void mw_marshal_VOID__UINT_UINT_UINT_UINT_UINT_POINTER (GClosure     *closure,
-                                                               GValue       *return_value,
-                                                               guint         n_param_values,
-                                                               const GValue *param_values,
-                                                               gpointer      invocation_hint,
-                                                               gpointer      marshal_data);
+/* VOID:UINT,UINT,UINT,UINT,UINT,POINTER,POINTER (marshal.list:13) */
+extern void mw_marshal_VOID__UINT_UINT_UINT_UINT_UINT_POINTER_POINTER (GClosure     *closure,
+                                                                       GValue       *return_value,
+                                                                       guint         n_param_values,
+                                                                       const GValue *param_values,
+                                                                       gpointer      invocation_hint,
+                                                                       gpointer      marshal_data);
 
 /* VOID:POINTER (marshal.list:14) */
 #define mw_marshal_VOID__POINTER	g_cclosure_marshal_VOID__POINTER

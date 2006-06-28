@@ -176,28 +176,29 @@ mw_marshal_VOID__UINT_UINT_UINT_POINTER (GClosure     *closure,
             data2);
 }
 
-/* VOID:UINT,UINT,UINT,UINT,UINT,POINTER (marshal.list:13) */
+/* VOID:UINT,UINT,UINT,UINT,UINT,POINTER,POINTER (marshal.list:13) */
 void
-mw_marshal_VOID__UINT_UINT_UINT_UINT_UINT_POINTER (GClosure     *closure,
-                                                   GValue       *return_value,
-                                                   guint         n_param_values,
-                                                   const GValue *param_values,
-                                                   gpointer      invocation_hint,
-                                                   gpointer      marshal_data)
+mw_marshal_VOID__UINT_UINT_UINT_UINT_UINT_POINTER_POINTER (GClosure     *closure,
+                                                           GValue       *return_value,
+                                                           guint         n_param_values,
+                                                           const GValue *param_values,
+                                                           gpointer      invocation_hint,
+                                                           gpointer      marshal_data)
 {
-  typedef void (*GMarshalFunc_VOID__UINT_UINT_UINT_UINT_UINT_POINTER) (gpointer     data1,
-                                                                       guint        arg_1,
-                                                                       guint        arg_2,
-                                                                       guint        arg_3,
-                                                                       guint        arg_4,
-                                                                       guint        arg_5,
-                                                                       gpointer     arg_6,
-                                                                       gpointer     data2);
-  register GMarshalFunc_VOID__UINT_UINT_UINT_UINT_UINT_POINTER callback;
+  typedef void (*GMarshalFunc_VOID__UINT_UINT_UINT_UINT_UINT_POINTER_POINTER) (gpointer     data1,
+                                                                               guint        arg_1,
+                                                                               guint        arg_2,
+                                                                               guint        arg_3,
+                                                                               guint        arg_4,
+                                                                               guint        arg_5,
+                                                                               gpointer     arg_6,
+                                                                               gpointer     arg_7,
+                                                                               gpointer     data2);
+  register GMarshalFunc_VOID__UINT_UINT_UINT_UINT_UINT_POINTER_POINTER callback;
   register GCClosure *cc = (GCClosure*) closure;
   register gpointer data1, data2;
 
-  g_return_if_fail (n_param_values == 7);
+  g_return_if_fail (n_param_values == 8);
 
   if (G_CCLOSURE_SWAP_DATA (closure))
     {
@@ -209,7 +210,7 @@ mw_marshal_VOID__UINT_UINT_UINT_UINT_UINT_POINTER (GClosure     *closure,
       data1 = g_value_peek_pointer (param_values + 0);
       data2 = closure->data;
     }
-  callback = (GMarshalFunc_VOID__UINT_UINT_UINT_UINT_UINT_POINTER) (marshal_data ? marshal_data : cc->callback);
+  callback = (GMarshalFunc_VOID__UINT_UINT_UINT_UINT_UINT_POINTER_POINTER) (marshal_data ? marshal_data : cc->callback);
 
   callback (data1,
             g_marshal_value_peek_uint (param_values + 1),
@@ -218,6 +219,7 @@ mw_marshal_VOID__UINT_UINT_UINT_UINT_UINT_POINTER (GClosure     *closure,
             g_marshal_value_peek_uint (param_values + 4),
             g_marshal_value_peek_uint (param_values + 5),
             g_marshal_value_peek_pointer (param_values + 6),
+            g_marshal_value_peek_pointer (param_values + 7),
             data2);
 }
 

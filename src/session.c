@@ -478,7 +478,8 @@ static void recv_ONE_TIME(MwSession *s, MwMsgOneTime *m) {
   
   klass = MW_SESSION_GET_CLASS(s);
   g_signal_emit(s, klass->signal_got_one_time, 0,
-		m->id, m->service, m->proto_type, m->proto_ver,
+		m->id, 
+		m->service, m->proto_type, m->proto_ver,
 		m->type, &m->data, NULL);
   
   mw_debug_exit();
@@ -890,9 +891,17 @@ guint mw_send_one_time(MwSession *self,
   otm->proto_type = proto_type;
   otm->proto_ver = proto_ver;
   otm->type = type;
-  MwOpaque_clone(&otm->data, data);
+
+  /* MwOpaque_copy(&otm->data, data); */
+  /* stick the data into the message without making a copy */
+  otm->data.data = data->data;
+  otm->data.len = data->len;
   
   MwSession_sendMessage(self, MW_MESSAGE(otm));
+
+  /* steal the data back before it can be destroyed */
+  otm->data.data = NULL;
+  otm->data.len = 0;
 
   MwMessage_free(MW_MESSAGE(otm));
 
@@ -1343,15 +1352,16 @@ static guint mw_signal_got_one_time() {
 		      0,
 		      0,
 		      NULL, NULL,
-		      mw_marshal_VOID__UINT_UINT_UINT_UINT_UINT_POINTER,
+		      mw_marshal_VOID__UINT_UINT_UINT_UINT_UINT_POINTER_POINTER,
 		      G_TYPE_NONE,
 		      6,
-		      G_TYPE_UINT, /* id */
-		      G_TYPE_UINT, /* service */
-		      G_TYPE_UINT, /* protocol type */
-		      G_TYPE_UINT, /* protocol version */
-		      G_TYPE_UINT, /* type */
-		      MW_TYPE_OPAQUE);
+		      G_TYPE_UINT,     /* id */
+		      G_TYPE_UINT,     /* service */
+		      G_TYPE_UINT,     /* protocol type */
+		      G_TYPE_UINT,     /* protocol version */
+		      G_TYPE_UINT,     /* type */
+		      MW_TYPE_OPAQUE,  /* data */
+		      G_TYPE_POINTER); /* sender MwLogin */
 }
 
 
@@ -1557,6 +1567,25 @@ void MwSession_feed(MwSession *session, const guchar *buf, gsize len) {
   void (*fn)(MwSession *, const guchar *, gsize);
 
   g_return_if_fail(session != NULL);
+  if(! buf || ! len) return;
+
+  fn = MW_SESSION_GET_CLASS(session)->feed;
+  fn(session, buf, len);
+}
+
+
+void MwSession_feedOpaque(MwSession *session, const MwOpaque *data) {
+  void (*fn)(MwSession *, const guchar *, gsize);
+  guchar *buf;
+  gsize len;
+
+  g_return_if_fail(session != NULL);
+
+  if(! data) return;
+
+  buf = data->data;
+  len = data->len;
+
   if(! buf || ! len) return;
 
   fn = MW_SESSION_GET_CLASS(session)->feed;

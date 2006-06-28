@@ -256,14 +256,17 @@ typedef struct mw_msg_one_time MwMsgOneTime;
 struct mw_msg_one_time {
   MwMessage head;
 
-  guint32 id;
-  MwIdentity target;
-  guint32 service;
-  guint32 proto_type;
-  guint32 proto_ver;
+  guint32 id;          /** unique message id (?) */
+  MwIdentity target;   /** target user or login ID */
+  guint32 service;     /** service type */
+  guint32 proto_type;  /** protocol type */
+  guint32 proto_ver;   /** protocol version */
 
-  guint16 type;
-  MwOpaque data;
+  guint16 type;        /** OTM type */
+  MwOpaque data;       /** OTM data */
+
+  gboolean sender_flag;  /** sender present? */
+  MwLogin sender;        /** sender login information */
 };
 
 
@@ -323,9 +326,9 @@ struct mw_msg_announce {
 
   guint32 rcpt_count;  /**< count of recipients */
 
-  /** list of (char *) indicating recipients. Recipient users are in
-      the format "@U username" and recipient NAB groups are in the
-      format "@G groupname" */
+  /** stringv indicating recipients. Recipient users are in the format
+      "@U username" and recipient NAB groups are in the format "@G
+      groupname" */
   gchar **recipients;
 };
 

@@ -1,6 +1,7 @@
 
 
-SUBDIRS = mpi . python
+#SUBDIRS = mpi . python
+SUBDIRS = mpi .
 
 
 noinst_PROGRAMS = test

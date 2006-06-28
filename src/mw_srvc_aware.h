@@ -50,6 +50,9 @@ enum mw_aware_type {
 };
 
 
+typedef enum mw_aware_type MwAwareType;
+
+
 GType MwAwareTypeEnum_getType();
 
 
@@ -115,19 +118,25 @@ typedef struct mw_aware_service_class MwAwareServiceClass;
 struct mw_aware_service_class {
   MwServiceClass mwservice_class;
   
-  MwAware *(*new_aware)(MwAwareService *self, enum mw_aware_type type,
+  MwAware *(*new_aware)(MwAwareService *self, MwAwareType type,
 			const gchar *user, const gchar *community);
-  MwAware *(*get_aware)(MwAwareService *self, enum mw_aware_type type,
+  MwAware *(*get_aware)(MwAwareService *self, MwAwareType type,
 			const gchar *user, const gchar *community);
-  MwAware *(*find_aware)(MwAwareService *self, enum mw_aware_type type,
+  MwAware *(*find_aware)(MwAwareService *self, MwAwareType type,
 			 const gchar *user, const gchar *community);
   void (*foreach_aware)(MwAwareService *self, GFunc func, gpointer data);
 
+  void (*watch_aware)(MwAwareService *self, MwAware *aware);
+  gboolean (*unwatch_aware)(MwAwareService *self, MwAware *aware);
+
+  void (*watch_awares)(MwAwareService *self, const GList *awares);
+  void (*unwatch_awares)(MwAwareService *self, const GList *awares);
+
   void (*watch_attrib)(MwAwareService *self, guint32 key);
-  void (*unwatch_attrib)(MwAwareService *self, guint32 key);
+  gboolean (*unwatch_attrib)(MwAwareService *self, guint32 key);
 
   void (*set_attrib)(MwAwareService *self, guint32 key, const MwOpaque *val);
-  const MwOpaque *(get_attrib)(MwAwareService *self, guint32 key);
+  const MwOpaque *(*get_attrib)(MwAwareService *self, guint32 key);
 
   guint signal_attrib_changed;
 };
@@ -139,13 +148,11 @@ GType MwAwareService_getType();
 MwAwareService *MwAwareService_new(MwSession *session);
 
 
-MwAware *MwAwareService_getAware(MwAwareService *self,
-				 enum mw_aware_type type,
+MwAware *MwAwareService_getAware(MwAwareService *self, MwAwareType type,
 				 const gchar *user, const gchar *community);
 
 
-MwAware *MwAwareService_findAware(MwAwareService *self,
-				  enum mw_aware_type type,
+MwAware *MwAwareService_findAware(MwAwareService *self, MwAwareType type,
 				  const gchar *user, const gchar *community);
 
 
@@ -155,6 +162,23 @@ void MwAwareService_foreachAware(MwAwareService *self,
 
 void MwAwareService_foreachAwareClosure(MwAwareService *self,
 					GClosure *closure);
+
+
+/**
+   Set the opaque value of an attribute associated with the current
+   session. Any other session's logged in with the same account will
+   also reflect this change.
+*/
+void MwAwareService_setAttribute(MwAwareService *self,
+				 guint32 key, const MwOpaque *val);
+
+
+/**
+   Look up the opaque value for an attribute associated with the
+   current sessions for the active account.
+*/
+const MwOpaque *MwAwareService_getAttribute(MwAwareService *self,
+					    guint32 key);
 
 
 #define MW_TYPE_AWARE  (MwAware_getType())
@@ -237,7 +261,7 @@ typedef struct mw_aware_list MwAwareList;
 
 
 struct mw_aware_list {
-  GObject gobject;
+  MwObject mwobject;
 };
 
 
@@ -245,10 +269,12 @@ typedef struct mw_aware_list_class MwAwareListClass;
 
 
 struct mw_aware_list_class {
-  GObjectClass gobject_class;
+  MwObjectClass mwobject_class;
 
-  gboolean (*add_aware)(MwAwareList *self, MwAware *aware);
+  void (*add_aware)(MwAwareList *self, MwAware *aware);
   gboolean (*rem_aware)(MwAwareList *self, MwAware *aware);
+  MwAware (*get_aware)(MwAwareList *self, MwAwareType type,
+		       const gchar *user, const gchar *community);
   void (*foreach_aware)(MwAwareList *self, GFunc func, gpointer data);
 
   guint signal_aware_changed;
@@ -258,7 +284,19 @@ struct mw_aware_list_class {
 MwAwareList *MwAwareList_new();
 
 
-gboolean MwAwareList_addAware(MwAwareList *self, MwAware *aware);
+void MwAwareList_add(MwAwareList *self, MwAwareType type,
+		     const gchar *user, const gchar *community);
+
+
+gboolean MwAwareList_remove(MwAwareList *self, MwAwareType type,
+			    const gchar *user, const gchar *community);
+
+
+MwAware *MwAwareList_get(MwAwareList *self, MwAwareType type,
+			 const gchar *user, const gchar *community);
+
+
+void MwAwareList_addAware(MwAwareList *self, MwAware *aware);
 
 
 gboolean MwAwareList_removeAware(MwAwareList *self, MwAware *aware);
@@ -277,9 +315,7 @@ G_END_DECLS
 
 
 #if 0
-
-
-/* -- old below -- */
+/* -- old code below -- */
 
 
 /** Type identifier for the aware service */

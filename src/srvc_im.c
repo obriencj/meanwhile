@@ -243,7 +243,7 @@ static MwConversation *mw_new_conv(MwIMService *self,
 static MwConversation *mw_get_conv(MwIMService *self,
 				   const gchar *user,
 				   const gchar *community) {
-    MwConversation *conv;
+  MwConversation *conv;
 
   conv = MwIMService_findConversation(self, user, community);
 
