@@ -22,6 +22,50 @@
 */
 
 
+
+/*
+
+MwAware (MwObject)
+  .name:str
+  .attributes:map
+  .watch(bool:watched):void
+  #attribute-changed(attribute:int)
+
+MwAwareUser (MwAware)
+  .community:str
+  .external:bool - if set, the name str effectively has "@E " prepended
+  .status:enum
+  #status-changed() - triggered when status changes
+
+MwAwareGroupUser (MwAwareUser)
+  .group:MwAwareGroup - owning group
+
+MwAwareGroup (MwAware)
+  .awares:MwAwareGroupUser[] - references to watched awarenesses
+  #member-status-changed(member:MwAwareGroupUser)
+  #member-attribute-changed(member:MwAwareGroupUser, attribute:int)
+
+MwAwareService (MwAware)
+  .find_aware:MwAware  - return an existing awareness
+  .get_aware:MwAware  - return an awareness (existing or new)
+  .awares:MwAware[]  - all awarenesses
+  .attributes:int[]  - list of attributes to watch
+  .set_attribute(guint32:key, opaque:val):void
+  .get_attribute(guind32:key):opaque
+  .update_watch():void - will send the awares for additions/removals
+  #
+
+MwAwareList (MwObject)
+  .awares:MwAwareUser[]
+  .watch(bool:watched):void
+  #member-status-changed(member:MwAwareUser)
+  #member-attribute-changed(member:MwAwareUser, attribute:int)
+
+
+ */
+
+
+
 /** @file mw_srvc_aware.h
 
     The aware service...
@@ -126,9 +170,6 @@ struct mw_aware_service_class {
 			 const gchar *user, const gchar *community);
   void (*foreach_aware)(MwAwareService *self, GFunc func, gpointer data);
 
-  void (*watch_aware)(MwAwareService *self, MwAware *aware);
-  gboolean (*unwatch_aware)(MwAwareService *self, MwAware *aware);
-
   void (*watch_awares)(MwAwareService *self, const GList *awares);
   void (*unwatch_awares)(MwAwareService *self, const GList *awares);
 
@@ -145,21 +186,41 @@ struct mw_aware_service_class {
 GType MwAwareService_getType();
 
 
+/**
+   Create a new aware service instance for use on the given session.
+ */
 MwAwareService *MwAwareService_new(MwSession *session);
 
 
+/**
+   Attempt to find an instance of an awareness subscription on the
+   aware service. If one does not exist, a new one is created and
+   returned.
+ */
 MwAware *MwAwareService_getAware(MwAwareService *self, MwAwareType type,
 				 const gchar *user, const gchar *community);
 
 
+/**
+   Find an existing instance of an awareness subscription on the aware
+   service. If one does not exist, returns NULL
+ */
 MwAware *MwAwareService_findAware(MwAwareService *self, MwAwareType type,
 				  const gchar *user, const gchar *community);
 
 
+/**
+   calls the given GFunc on each MwAware instance in the aware service, with
+   data
+ */
 void MwAwareService_foreachAware(MwAwareService *self,
 				 GFunc func, gpointer data);
 
 
+/**
+   calls the given GClosure on each MwAware instance in the aware
+   service.
+ */
 void MwAwareService_foreachAwareClosure(MwAwareService *self,
 					GClosure *closure);
 
@@ -179,6 +240,11 @@ void MwAwareService_setAttribute(MwAwareService *self,
 */
 const MwOpaque *MwAwareService_getAttribute(MwAwareService *self,
 					    guint32 key);
+
+
+
+gobject_declare(MW, AWARE, Aware, aware)
+
 
 
 #define MW_TYPE_AWARE  (MwAware_getType())
@@ -228,10 +294,27 @@ struct mw_aware_class {
 GType MwAware_getType();
 
 
+/**
+   Copy of the "name" attribute for an awareness
+ */
+gchar *MwAware_getName(MwAware *self);
+
+
+/**
+   Get the opaque value of a watched attribute for an awareness
+   subscription. Unwatched attributes will cause this to return NULL
+ */
 const MwOpaque *MwAware_getAttribute(MwAware *self, guint32 key);
 
 
+/**
+   Coerce a boolean value from a watched attribute for an awareness
+   subscription. Unwatched attributes will cause this to return FALSE
+ */
 gboolean MwAware_getBoolean(MwAware *self, guint32 key);
+
+
+void MwAware_watch(MwAware *self, gboolean watch);
 
 
 #define MW_TYPE_AWARE_LIST  (MwAwareList_getType())
@@ -277,6 +360,8 @@ struct mw_aware_list_class {
 		       const gchar *user, const gchar *community);
   void (*foreach_aware)(MwAwareList *self, GFunc func, gpointer data);
 
+  /** "on-aware". triggered when an awareness subscription in the list
+      is updated  from the server */
   guint signal_aware_changed;
 };
 
@@ -284,27 +369,49 @@ struct mw_aware_list_class {
 MwAwareList *MwAwareList_new();
 
 
+/**
+   Adds an awareness subscription to a list
+ */
 void MwAwareList_add(MwAwareList *self, MwAwareType type,
 		     const gchar *user, const gchar *community);
 
 
+/**
+   Removes an awareness subscription from a list
+ */
 gboolean MwAwareList_remove(MwAwareList *self, MwAwareType type,
 			    const gchar *user, const gchar *community);
 
 
+/**
+   Get an awareness subscription from a list. Returns NULL if no such
+   subscription exists for this list.
+ */
 MwAware *MwAwareList_get(MwAwareList *self, MwAwareType type,
 			 const gchar *user, const gchar *community);
 
 
+/**
+   Add an awareness subscription to a list.
+ */
 void MwAwareList_addAware(MwAwareList *self, MwAware *aware);
 
 
+/**
+   Removes an awareness subscription from a list.
+ */
 gboolean MwAwareList_removeAware(MwAwareList *self, MwAware *aware);
 
 
+/**
+   Calls GFunc on each awareness subscription in a list, with data.
+ */
 void MwAwareList_foreachAware(MwAwareList *self, GFunc func, gpointer data);
 
 
+/**
+   Calls a closure on each awareness subscription in a list.
+ */
 void MwAwareList_foreachAwareClosure(MwAwareList *self, GClosure *closure);
 
 

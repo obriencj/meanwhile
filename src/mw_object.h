@@ -39,6 +39,7 @@
 G_BEGIN_DECLS
 
 
+
 #define MW_TYPE_OBJECT  (MwObject_getType())
 
 

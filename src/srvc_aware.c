@@ -33,6 +33,30 @@
 #include "mw_util.h"
 
 
+/** the channel send types used by this service */
+enum msg_types {
+  msg_AWARE_ADD       = 0x0068,  /**< add an aware */
+  msg_AWARE_REMOVE    = 0x0069,  /**< remove an aware */
+
+  msg_OPT_DO_SET      = 0x00c9,  /**< set an attribute */
+  msg_OPT_DO_UNSET    = 0x00ca,  /**< unset an attribute */
+  msg_OPT_WATCH       = 0x00cb,  /**< set the attribute watch list */
+
+  msg_AWARE_SNAPSHOT  = 0x01f4,  /**< recv aware snapshot */
+  msg_AWARE_UPDATE    = 0x01f5,  /**< recv aware update */
+  msg_AWARE_GROUP     = 0x01f6,  /**< recv group aware */
+
+  msg_OPT_GOT_SET     = 0x0259,  /**< recv attribute set update */
+  msg_OPT_GOT_UNSET   = 0x025a,  /**< recv attribute unset update */
+
+  msg_OPT_GOT_UNKNOWN = 0x025b,  /**< UNKNOWN */
+  
+  msg_OPT_DID_SET     = 0x025d,  /**< attribute set response */
+  msg_OPT_DID_UNSET   = 0x025e,  /**< attribute unset response */
+  msg_OPT_DID_ERROR   = 0x025f,  /**< attribute set/unset error */
+};
+
+
 /* ----- MwAwareService ----- */
 
 
@@ -50,8 +74,9 @@ typedef struct mw_aware_service_private MwAwareServicePrivate;
 
 
 struct mw_aware_service_private {
-  GHashTable *awares;
-  MwChannel *channel;
+  GHashTable *awares;   /**< watched Awares */
+  GHashTable *attribs;  /**< watched attributes */
+  MwChannel *channel;   /**< backing channel */
 };
 
 
@@ -101,9 +126,8 @@ static void mw_aware_setup(MwAwareService *self, MwAware *aware) {
 }
 
 
-MwAware *mw_new_aware(MwAwareService *self, enum mw_aware_type type,
-		      const gchar *user, const gchar *community) {
-
+static MwAware *mw_new_aware(MwAwareService *self, enum mw_aware_type type,
+			     const gchar *user, const gchar *community) {
   MwAware *aware;
 
   aware = g_object_new(MW_TYPE_AWARE,
@@ -112,14 +136,12 @@ MwAware *mw_new_aware(MwAwareService *self, enum mw_aware_type type,
 		       "user", user,
 		       "community", community,
 		       NULL);
-
   return aware;
 }
 
 
-MwAware *mw_get_aware(MwAwareService *self, enum mw_aware_type type,
-		      const gchar *user, const gchar *community) {
-
+static MwAware *mw_get_aware(MwAwareService *self, enum mw_aware_type type,
+			     const gchar *user, const gchar *community) {
   MwAware *aware;
 
   aware = MwAwareService_findConversation(self, type, user, community);
@@ -134,8 +156,8 @@ MwAware *mw_get_aware(MwAwareService *self, enum mw_aware_type type,
 }
 
 
-MwAware *mw_find_aware(MwAwareService *self, enum mw_aware_type type,
-		       const gchar *user, const gchar *community) {
+static MwAware *mw_find_aware(MwAwareService *self, enum mw_aware_type type,
+			      const gchar *user, const gchar *community) {
 
   MwAwareServicePrivate *priv;
   MwAware *aware;
@@ -149,49 +171,158 @@ MwAware *mw_find_aware(MwAwareService *self, enum mw_aware_type type,
 }
 
 
-void mw_foreach_aware(MwAwareService *self, GFunc func, gpointer data) {
+static void mw_foreach_aware(MwAwareService *self, GFunc func, gpointer data) {
   MwAwareServicePrivate *priv;
   priv = MW_AWARE_SERVICE_GET_PRIVATE(self);
   mw_map_foreach_val(priv->awares, func, data)
 }
 
 
-void mw_watch_aware(MwAwareService *self, MwAware *aware) {
+static void MwAware_put(MwPutBuffer *pb, const MwAware *aware) {
+  g_return_if_fail(pb != NULL);
+  g_return_if_fail(aware != NULL);
+
+  mw_uint16_put(pb, aware->type);
+  mw_str_put(pb, aware->user);
+  mw_str_put(pb, aware->community);
+}
+
+
+static void mw_send_add(MwChannel *chan, const GList *idlist) {
+  static MwOpaque o = { 0, 0 };
+  MwPutBuffer *pb;
+
+  if(! idlist) return;
+
+  pb = MwPutBuffer_new();
+  guint32_put(pb, g_list_length(idlist));
+  for(; idlist; idlist = idlist->next) {
+    MwAware_put(pb, idlist->data);
+  }
+  
+  MwPutBuffer_free(pb, &o);
+  MwChannel_send(chan, msg_AWARE_ADD, &o, FALSE);
+  MwOpaque_clear(&o);
+}
+
+
+static void mw_watch_awares(MwAwareService *self, const GList *awares) {
+  /*
+    - collect a list of MwAware that are not already in the service
+    - add awares to service
+    - if service is started, get channel, call mw_send_add
+  */
+}
+
+
+static void mw_send_remove(MwChannel *chan, const GList *idlist) {
+  static MwOpaque o = { 0, 0 };
+  MwPutBuffer *pb;
+
+  if(! idlist) return;
+
+  pb = MwPutBuffer_new();
+  guint32(pb, g_list_length(idlist));
+  for(; idlist; idlist = idlist->next) {
+    MwAware_put(pb, idlist->data);
+  }
+
+  MwPutBuffer_free(pb, &o);
+  MwChannel_send(chan, msg_AWARE_REMOVE, &o, FALSE);
+  MwOpaque_clear(&o);
+}
+
+
+static void mw_unwatch_awares(MwAwareService *self, const GList *awares) {
+  /*
+    - for each MwAware, decrement watch count
+    - if watch count < 1, add to removal list
+    - remove awares from service
+    - if service is started, get channel, call mw_send_remove
+  */
+}
+
+
+/**
+   quick static single GList
+ */
+static const GList *tmp_single_list(gpointer data) {
+  static GList l;
+  l.data = data;
+  l.next = NULL;
+  return &l;
+}
+
+
+static void mw_watch_aware(MwAwareService *self, MwAware *aware) {
+  mw_watch_awares(self, tmp_single_list(aware));
+}
+
+
+static gboolean mw_unwatch_aware(MwAwareService *self, MwAware *aware) {
+  mw_unwatch_awares(self, tmp_single_list(aware));
+}
+
+
+static void send_watched_attributes(MwAwareService *self) {
+  static MwOpaque o = { 0, 0 };
+  MwAwareServicePrivate *priv;
+  MwPutBuffer *pb;
+  gint status;
+  GList *l;
+
+  g_object_get(G_OBJECT(self), "status", &status, NULL);
+  if(status != mw_service_started) return;
+
+  priv = MW_AWARE_SERVICE_GET_PRIVATE(self);
+  g_return_if_fail(priv != NULL);
+  g_return_if_fail(priv->channel != NULL);
+  g_return_if_fail(priv->attribs != NULL);
+
+  l = mw_map_collect_keys(priv->attribs);
+
+  pb = MwPutBuffer_new();
+  mw_uint32_put(pb, 0x00);
+  mw_uint32_put(pb, g_list_length(l));
+
+  for(; l; l = g_list_delete_link(l, l)) {
+    mw_uint32_put(pb, GPOINTER_TO_UINT(l->data));
+  }
+
+  MwPutBuffer_free(pb, &o);
+  MwChannel_send(priv->channel, msg_OPT_WATCH, &o, FALSE);
+  MwOpaque_clear(&o);
+}
+
+
+static void mw_watch_attrib(MwAwareService *self, guint32 key) {
+  /* XXX */
+  /*
+    - find key entry in service attribute table
+    - if not there, create key entry, send updated watch list
+    - else increment key entry watch count
+  */
+}
+
+
+static void mw_unwatch_attrib(MwAwareService *self, guint32 key) {
+  /* XXX */
+  /*
+    - find key entry in service attribute table
+    - if not there, return
+    - decrement watch count
+    - if watch cound < 1, remove from table, send updated watch list
+  */
+}
+
+
+static void mw_set_attrib(MwAwareService *self, guint32 key,
+			  const MwOpaque *val) {
   /* XXX */
 }
 
 
-gboolean mw_unwatch_aware(MwAwareService *self, MwAware *aware) {
-  /* XXX */
-}
-
-
-void mw_watch_awares(MwAwareService *self, const GList *awares) {
-  /* XXX */
-}
-
-
-void mw_unwatch_awares(MwAwareService *self, const GList *awares) {
-  /* XXX */
-}
-
-
-void mw_watch_attrib(MwAwareService *self, guint32 key) {
-  /* XXX */
-}
-
-
-void mw_unwatch_attrib(MwAwareService *self, guint32 key) {
-  /* XXX */
-}
-
-
-void mw_set_attrib(MwAwareService *self, guint32 key, const MwOpaque *val) {
-  /* XXX */
-}
-
-
-const MwOpaque *mw_get_attrib(MwAwareService *self, guint32 key) {
+static const MwOpaque *mw_get_attrib(MwAwareService *self, guint32 key) {
   /* XXX */
 }
 
@@ -368,7 +499,7 @@ mw_srvc_constructor(GType type, guint props_count,
 
   MwAwareServiceClass *klass;
 
-  GObject obj;
+  GObject *obj;
   MwAwareService *self;
   MwAwareServicePrivate *priv;
 
@@ -415,7 +546,7 @@ static void mw_srvc_dispose(GObject *object) {
 static void mw_srvc_class_init(gpointer gclass, gpointer gclass_data) {
   GObjectClass *gobject_class = gclass;
   MwServiceClass *service_class = gclass;
-  MwIMServiceClass *klass = gclass;
+  MwAwareServiceClass *klass = gclass;
 
   srvc_parent_class = g_type_class_peek_parent(gobject_class);
 
@@ -538,6 +669,7 @@ struct mw_aware_private {
   MwAwareService *service;  /**< reference to owning service */
   guint type;               /**< enum mw_aware_type */
   MwIdentity id;            /**< user/server/login and community */
+  GList *watchers;          /**< MwAwareList instances watching aware */
   GHashTable *attribs;      /**< awareness attributes */
 };
 
@@ -546,14 +678,37 @@ struct mw_aware_private {
 static GObjectClass *aware_parent_class;
 
 
+/* default impl of MwAware_setAttribute */
 static void mw_aware_set_attrib(MwAware *self, 
 				guint32 key, const MwOpaque *val) {
 
+  MwAwarePrivate *priv = MW_AWARE_GET_PRIVATE(self);
+  MwOpaque *stored;
+  GHashTable *ht;
+
+  g_return_if_fail(priv->attribs != NULL);
+  ht = priv->attribs;
+
+  stored = g_hash_table_lookup(ht, GUINT_TO_POINTER(key));
+  if(stored) {
+    MwOpaque_clear(stored);
+
+  } else {
+    stored = g_new0(MwOpaque, 1);
+    g_hash_table_insert(ht, GUINT_TO_POINTER(key), stored);
+  }
+
+  MwOpaque_clone(stored, val);
 }
 
 
+/* default impl of MwAware_getAttribute */
 static const MwOpaque *mw_aware_get_attrib(MwAware *self, guint32 key) {
+  MwAwarePrivate *priv = MW_AWARE_GET_PRIVATE(self);
 
+  g_return_val_if_fail(priv->attribs != NULL, NULL);
+
+  return g_hash_table_lookup(priv->attribs, GUINT_TO_POINTER(key));
 }
 
 
@@ -573,25 +728,74 @@ static void mw_aware_set_property(GObject *object,
 
 static GObject *mw_aware_constructor(GType type, guint props_count,
 				     GObjectConstructParam *param) {
+  MwAwareClass *klass;
 
+  GObject *obj;
+  MwAware *self;
+  MwAwarePrivate *priv;
+
+  mw_debug_enter();
+
+  klass = MW_AWARE_CLASS(g_type_class_peek(MW_TYPE_AWARE));
+
+  obj = aware_parent_class->constructor(type, props_count, props);
+  self = (MwAware *) obj;
+
+  priv = MW_AWARE_GET_PRIVATE(self);
+
+  priv->attribs = g_hash_table_new_full(G_DIRECT_HASH, G_DIRECT_EQUAL,
+					NULL, (GDestroyNotify)MwOpaque_free);
+
+  mw_debug_exit();
+  return obj;
 }
 
 
 static void mw_aware_dispose(GObject *object) {
+  MwAware *self;
+  MwAwarePrivate *priv;
 
+  mw_debug_enter();
+
+  self = MW_AWARE(object);
+  priv = MW_AWARE_SERVICE_PRIVATE(self);
+
+  MwIdentity_clear(&priv->id);
+
+  g_list_free(priv->watchers);
+  priv->watchers = NULL;
+
+  g_hash_table_destroy(priv->attribs);
+  priv->attribs = NULL;
+
+  aware_parent_class->dispose(object);
+
+  mw_debug_exit();
 }
 
 
 static void mw_aware_class_init(gpointer gclass, gpointer gclass_data) {
+  GObjectClass *gobject_class = gclass;
+  MwObjectClass *mwobject_class = gclass;
+  MwAwareClass *klass = gclass;
 
+  aware_parent_class = g_type_class_peek_parent(gobject_class);
+
+  gobject_class->constructor = mw_aware_constructor;
+  gobject_class->dispose = mw_aware_dispose;
+
+  klass->get_attrib = mw_aware_get_attrib;
+  klass->set_attrib = mw_aware_set_attrib;
+
+  g_type_class_add_private(klass, sizeof(MwAwarePrivate));
 }
 
 
-static const GTypeInfo mw_srvc_info = {
+static const GTypeInfo mw_aware_info = {
   .class_size = sizeof(MwAwareClass),
   .base_init = NULL,
   .base_finalize = NULL,
-  .class_init = mw_srvc_class_init,
+  .class_init = mw_aware_class_init,
   .class_finalize = NULL,
   .class_data = NULL,
   .instance_size = sizeof(MwAware),
@@ -613,13 +817,20 @@ GType MwAware_getType() {
 }
 
 
-const MwOpaque *MwAware_getAttribute(MwAware *self, guint32 key) {
+static const MwOpaque *mw_aware_get_attrib(MwAware *self, guint32 key) {
+}
 
+
+const MwOpaque *MwAware_getAttribute(MwAware *self, guint32 key) {
+  g_return_val_if_fail(self != NULL, NULL);
+  return mw_aware_get_attrib(self, key);
 }
 
 
 gboolean MwAware_getBoolean(MwAware *self, guint32 key) {
+  const MwOpaque *attr;
 
+  attr = MwAware_getAttribute
 }
 
 
@@ -756,29 +967,6 @@ struct aware_entry {
 
 #define ENTRY_KEY(entry) &entry->aware.id
 
-
-/** the channel send types used by this service */
-enum msg_types {
-  msg_AWARE_ADD       = 0x0068,  /**< remove an aware */
-  msg_AWARE_REMOVE    = 0x0069,  /**< add an aware */
-
-  msg_OPT_DO_SET      = 0x00c9,  /**< set an attribute */
-  msg_OPT_DO_UNSET    = 0x00ca,  /**< unset an attribute */
-  msg_OPT_WATCH       = 0x00cb,  /**< set the attribute watch list */
-
-  msg_AWARE_SNAPSHOT  = 0x01f4,  /**< recv aware snapshot */
-  msg_AWARE_UPDATE    = 0x01f5,  /**< recv aware update */
-  msg_AWARE_GROUP     = 0x01f6,  /**< recv group aware */
-
-  msg_OPT_GOT_SET     = 0x0259,  /**< recv attribute set update */
-  msg_OPT_GOT_UNSET   = 0x025a,  /**< recv attribute unset update */
-
-  msg_OPT_GOT_UNKNOWN = 0x025b,  /**< UNKNOWN */
-  
-  msg_OPT_DID_SET     = 0x025d,  /**< attribute set response */
-  msg_OPT_DID_UNSET   = 0x025e,  /**< attribute unset response */
-  msg_OPT_DID_ERROR   = 0x025f,  /**< attribute set/unset error */
-};
 
 
 static void aware_entry_free(struct aware_entry *ae) {

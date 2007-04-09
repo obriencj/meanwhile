@@ -264,17 +264,51 @@ static void mw_channel_recv(MwChannel *chan,
 }
 
 
+static void mw_handle_otm_update(MwStorageService *self,
+				 const MwOpaque *data) {
+    guint sig;
+    MwGetBuffer *gb;
+    guint32 count, key;
+
+    g_info("storage service handling one time message");
+
+    sig = MW_STORAGE_SERVICE_GET_CLASS(self)->signal_key_updated;
+
+    gb = MwGetBuffer_wrap(data);
+    mw_uint32_get(gb, &count);
+
+    while(count-- && ! MwGetBuffer_error(gb)) {
+      mw_uint32_get(gb, &key);
+      g_signal_emit(self, sig, 1, key, NULL);
+    }
+
+    MwGetBuffer_free(gb);
+}
+
+
 static void mw_got_one_time(MwSession *sess, guint id,
-			    const gchar *user, const gchar *community,
 			    guint srvc, guint srvc_type, guint srvc_ver,
-			    guint type, const MwOpaque *data) {
+			    guint type, const MwOpaque *data,
+			    const MwLogin *sender,
+			    MwStorageService *self) {
 
   if(srvc == 0x80000026 && srvc_type == 0x80000022 && srvc_ver == 0) {
     /* it's for us, handle it */
+
+    switch(type) {
+    case 0x8003:
+      mw_handle_otm_update(self, data);
+      break;
+    default:
+      mw_debug_opaque(data, ("storage service got unknown one time message,"
+			     " type 0x%x"), type);
+    }
   }
 }
 
 
+/** start watching for a one-time message on the owning service.
+    should be called when the service is started */
 static void watch_one_time(MwStorageService *self) {
   MwSession *session = NULL;
   MwStorageServicePrivate *priv;
@@ -289,6 +323,8 @@ static void watch_one_time(MwStorageService *self) {
 }
 
 
+/** stop watching for one-time messages. should be called when the
+    service stops */
 static void unwatch_one_time(MwStorageService *self) {
   MwSession *session = NULL;
   MwStorageServicePrivate *priv;
@@ -303,6 +339,24 @@ static void unwatch_one_time(MwStorageService *self) {
 }
 
 
+static void channel_closed(MwService *self) {
+  /* if the service was in the process of stopping, then this completes
+     the process. Otherwise, stop the service */
+  
+  gint srvc_state;
+  g_object_get(G_OBJECT(self), "state", &srvc_state, NULL);
+
+  if(srvc_state == mw_service_stopping) {
+    MwService_stopped(self);
+  } else {
+    MwService_stop(self);
+  }
+}
+
+
+/** triggered from state changes on the underlying channel. Since the
+    service's statis is reliant on the channel, this will complete the
+    startup and shutdown process for the service */
 static void mw_channel_state(MwChannel *chan, gint state, MwService *self) {
   switch(state) {
 
@@ -320,23 +374,12 @@ static void mw_channel_state(MwChannel *chan, gint state, MwService *self) {
     break;
 
   case mw_channel_closed:
-    {
-      /* if the service was in the process of stopping, then this completes
-	 the process. Otherwise, stop the service */
-
-      gint srvc_state;
-      g_object_get(G_OBJECT(self), "state", &srvc_state, NULL);
-
-      if(srvc_state == mw_service_stopping) {
-	MwService_stopped(self);
-      } else {
-	MwService_stop(self);
-      }
-    }
+    /* channel closed, service is stopping or stopped */
+    channel_closed(self);
     break;
 
   default:
-    ;
+    ; /* not terribly interested in the other states */
   }
 }
 
@@ -365,9 +408,11 @@ static gboolean mw_start(MwService *self) {
 		 "offered-policy", mw_channel_encrypt_WHATEVER,
 		 NULL);
     
+    /* watch for incoming data */
     priv->in_event = g_signal_connect(G_OBJECT(chan), "incoming",
 				      G_CALLBACK(mw_channel_recv), self);
 
+    /* watch the channel's status */
     priv->state_event = g_signal_connect(G_OBJECT(chan), "state-changed",
 					 G_CALLBACK(mw_channel_state), self);
 
@@ -377,7 +422,8 @@ static gboolean mw_start(MwService *self) {
   /* open/re-open our channel */
   MwChannel_open(chan, NULL);
 
-  /* we're not fully started until the channel is open */
+  /* we're not fully started until the channel is open, so return
+     FALSE to defer calling of MwService_started */
   return FALSE;
 }
 

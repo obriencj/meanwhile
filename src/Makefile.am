@@ -8,12 +8,12 @@ noinst_PROGRAMS = test
 
 test_SOURCES = test.c
 
-test_CFLAGS = $(libmeanwhile_la_CFLAGS)
+test_CFLAGS = $(libmeanwhile_2_la_CFLAGS)
 
-test_LDADD = libmeanwhile.la $(libmeanwhile_la_LIBADD)
+test_LDADD = libmeanwhile-2.la $(libmeanwhile_2_la_LIBADD)
 
 
-lib_LTLIBRARIES = libmeanwhile.la
+lib_LTLIBRARIES = libmeanwhile-2.la
 
 
 mwinclude_HEADERS = \
@@ -41,10 +41,10 @@ noinst_HEADERS = \
 	mw_util.h
 
 
-mwincludedir = $(includedir)/meanwhile
+mwincludedir = $(includedir)/meanwhile-2
 
 
-libmeanwhile_la_SOURCES = \
+libmeanwhile_2_la_SOURCES = \
 	channel.c \
 	common.c \
 	encrypt.c \
@@ -79,17 +79,17 @@ test.c:
 	ln -s ../samples/sendmessage.c $@
 
 
-libmeanwhile_la_CFLAGS = \
+libmeanwhile_2_la_CFLAGS = \
 	$(DEBUG_CFLAGS) \
 	$(GLIB_CFLAGS) $(GOBJECT_CFLAGS)
 
 
-libmeanwhile_la_LIBADD = \
+libmeanwhile_2_la_LIBADD = \
 	mpi/libmpi.la \
 	$(GLIB_LIBS) $(GOBJECT_LIBS)
 
 
-libmeanwhile_la_LDFLAGS = \
+libmeanwhile_2_la_LDFLAGS = \
 	@MW_SO_OS_FLAGS@ \
 	-version-info @MW_SO_VERSION@
 

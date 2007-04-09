@@ -13,7 +13,7 @@ m4_define(glib_required_version,	2.0.0)
 
 
 AC_INIT
-AM_INIT_AUTOMAKE(meanwhile, meanwhile_major.meanwhile_minor.meanwhile_micro)
+AM_INIT_AUTOMAKE(meanwhile-2, meanwhile_major.meanwhile_minor.meanwhile_micro)
 
 
 RELEASE=meanwhile_release
@@ -144,7 +144,7 @@ GTK_DOC_CHECK(1.0)
 AC_CONFIG_FILES(
 	[Makefile src/Makefile src/mpi/Makefile]
 dnl	[doc/Makefile samples/Makefile]
-	[meanwhile.spec meanwhile.pc]
+	[meanwhile-2.spec meanwhile-2.pc]
 )
 
 AC_CONFIG_FILES([samples/build], [chmod +x samples/build])

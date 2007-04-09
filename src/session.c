@@ -106,11 +106,11 @@ struct mw_session_private {
   MwOpaque *prop_auth_token;
   gchar *prop_client_host;
 
-  guint master_channel;
+  guint master_channel;  /**< master channel ID, defaults to 0x00 */
 
-  guint prop_client_ver_major;
+  guint prop_client_ver_major;  /**< set by the client code */
   guint prop_client_ver_minor;
-  guint prop_server_ver_major;
+  guint prop_server_ver_major;  /**< set by the server at login */
   guint prop_server_ver_minor;
 
   /* state dependant */

@@ -478,6 +478,7 @@ enum conv_properties {
   conv_property_user,
   conv_property_community,
   conv_property_target,
+  conv_property_error,
 };
 
 
@@ -486,6 +487,7 @@ struct mw_conversation_private {
   MwChannel *channel;    /**< reference to backing channel */
   MwIMService *service;  /**< reference to owning service */
   MwIdentity target;     /**< targeted user,community */
+  guint error;
 
   glong ev_in;
   glong ev_state;
@@ -642,6 +644,7 @@ mw_conv_constructor(GType type, guint props_count,
   self = (MwConversation *) obj;
 
   g_object_set(obj, "state", mw_conversation_closed, NULL);
+  g_object_set(obj, "error", 0x00, NULL);
 
   mw_debug_exit();
   return obj;
@@ -772,7 +775,7 @@ static void mw_chan_state(MwChannel *chan, gint state,
   if(state == mw_channel_error) {
     guint code;
 
-    g_object_get(G_OBJECT(conv), "error", &code, NULL);
+    g_object_get(G_OBJECT(chan), "error", &code, NULL);
     
     g_object_set(G_OBJECT(conv),
 		 "error", code,
@@ -849,6 +852,9 @@ static void mw_conv_set_property(GObject *object,
     g_free(priv->target.community);
     priv->target.community = g_value_dup_string(value);
     break;
+  case conv_property_error:
+    priv->error = g_value_get_uint(value);
+    break;
   default:
     ;
   }
@@ -880,6 +886,9 @@ static void mw_conv_get_property(GObject *object,
     break;
   case conv_property_target:
     g_value_set_boxed(value, &priv->target);
+    break;
+  case conv_property_error:
+    g_value_set_uint(value, priv->error);
     break;
   default:
     ;
@@ -940,25 +949,29 @@ static void mw_conv_class_init(gpointer gclass, gpointer gclass_data) {
   gobject_class->get_property = mw_conv_get_property;
 
   mw_prop_obj(gobject_class, conv_property_channel,
-	      "channel", "get conversation's backing channel",
+	      "channel", "conversation's backing channel",
 	      MW_TYPE_CHANNEL, G_PARAM_READWRITE);
 
   mw_prop_obj(gobject_class, conv_property_service,
-	      "service", "get conversation's owning service",
+	      "service", "conversation's owning service",
 	      MW_TYPE_IM_SERVICE, G_PARAM_READWRITE|G_PARAM_CONSTRUCT_ONLY);
 
   mw_prop_str(gobject_class, conv_property_user,
-	      "user", "get remote user",
+	      "user", "remote user's ID",
 	      G_PARAM_READWRITE|G_PARAM_CONSTRUCT_ONLY);
 
   mw_prop_str(gobject_class, conv_property_community,
-	      "community", "get remote community",
+	      "community", "remote user's community",
 	      G_PARAM_READWRITE|G_PARAM_CONSTRUCT_ONLY);
 
   mw_prop_boxed(gobject_class, conv_property_target,
-		"target", "get remote user,community as a MwIdentity",
+		"target", "remote user's ID and community as a MwIdentity",
 		MW_TYPE_IDENTITY, G_PARAM_READABLE);
   
+  mw_prop_uint(gobject_class, conv_property_error,
+	       "error", "conversation's error status",
+	       G_PARAM_READWRITE);
+
   klass->signal_got_text = mw_conv_signal_got_text();
   klass->signal_got_typing = mw_conv_signal_got_typing();
   klass->signal_got_data = mw_conv_signal_got_data();
