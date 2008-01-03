@@ -1,11 +1,11 @@
 
 # version of meanwhile
 m4_define(meanwhile_major,	1)
-m4_define(meanwhile_minor,	0)
-m4_define(meanwhile_micro,	2)
+m4_define(meanwhile_minor,	1)
+m4_define(meanwhile_micro,	0)
 
 # release of meanwhile. 0 for CVS, 1 for release
-m4_define(meanwhile_release,	1)
+m4_define(meanwhile_release,	0)
 
 # required and compat version of glib2.
 m4_define(glib_required_version,	2.0.0)

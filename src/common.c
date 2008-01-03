@@ -878,23 +878,24 @@ gboolean mwAwareIdBlock_equal(const struct mwAwareIdBlock *a,
 /* 8.4.2.4 Snapshot */
 
 void mwAwareSnapshot_get(struct mwGetBuffer *b, struct mwAwareSnapshot *idb) {
-  guint32 junk;
-  char *empty = NULL;
+  guint32 end_of_block;
 
   g_return_if_fail(b != NULL);
   g_return_if_fail(idb != NULL);
 
-  guint32_get(b, &junk);
+  guint32_get(b, &end_of_block);
   mwAwareIdBlock_get(b, &idb->id);
   mwString_get(b, &idb->group);
   gboolean_get(b, &idb->online);
-
-  g_free(empty);
 
   if(idb->online) {
     mwString_get(b, &idb->alt_id);
     mwUserStatus_get(b, &idb->status);
     mwString_get(b, &idb->name);
+  }
+
+  if(b->ptr < b->buf + end_of_block) {
+    mwGetBuffer_advance(b, b->buf + end_of_block - b->ptr);
   }
 }
 

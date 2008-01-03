@@ -156,7 +156,7 @@ static void conf_free(struct mwConference *conf) {
   if(conf->members)
     g_hash_table_destroy(conf->members);
 
-  g_list_remove_all(srvc->confs, conf);
+  srvc->confs = g_list_remove_all(srvc->confs, conf);
 
   mw_datum_clear(&conf->client_data);
   

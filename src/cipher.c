@@ -718,7 +718,7 @@ offer_RC2_128(struct mwCipherInstance *ci) {
 static void accepted_RC2_128(struct mwCipherInstance *ci,
 			     struct mwEncryptItem *item) {
 
-  return offered_RC2_128(ci, item);
+  offered_RC2_128(ci, item);
 }
 
 

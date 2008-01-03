@@ -153,10 +153,14 @@ struct mwPrivacyInfo {
 /* 8.3.5 User Status Types */
 
 enum mwStatusType {
+  mwStatus_OFFLINE = 0x0000,
+
   mwStatus_ACTIVE  = 0x0020,
   mwStatus_IDLE    = 0x0040,
   mwStatus_AWAY    = 0x0060,
   mwStatus_BUSY    = 0x0080,
+
+  mwStatus_MASK_MOBILE = 0x0200,
 };
 
 
@@ -224,7 +228,7 @@ struct mwEncryptItem {
 
 
 /** allocate a new empty buffer */
-struct mwPutBuffer *mwPutBuffer_new();
+struct mwPutBuffer *mwPutBuffer_new(void);
 
 
 /** write raw data to the put buffer */
