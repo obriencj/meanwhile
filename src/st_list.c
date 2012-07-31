@@ -662,7 +662,9 @@ void mwSametimeList_get(struct mwGetBuffer *b, struct mwSametimeList *l) {
   g_return_if_fail(b != NULL);
 
   mwString_get(b, &str);
-  list_get(str, l);
-  g_free(str);
+  if (str) {
+    list_get(str, l);
+    g_free(str);
+  }
 }
 
