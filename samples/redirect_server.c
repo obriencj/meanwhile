@@ -22,7 +22,6 @@
 #include <unistd.h>
 
 #include <glib.h>
-#include <glib/glist.h>
 
 #include <mw_common.h>
 #include <mw_message.h>

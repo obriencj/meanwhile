@@ -20,7 +20,7 @@
 
 #include <stdio.h>
 #include <string.h>
-#include <glib/gstring.h>
+#include <glib.h>
 
 #include "mw_debug.h"
 #include "mw_util.h"
