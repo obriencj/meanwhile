@@ -1286,7 +1286,7 @@ mw_mp_err mw_mp_expt(mw_mp_int *a, mw_mp_int *b, mw_mp_int *c)
     goto X;
 
   /* Loop over low-order digits in ascending order */
-  for(dig = 0; dig < (USED(b) - 1); dig++) {
+  for(dig = 0; dig < (int)(USED(b) - 1); dig++) {
     d = DIGIT(b, dig);
 
     /* Loop over bits of each non-maximal digit */
@@ -1664,7 +1664,7 @@ mw_mp_err mw_mp_exptmod(mw_mp_int *a, mw_mp_int *b, mw_mp_int *m, mw_mp_int *c)
     goto CLEANUP;
 
   /* Loop over digits of b in ascending order, except highest order */
-  for(dig = 0; dig < (ub - 1); dig++) {
+  for(dig = 0; dig < (int)(ub - 1); dig++) {
     d = *db++;
 
     /* Loop over the bits of the lower-order digits */
@@ -2400,7 +2400,7 @@ mw_mp_err mw_mp_to_unsigned_bin(mw_mp_int *mp, unsigned char *str)
     int      ix;
 
     d = *dp;
-    for(ix = 0; ix < sizeof(mw_mp_digit); ++ix) {
+    for(ix = 0; ix < (int)sizeof(mw_mp_digit); ++ix) {
       *spos = d & UCHAR_MAX;
       d >>= CHAR_BIT;
       ++spos;
@@ -2846,7 +2846,7 @@ mw_mp_err   s_mw_mp_lshd(mw_mp_int *mp, mw_mp_size p)
     dp[ix + p] = dp[ix];
 
   /* Fill the bottom digits with zeroes */
-  for(ix = 0; ix < p; ix++)
+  for(ix = 0; ix < (int)p; ix++)
     dp[ix] = 0;
 
   return MP_OKAY;
@@ -2916,7 +2916,7 @@ mw_mp_err s_mw_mp_mul_2(mw_mp_int *mp)
   mw_mp_err   res;
 
   /* Shift digits leftward by 1 bit */
-  for(ix = 0; ix < USED(mp); ix++) {
+  for(ix = 0; ix < (int)USED(mp); ix++) {
     kout = (dp[ix] >> (DIGIT_BIT - 1)) & 1;
     dp[ix] = (dp[ix] << 1) | kin;
 
@@ -2925,7 +2925,7 @@ mw_mp_err s_mw_mp_mul_2(mw_mp_int *mp)
 
   /* Deal with rollover from last digit */
   if(kin) {
-    if(ix >= ALLOC(mp)) {
+    if(ix >= (int)ALLOC(mp)) {
       if((res = s_mw_mp_grow(mp, ALLOC(mp) + 1)) != MP_OKAY)
 	return res;
       dp = DIGITS(mp);
@@ -3003,7 +3003,7 @@ mw_mp_err    s_mw_mp_mul_2d(mw_mp_int *mp, mw_mp_digit d)
 
   /* Do the shifting... */
   save = 0;
-  for(ix = 0; ix < used; ix++) {
+  for(ix = 0; ix < (int)used; ix++) {
     next = (dp[ix] >> (DIGIT_BIT - d)) & mask;
     dp[ix] = (dp[ix] << d) | save;
     save = next;

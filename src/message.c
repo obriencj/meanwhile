@@ -106,6 +106,8 @@ static void HANDSHAKE_get(struct mwGetBuffer *b, struct mwMsgHandshake *msg) {
 
 
 static void HANDSHAKE_clear(struct mwMsgHandshake *msg) {
+  // `msg` unused
+  (void)msg;
   ; /* nothing to clean up */
 }
 
@@ -210,18 +212,25 @@ static void LOGIN_ACK_clear(struct mwMsgLoginAck *msg) {
 static void LOGIN_CONTINUE_put(struct mwPutBuffer *b,
 			       struct mwMsgLoginContinue *msg) {
 
+  // `b` and `msg` unused
+  (void)b;
+  (void)msg;
   ; /* nothing but a message header */
 }
 
 
 static void LOGIN_CONTINUE_get(struct mwGetBuffer *b,
 			       struct mwMsgLoginContinue *msg) {
-
+  // `b` and `msg` unused
+  (void)b;
+  (void)msg;
   ; /* nothing but a message header */
 }
 
 
 static void LOGIN_CONTINUE_clear(struct mwMsgLoginContinue *msg) {
+    // `msg` unused
+    (void)msg;
   ; /* this is a very simple message */
 }
 
@@ -582,6 +591,8 @@ static void SENSE_SERVICE_get(struct mwGetBuffer *b,
 
 
 static void SENSE_SERVICE_clear(struct mwMsgSenseService *msg) {
+  // `msg` unused
+  (void)msg;
   ;
 }
 

@@ -904,6 +904,9 @@ void mwChannel_addSupportedCipherInstance(struct mwChannel *chan,
 
 
 static void collect(gpointer a, gpointer b, gpointer c) {
+  // `a` isn't used
+  (void)a;
+
   GList **list = c;
   *list = g_list_append(*list, b);
 }
