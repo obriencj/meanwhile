@@ -492,7 +492,7 @@ void   mw_mp_set(mw_mp_int *mp, mw_mp_digit d)
 mw_mp_err mw_mp_set_int(mw_mp_int *mp, long z)
 {
   int            ix;
-  unsigned long  v = abs(z);
+  unsigned long  v = labs(z);
   mw_mp_err         res;
 
   ARGCHK(mp != NULL, MP_BADARG);
