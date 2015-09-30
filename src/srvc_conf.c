@@ -258,7 +258,12 @@ static void recv_channelCreate(struct mwService *srvc,
 static void recv_channelAccept(struct mwService *srvc,
 			       struct mwChannel *chan,
 			       struct mwMsgChannelAccept *msg) {
-
+  // `srvc` unused
+  (void)srvc;
+  // `chan` unused
+  (void)chan;
+  // `msg` unused
+  (void)msg;
   ;
 }
 
@@ -565,11 +570,15 @@ static void clear(struct mwServiceConference *srvc) {
 
 
 static const char *name(struct mwService *srvc) {
+  // `srvc` unused
+  (void)srvc;
   return "Basic Conferencing";
 }
 
 
 static const char *desc(struct mwService *srvc) {
+  // `srvc` unused
+  (void)srvc;
   return "Multi-user plain-text conferencing";
 }
 

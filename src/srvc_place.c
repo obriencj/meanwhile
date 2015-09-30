@@ -610,6 +610,10 @@ static int recv_SECTION(struct mwPlace *place, struct mwGetBuffer *b) {
 
 
 static int recv_UNKNOWNa(struct mwPlace *place, struct mwGetBuffer *b) {
+
+  // `b` unused
+  (void)b;
+
   int res = 0;
 
   if(place->state == mwPlace_JOINING) {
@@ -629,6 +633,9 @@ static int recv_UNKNOWNa(struct mwPlace *place, struct mwGetBuffer *b) {
 
 static void recv(struct mwService *service, struct mwChannel *chan,
 		 guint16 type, struct mwOpaque *data) {
+
+  // `service` unused
+  (void)service;
 
   struct mwPlace *place;
   struct mwGetBuffer *b;
@@ -711,6 +718,10 @@ static int send_JOIN_PLACE(struct mwPlace *place) {
 static void recv_channelAccept(struct mwService *service,
 			       struct mwChannel *chan,
 			       struct mwMsgChannelAccept *msg) {
+
+  // `msg` unused
+  (void)msg;
+
   struct mwServicePlace *srvc;
   struct mwPlace *place;
   int res;
@@ -759,11 +770,19 @@ static void clear(struct mwServicePlace *srvc) {
 
 
 static const char *get_name(struct mwService *srvc) {
+
+  // `srvc` unused
+  (void)srvc;
+
   return "Places Conferencing";
 }
 
 
 static const char *get_desc(struct mwService *srvc) {
+
+  // `srvc` unused
+  (void)srvc;
+
   return "Barebones conferencing via Places";
 }
 

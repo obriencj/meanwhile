@@ -91,11 +91,19 @@ static void search_free(struct mw_search *search) {
 
 
 static const char *get_name(struct mwService *srvc) {
+
+  // `srvc` unused
+  (void)srvc;
+
   return "Identity Resolution";
 }
 
 
 static const char *get_desc(struct mwService *srvc) {
+
+  // `srvc` unused
+  (void)srvc;
+
   return "Resolves short IDs to full IDs";
 }
 
@@ -164,6 +172,11 @@ static void recv_create(struct mwServiceResolve *srvc,
 			struct mwChannel *chan,
 			struct mwMsgChannelCreate *msg) {
 
+  // `srvc` unused
+  (void)srvc;
+  // `msg` unused
+  (void)msg;
+
   /* you serve me, not the other way around */
   mwChannel_destroy(chan, ERR_FAILURE, NULL);
 }
@@ -172,6 +185,9 @@ static void recv_create(struct mwServiceResolve *srvc,
 static void recv_accept(struct mwServiceResolve *srvc,
 			struct mwChannel *chan,
 			struct mwMsgChannelAccept *msg) {
+
+  // `msg` unused
+  (void)msg;
   
   g_return_if_fail(srvc != NULL);
   g_return_if_fail(chan != NULL);
@@ -184,6 +200,9 @@ static void recv_accept(struct mwServiceResolve *srvc,
 static void recv_destroy(struct mwServiceResolve *srvc,
 			 struct mwChannel *chan,
 			 struct mwMsgChannelDestroy *msg) {
+
+  // `msg` unused
+  (void)msg;
 
   struct mwSession *session;
 

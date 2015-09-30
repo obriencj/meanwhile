@@ -55,8 +55,8 @@ AC_ARG_ENABLE(debug,
 	[  --enable-debug	  compile with debugging support],
 	AC_DEFINE(DEBUG, 1, [Define if debugging is enabled.]), )
 if test "$enable_debug" = "yes" ; then
-    CFLAGS="$CFLAGS  -g -O0 -Wall -Wno-uninitialized -Wextra -Werror"
-    CXXFLAGS="$CXXFLAGS -g -O0 -Wall -Wno-uninitialized -Wextra -Werror"
+    CFLAGS="$CFLAGS  -g -O0 -Weverything -Wall -Wno-uninitialized -Wextra"
+    CXXFLAGS="$CXXFLAGS -g -O0 -Weverything -Wall -Wno-uninitialized -Wextra"
 fi
 
 

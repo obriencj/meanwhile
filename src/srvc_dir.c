@@ -147,11 +147,15 @@ static struct mwAddressBook *book_new(struct mwServiceDirectory *srvc,
 
 
 static const char *getName(struct mwService *srvc) {
+  // `srvc` unused
+  (void)srvc;
   return "Address Book and Directory";
 }
 
 
 static const char *getDesc(struct mwService *srvc) {
+  // `srvc` unused
+  (void)srvc;
   return "Address book directory service for user and group lookups";
 }
 
@@ -215,6 +219,10 @@ static void clear(struct mwServiceDirectory *srvc) {
 static void recv_create(struct mwServiceDirectory *srvc,
 			struct mwChannel *chan,
 			struct mwMsgChannelCreate *msg) {
+  // `srvc` unused
+  (void)srvc;
+  // `msg` unused
+  (void)msg;
 
   /* no way man, we call the shots around here */
   mwChannel_destroy(chan, ERR_FAILURE, NULL);
@@ -224,6 +232,9 @@ static void recv_create(struct mwServiceDirectory *srvc,
 static void recv_accept(struct mwServiceDirectory *srvc,
 			struct mwChannel *chan,
 			struct mwMsgChannelAccept *msg) {
+
+  // `msg` unused
+  (void)msg;
 
   g_return_if_fail(srvc->channel != NULL);
   g_return_if_fail(srvc->channel == chan);
@@ -240,6 +251,11 @@ static void recv_accept(struct mwServiceDirectory *srvc,
 static void recv_destroy(struct mwServiceDirectory *srvc,
 			 struct mwChannel *chan,
 			 struct mwMsgChannelDestroy *msg) {
+
+  // `chan` unused
+  (void)chan;
+  // `msg` unused
+  (void)msg;
 
   srvc->channel = NULL;
   mwService_stop(MW_SERVICE(srvc));
@@ -286,6 +302,11 @@ static void recv_list(struct mwServiceDirectory *srvc,
 static void recv_open(struct mwServiceDirectory *srvc,
 		      struct mwOpaque *data) {
 
+  // `srvc` unused
+  (void)srvc;
+  // `data` unused
+  (void)data;
+
   /* look up the directory associated with this request id, 
      mark it as open, and trigger the event */
 }
@@ -293,6 +314,11 @@ static void recv_open(struct mwServiceDirectory *srvc,
 
 static void recv_search(struct mwServiceDirectory *srvc,
 			struct mwOpaque *data) {
+
+  // `srvc` unused
+  (void)srvc;
+  // `data` unused
+  (void)data;
 
   /* look up the directory associated with this request id,
      trigger the event */

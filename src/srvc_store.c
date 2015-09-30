@@ -197,11 +197,19 @@ static void request_remove(struct mwServiceStorage *srvc,
 
 
 static const char *get_name(struct mwService *srvc) {
+
+  // `srvc` unused
+  (void)srvc;
+
   return "User Storage";
 }
 
 
 static const char *get_desc(struct mwService *srvc) {
+
+  // `srvc` unused
+  (void)srvc;
+
   return "Stores user data and settings on the server";
 }
 
@@ -286,6 +294,9 @@ static void stop(struct mwService *srvc) {
 static void recv_channelAccept(struct mwService *srvc,
 			       struct mwChannel *chan,
 			       struct mwMsgChannelAccept *msg) {
+
+  // `msg` unused
+  (void)msg;
  
   struct mwServiceStorage *srvc_stor;
   GList *l;
@@ -312,6 +323,9 @@ static void recv_channelAccept(struct mwService *srvc,
 static void recv_channelDestroy(struct mwService *srvc,
 				struct mwChannel *chan,
 				struct mwMsgChannelDestroy *msg) {
+
+  // `msg` unused
+  (void)msg;
 
   struct mwSession *session;
   struct mwServiceStorage *srvc_stor;

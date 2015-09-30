@@ -22,6 +22,10 @@
 
 
 static void collect_keys(gpointer key, gpointer val, gpointer data) {
+
+  // `val` unused
+  (void)val;
+
   GList **list = data;
   *list = g_list_append(*list, key);
 }
@@ -35,6 +39,10 @@ GList *map_collect_keys(GHashTable *ht) {
 
 
 static void collect_values(gpointer key, gpointer val, gpointer data) {
+
+  // `key` unused
+  (void)key;
+
   GList **list = data;
   *list = g_list_append(*list, val);
 }

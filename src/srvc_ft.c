@@ -176,6 +176,9 @@ static void recv_channelAccept(struct mwServiceFileTransfer *srvc,
 			       struct mwChannel *chan,
 			       struct mwMsgChannelAccept *msg) {
 
+  // `msg` unused
+  (void)msg;
+
   struct mwFileTransferHandler *handler;
   struct mwFileTransfer *ft;
 
@@ -246,6 +249,9 @@ static void recv_TRANSFER(struct mwFileTransfer *ft,
 static void recv_RECEIVED(struct mwFileTransfer *ft,
 			  struct mwOpaque *data) {
 
+  // `data` unused
+  (void)data;
+
   struct mwServiceFileTransfer *srvc;
   struct mwFileTransferHandler *handler;
   
@@ -265,6 +271,9 @@ static void recv_RECEIVED(struct mwFileTransfer *ft,
 
 static void recv(struct mwService *srvc, struct mwChannel *chan,
 		 guint16 type, struct mwOpaque *data) {
+
+  // `srvc` unused
+  (void)srvc;
 
   struct mwFileTransfer *ft;
   
@@ -297,11 +306,19 @@ static void clear(struct mwServiceFileTransfer *srvc) {
 
 
 static const char *name(struct mwService *srvc) {
+
+  // `srvc` unused
+  (void)srvc;
+
   return "File Transfer";
 }
 
 
 static const char *desc(struct mwService *srvc) {
+
+  // `srvc` unused
+  (void)srvc;
+
   return "Provides file transfer capabilities through the community server";
 }
 
