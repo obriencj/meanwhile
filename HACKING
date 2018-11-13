@@ -47,9 +47,13 @@ mwTypeName_someAction
 
 3	Patch Submission
 
-Patches must be submitted through the sf.net tracker. Patches must be
-in the `diff -ud` format, and should be relative to the base sandbox
-directory (the directory containing this file). One topic per patch
-submission, eg: no bugfixes along with new features (unless they are
-mutually inclusive).
+Patches should be submitted as github pull requests. One topic per
+patch submission, eg: no bugfixes along with new features (unless they
+are mutually inclusive).
 
+Well before a pull request is even started, there should be a tracker
+bug or rfe describing the effort for the pull request. For example if
+a bug is discovered, the very first step should be to file a tracker
+issue describing the bug. If you still want to move on to working to
+fix the bug, then create a fork, work on your changes, and then submit
+a pull request.
