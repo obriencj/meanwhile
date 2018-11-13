@@ -1,60 +1,37 @@
 
+# Meanwhile Development Extras
+
 These samples demonstrate how to do a few things with the Meanwhile
 library. Some of these are also tools which can be used to help in
 debugging and obtaining protocol information.
 
 
-Examples
-========
+## Library Examples
 
- socket.c
+The following are quick examples to demonstrate the usage of the
+meanwhile library.
+
+### socket.c
 
 Compile with `./build socket`. This is the simplest possible
 client. All it does is connect and authenticate to a host (specified
 on the command line). Most of the code is dedicated to performing I/O.
 
 
- sendmessage.c
+### sendmessage.c
 
 Compile with `./build sendmessage`. Expands upon socket.c to send a
 message via the IM service after login, then immediately logs off and
 exits.
 
 
- echo.c  (forthcoming)
+## Utilities
 
-Compile with `./build echo`. This extends on the socket example above,
-but introduces the use of the IM service. All incoming messages will
-be echo'd verbatim back at whomever sends them. Can anger co-workers.
+The following are utilities that can assist in the development and
+debugging of either meanwhile itself, or meanwhile-based clients, or
+in inspecting official Sametime client streams.
 
-
- pipe.c  (forthcoming)
-
-Compile with `./build pipe`. Extending upon the echo example, but is
-slightly more amusing and can be possibly useful for scripting. Will
-output all incoming IM messages to stdout. Listens on stdin and will
-write each line from stdin back to anyone who sent us a message
-(responding in order received)
-
-Since this application uses stdout, glib logging is smothered.
-
-
- blist_storage.c  (forthcoming)
-
-Compile with `./build blist_storage`. An example of the Storage
-service and buddy list parser. Operates in two modes, up and down. In
-up mode, this sample will read a buddy list file on stdin, check it
-for validity, then upload it to the storage service. In down mode,
-this sample will fetch the buddy list from the storage service and
-write it to stdout.
-
-Since this application uses stdout, glib logging is smothered.
-
-
-Utilities
-=========
-
- redirect_server.c
+### redirect_server.c
 
 Compile with `./build redirect_server`. Acts as a redirecting sametime
 server; any client attempting to connect to the socket this utility
@@ -64,7 +41,7 @@ ensuring client code can handle redirects correctly when there's no
 real redirecting server to test against.
 
 
- nocipher_proxy.c
+### nocipher_proxy.c
 
 Compile with `./build nocipher_proxy`. Acts as a sametime server
 proxy, passing messages between a real client and server. However, it
@@ -77,7 +54,7 @@ more useful than using ethereal, as it will actually group its output
 by message rather than by receipt from the TCP stream.
 
 
- login_server.c
+### login_server.c
 
 Compile with `./build login_server`. Acts as a sametime server; any
 client attempting to connect to the socket this utility listens on
@@ -89,7 +66,7 @@ the handshake ack was for). Probably not very useful for anything
 else.
 
 
- logging_proxy.c
+### logging_proxy.c
 
 Compile with `./build logging_proxy`. Acts as a sametime server proxy,
 passing messages between a real client and server. However, it will
