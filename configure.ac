@@ -1,7 +1,7 @@
 
 # version of meanwhile
 m4_define(meanwhile_major,	1)
-m4_define(meanwhile_minor,	1)
+m4_define(meanwhile_minor,	2)
 m4_define(meanwhile_micro,	0)
 
 # release of meanwhile. 0 for CVS, 1 for release
