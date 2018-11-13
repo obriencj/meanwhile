@@ -1,27 +1,27 @@
-
 /*
   Meanwhile - Unofficial Lotus Sametime Community Client Library
   Copyright (C) 2004  Christopher (siege) O'Brien
-  
+
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Library General Public
   License as published by the Free Software Foundation; either
-  version 2 of the License, or (at your option) any later version.
-  
+  version 3 of the License, or (at your option) any later version.
+
   This library is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
   Library General Public License for more details.
-  
+
   You should have received a copy of the GNU Library General Public
   License along with this library; if not, write to the Free
   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
+
 #include <stdlib.h>
 #include <time.h>
 
-#include "mpi/mpi.h"
+#include <gmp.h>
 
 #include "mw_channel.h"
 #include "mw_cipher.h"
@@ -30,7 +30,7 @@
 
 
 struct mwMpi {
-  mw_mp_int i;
+  mpz_t i;
 };
 
 
@@ -91,20 +91,20 @@ static guchar dh_prime[] = {
 struct mwMpi *mwMpi_new() {
   struct mwMpi *i;
   i = g_new0(struct mwMpi, 1);
-  mw_mp_init(&i->i);
+  mpz_init(&i->i);
   return i;
 }
 
 
 void mwMpi_free(struct mwMpi *i) {
   if(! i) return;
-  mw_mp_clear(&i->i);
+  mpz_clear(&i->i);
   g_free(i);
 }
 
 
-static void mwInitDHPrime(mw_mp_int *i) {
-  mw_mp_init(i);
+static void mwInitDHPrime(mpz_t *i) {
+  mpz_init(i);
   mw_mp_read_unsigned_bin(i, dh_prime, 64);
 }
 
@@ -115,19 +115,30 @@ void mwMpi_setDHPrime(struct mwMpi *i) {
 }
 
 
-static void mwInitDHBase(mw_mp_int *i) {
-  mw_mp_init(i);
-  mw_mp_set_int(i, DH_BASE);
+static void mwInitDHBase(mpz_t *i) {
+  mpz_init(i);
+  mpz_set_ui(i, DH_BASE);
 }
 
 
 void mwMpi_setDHBase(struct mwMpi *i) {
   g_return_if_fail(i != NULL);
-  mw_mp_set_int(&i->i, DH_BASE);
+  mpz_set_ui(&i->i, DH_BASE);
 }
 
 
-static void mw_mp_set_rand(mw_mp_int *i, guint bits) {
+static void mw_mp_set_rand(mpz_t *i, guint bits) {
+  static gmp_randstate_t state;
+  static int ready = 0;
+
+  if(! ready) {
+    gmp_randinit_default(state);
+    ready = 1;
+  }
+
+  mpz_urandomb(i, state, bits);
+
+  /*
   size_t len, l;
   guchar *buf;
 
@@ -141,20 +152,21 @@ static void mw_mp_set_rand(mw_mp_int *i, guint bits) {
 
   mw_mp_read_unsigned_bin(i, buf, len);
   g_free(buf);
+  */
 }
 
 
-static void mwDHRandKeypair(mw_mp_int *private_key, mw_mp_int *public_key) {
-  mw_mp_int prime, base;
- 
+static void mwDHRandKeypair(mpz_t *private_key, mpz_t *public_key) {
+  mpz_t prime, base;
+
   mwInitDHPrime(&prime);
   mwInitDHBase(&base);
 
   mw_mp_set_rand(private_key, 512);
-  mw_mp_exptmod(&base, private_key, &prime, public_key);
+  mpz_powm(public_key, &base, private_key, &prime);
 
-  mw_mp_clear(&prime);
-  mw_mp_clear(&base);
+  mpz_clear(&prime);
+  mpz_clear(&base);
 }
 
 
@@ -166,13 +178,13 @@ void mwMpi_randDHKeypair(struct mwMpi *private_key, struct mwMpi *public_key) {
 }
 
 
-static void mwDHCalculateShared(mw_mp_int *shared_key, mw_mp_int *remote_key,
-				mw_mp_int *private_key) {
-  mw_mp_int prime;
- 
+static void mwDHCalculateShared(mpz_t *shared_key, mpz_t *remote_key,
+				mpz_t *private_key) {
+  mpz_t prime;
+
   mwInitDHPrime(&prime);
-  mw_mp_exptmod(remote_key, private_key, &prime, shared_key);
-  mw_mp_clear(&prime);
+  mpz_powm(shared_key, remote_key, private_key, &prime);
+  mpz_clear(&prime);
 }
 
 
@@ -187,7 +199,7 @@ void mwMpi_calculateDHShared(struct mwMpi *shared_key, struct mwMpi *remote_key,
 }
 
 
-static void mwDHImportKey(mw_mp_int *key, struct mwOpaque *o) {
+static void mwDHImportKey(mpz_t *key, struct mwOpaque *o) {
   mw_mp_read_unsigned_bin(key, o->data, o->len);
 }
 
@@ -200,7 +212,7 @@ void mwMpi_import(struct mwMpi *i, struct mwOpaque *o) {
 }
 
 
-static void mwDHExportKey(mw_mp_int *key, struct mwOpaque *o) {
+static void mwDHExportKey(mpz_t *key, struct mwOpaque *o) {
   o->len = mw_mp_unsigned_bin_size(key);
   o->data = g_malloc0(o->len);
   mw_mp_to_unsigned_bin(key, o->data);
@@ -210,7 +222,7 @@ static void mwDHExportKey(mw_mp_int *key, struct mwOpaque *o) {
 void mwMpi_export(struct mwMpi *i, struct mwOpaque *o) {
   g_return_if_fail(i != NULL);
   g_return_if_fail(o != NULL);
-  
+
   mwDHExportKey(&i->i, o);
 }
 
@@ -288,7 +300,7 @@ static void mwEncryptBlock(const int *ekey, guchar *out) {
 
     b += ((a & (c ^ 0xffff)) + (d & c) + ekey[j++]);
     b = (b << 3) | (b >> 13 & 0x0007);
-    
+
     a += ((d & (b ^ 0xffff)) + (c & b) + ekey[j++]);
     a = (a << 5) | (a >> 11 & 0x001f);
 
@@ -297,7 +309,7 @@ static void mwEncryptBlock(const int *ekey, guchar *out) {
       c += ekey[d & 0x003f];
       b += ekey[c & 0x003f];
       a += ekey[b & 0x003f];
-    }    
+    }
   }
 
   *out++ = d & 0xff;
@@ -506,7 +518,7 @@ static int encrypt_RC2_40(struct mwCipherInstance *ci,
 
 static int decrypt_RC2_40(struct mwCipherInstance *ci,
 			  struct mwOpaque *data) {
-  
+
   struct mwCipherInstance_RC2_40 *cir;
   struct mwCipher_RC2_40 *cr;
   struct mwOpaque o = { 0, 0 };
@@ -623,7 +635,7 @@ struct mwCipher *mwCipher_new_RC2_40(struct mwSession *s) {
 
 struct mwCipher_RC2_128 {
   struct mwCipher cipher;
-  mw_mp_int private_key;
+  mpz_t private_key;
   struct mwOpaque public_key;
 };
 
@@ -658,7 +670,7 @@ new_instance_RC2_128(struct mwCipher *cipher,
 
   cir = g_new0(struct mwCipherInstance_RC2_128, 1);
   ci = &cir->instance;
-  
+
   ci->cipher = cipher;
   ci->channel = chan;
 
@@ -671,9 +683,9 @@ new_instance_RC2_128(struct mwCipher *cipher,
 
 static void offered_RC2_128(struct mwCipherInstance *ci,
 			    struct mwEncryptItem *item) {
-  
-  mw_mp_int remote_key;
-  mw_mp_int shared;
+
+  mpz_t remote_key;
+  mpz_t shared;
   struct mwOpaque sho = { 0, 0 };
 
   struct mwCipher *c;
@@ -684,8 +696,8 @@ static void offered_RC2_128(struct mwCipherInstance *ci,
   cr = (struct mwCipher_RC2_128 *) c;
   cir = (struct mwCipherInstance_RC2_128 *) ci;
 
-  mw_mp_init(&remote_key);
-  mw_mp_init(&shared);
+  mpz_init(&remote_key);
+  mpz_init(&shared);
 
   mwDHImportKey(&remote_key, &item->info);
   mwDHCalculateShared(&shared, &remote_key, &cr->private_key);
@@ -697,9 +709,9 @@ static void offered_RC2_128(struct mwCipherInstance *ci,
      hypothetically start with 8bits or more unset, meaning the
      exported key might be less than 64 bytes in length */
   mwKeyExpand(cir->shared, sho.data+(sho.len-16), 16);
-  
-  mw_mp_clear(&remote_key);
-  mw_mp_clear(&shared);
+
+  mpz_clear(&remote_key);
+  mpz_clear(&shared);
   mwOpaque_clear(&sho);
 }
 
@@ -719,7 +731,7 @@ offer_RC2_128(struct mwCipherInstance *ci) {
   mwOpaque_clone(&ei->info, &cr->public_key);
 
   return ei;
-}			  
+}
 
 
 static void accepted_RC2_128(struct mwCipherInstance *ci,
@@ -776,7 +788,7 @@ static void clear_RC2_128(struct mwCipher *c) {
   struct mwCipher_RC2_128 *cr;
   cr = (struct mwCipher_RC2_128 *) c;
 
-  mw_mp_clear(&cr->private_key);
+  mpz_clear(&cr->private_key);
   mwOpaque_clear(&cr->public_key);
 }
 
@@ -785,7 +797,7 @@ struct mwCipher *mwCipher_new_RC2_128(struct mwSession *s) {
   struct mwCipher_RC2_128 *cr;
   struct mwCipher *c;
 
-  mw_mp_int pubkey;
+  mpz_t pubkey;
 
   cr = g_new0(struct mwCipher_RC2_128, 1);
   c = &cr->cipher;
@@ -806,12 +818,12 @@ struct mwCipher *mwCipher_new_RC2_128(struct mwSession *s) {
   c->decrypt = decrypt_RC2_128;
 
   c->clear = clear_RC2_128;
-  
-  mw_mp_init(&cr->private_key);
-  mw_mp_init(&pubkey);
+
+  mpz_init(&cr->private_key);
+  mpz_init(&pubkey);
   mwDHRandKeypair(&cr->private_key, &pubkey);
   mwDHExportKey(&pubkey, &cr->public_key);
-  mw_mp_clear(&pubkey);
+  mpz_clear(&pubkey);
 
   return c;
 }
@@ -972,4 +984,3 @@ void mwCipherInstance_free(struct mwCipherInstance *ci) {
 
   g_free(ci);
 }
-
