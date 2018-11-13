@@ -54,7 +54,10 @@ AC_SUBST(MW_SO_OS_FLAGS)
 AC_ARG_ENABLE(debug,
 	[  --enable-debug	  compile with debugging support],
 	AC_DEFINE(DEBUG, 1, [Define if debugging is enabled.]), )
-
+if test "$enable_debug" = "yes" ; then
+    CFLAGS="$CFLAGS  -g -O0 -Weverything -Wall -Wno-uninitialized -Wextra"
+    CXXFLAGS="$CXXFLAGS -g -O0 -Weverything -Wall -Wno-uninitialized -Wextra"
+fi
 
 
 # debugging output urging people to send mail
@@ -110,7 +113,7 @@ AC_SUBST(GLIB_VERSION)
 AC_SUBST(GLIB_CFLAGS)
 AC_SUBST(GLIB_LIBS)
 
-
+AC_CONFIG_MACRO_DIR([m4])
 
 AC_CONFIG_FILES(
 	[Makefile src/Makefile src/mpi/Makefile]

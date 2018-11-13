@@ -18,12 +18,10 @@
 */
 
 #ifndef _MW_SRVC_DIR_H
-#define _MW_SERV_DIR_H
+#define _MW_SRVC_DIR_H
 
 
 #include <glib.h>
-#include <glib/glist.h>
-
 
 #ifdef __cplusplus
 extern "C" {

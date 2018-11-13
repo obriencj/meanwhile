@@ -19,7 +19,7 @@
 */
 
 
-#include <glib/gstring.h>
+#include <glib.h>
 
 #include "mw_debug.h"
 
@@ -92,7 +92,7 @@ void mw_debug_datav(const guchar *buf, gsize len,
   }
   pretty_print(str, buf, len);
 
-  g_debug(str->str);
+  g_debug("%s", str->str);
   g_string_free(str, TRUE);
 }
 

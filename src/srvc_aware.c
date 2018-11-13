@@ -19,8 +19,6 @@
 */
 
 #include <glib.h>
-#include <glib/ghash.h>
-#include <glib/glist.h>
 #include <string.h>
 
 #include "mw_channel.h"
@@ -204,6 +202,8 @@ static int send_rem(struct mwChannel *chan, GList *id_list) {
 
 
 static gboolean collect_dead(gpointer key, gpointer val, gpointer data) {
+  // `key` unused
+  (void)key;
   struct aware_entry *aware = val;
   GList **dead = data;
 
@@ -315,6 +315,9 @@ static void recv_accept(struct mwServiceAware *srvc,
 			struct mwChannel *chan,
 			struct mwMsgChannelAccept *msg) {
 
+  // `msg` unused
+  (void)msg;
+
   g_return_if_fail(srvc->channel != NULL);
   g_return_if_fail(srvc->channel == chan);
 
@@ -338,6 +341,11 @@ static void recv_accept(struct mwServiceAware *srvc,
 static void recv_destroy(struct mwServiceAware *srvc,
 			 struct mwChannel *chan,
 			 struct mwMsgChannelDestroy *msg) {
+
+  // `chan` unused
+  (void)chan;
+  // `msg` unused
+  (void)msg;
 
   srvc->channel = NULL;
   mwService_stop(MW_SERVICE(srvc));
@@ -534,6 +542,9 @@ static void recv_UPDATE(struct mwServiceAware *srvc,
 static void recv_GROUP(struct mwServiceAware *srvc,
 		       struct mwGetBuffer *b) {
 
+  // `srvc` unused
+  (void)srvc;
+
   struct mwAwareIdBlock idb = { 0, 0, 0 };
 
   /* really nothing to be done with this. The group should have
@@ -659,11 +670,15 @@ static void clear(struct mwService *srvc) {
 
 
 static const char *name(struct mwService *srvc) {
+  // `srvc` unused
+  (void)srvc;
   return "Presence Awareness";
 }
 
 
 static const char *desc(struct mwService *srvc) {
+  // `srvc` unused
+  (void)srvc;
   return "Buddy list service with support for server-side groups";
 }
 
@@ -1092,6 +1107,9 @@ int mwAwareList_unwatchAttributes(struct mwAwareList *list,
 static void dismember_attrib(gpointer k, struct attrib_entry *watch,
 			    struct mwAwareList *list) {
 
+  // `k` unused
+  (void)k;
+
   watch->membership = g_list_remove(watch->membership, list);
 }
 
@@ -1114,6 +1132,10 @@ int mwAwareList_unwatchAllAttributes(struct mwAwareList *list) {
 
 static void collect_attrib_keys(gpointer key, struct attrib_entry *attrib,
 				guint32 **ck) {
+
+  // `attrib` unused
+  (void)attrib;
+
   guint32 *keys = (*ck)++;
   *keys = GPOINTER_TO_UINT(key);
 }
@@ -1211,6 +1233,9 @@ int mwAwareList_removeAware(struct mwAwareList *list, GList *id_list) {
 
 static void dismember_aware(gpointer k, struct aware_entry *aware,
 			    struct mwAwareList *list) {
+
+  // `k` unused
+  (void)k;
 
   aware->membership = g_list_remove(aware->membership, list);
 }

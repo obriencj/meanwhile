@@ -16,11 +16,11 @@ quiet_test() {
 # OSX has glibtoolize, everywhere else is just libtoolize
 if test -z "${LTIZE}" ; then
     ECHO "Trying to find a libtoolize"
-    
+
     if quiet_test "libtoolize --version" ; then
-	LTIZE=libtoolize
+	   LTIZE=libtoolize
     elif quiet_test "glibtoolize --version" ; then
-	LTIZE=glibtoolize
+	   LTIZE=glibtoolize
     fi
 fi
 if test -z "${LTIZE}" ; then

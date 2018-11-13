@@ -688,6 +688,17 @@ void mwUserStatus_get(struct mwGetBuffer *b, struct mwUserStatus *stat) {
   guint16_get(b, &stat->status);
   guint32_get(b, &stat->time);
   mwString_get(b, &stat->desc);
+
+  // # User Mikael Berthe <mikael.berthe@lilotux.net>
+  // # Date 1195749751 -3600
+  // Fix Awareness status timestamps with recent Sametime clients
+
+  // For some reason the status timestamps I receive from people with a recent
+  // Sametime client make no sense.  This patch simply sets the timestamp to 0,
+  // as I have no idea how to interpret these time values.
+
+  // Quick'n ugly hack for recent Sametime clients
+  stat->time = 0;
 }
 
 

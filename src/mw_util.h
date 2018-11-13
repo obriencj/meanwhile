@@ -23,9 +23,6 @@
 
 
 #include <glib.h>
-#include <glib/ghash.h>
-#include <glib/glist.h>
-
 
 #define map_guint_new() \
   g_hash_table_new(g_direct_hash, g_direct_equal)

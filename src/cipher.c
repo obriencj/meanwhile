@@ -336,7 +336,7 @@ void mwEncryptExpanded(const int *ekey, guchar *iv,
 
   /* copy in to out, and write padding bytes */
   for(x = i_len; x--; o[x] = i[x]);
-  for(x = i_len; x < o_len; o[x++] = y);
+  for(x = i_len; x < (int)o_len; o[x++] = y);
   /* memcpy(o, i, i_len);
      memset(o + i_len, y, y); */
 
@@ -555,6 +555,10 @@ new_instance_RC2_40(struct mwCipher *cipher,
 
 
 static struct mwEncryptItem *new_item_RC2_40(struct mwCipherInstance *ci) {
+
+  // `ci` unused
+  (void)ci;
+
   struct mwEncryptItem *e;
 
   e = g_new0(struct mwEncryptItem, 1);
@@ -571,6 +575,9 @@ offer_RC2_40(struct mwCipherInstance *ci) {
 
 static void accepted_RC2_40(struct mwCipherInstance *ci,
 			    struct mwEncryptItem *item) {
+
+  // `item` unused
+  (void)item;
 
   struct mwCipherInstance_RC2_40 *cir;
   struct mwLoginInfo *info;

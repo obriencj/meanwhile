@@ -102,6 +102,10 @@ Documentation for the Meanwhile library
 
 
 %changelog
+* Tue Jul 31 2012 <mrcsparker@gmail.com>
+- glib header fixes
+- st_list.c crash bug fixed
+
 * Fri Nov 18 2005  <siege@preoccupied.net>
 - removed the gmp and gmp-devel requirements
 

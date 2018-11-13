@@ -25,7 +25,6 @@
 #include <unistd.h>
 
 #include <glib.h>
-#include <glib/glist.h>
 
 #include <mw_cipher.h>
 #include <mw_common.h>

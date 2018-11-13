@@ -19,7 +19,6 @@
 */
 
 #include <glib.h>
-#include <glib/glist.h>
 #include <string.h>
 
 #include "mw_channel.h"
@@ -412,6 +411,11 @@ static void recv_channelCreate(struct mwService *srvc,
 static void recv_channelAccept(struct mwService *srvc, struct mwChannel *chan,
 			       struct mwMsgChannelAccept *msg) {
 
+  // `srvc` unused
+  (void)srvc;
+  // `msg` unused
+  (void)msg;
+
   struct mwConversation *conv;
 
   conv = mwChannel_getServiceData(chan);
@@ -427,6 +431,9 @@ static void recv_channelAccept(struct mwService *srvc, struct mwChannel *chan,
 
 static void recv_channelDestroy(struct mwService *srvc, struct mwChannel *chan,
 				struct mwMsgChannelDestroy *msg) {
+
+  // `srvc` unused
+  (void)srvc;
 
   struct mwConversation *c;
 
@@ -493,6 +500,9 @@ static void convo_multi_stop(struct mwConversation *conv) {
 
 static void recv_text(struct mwServiceIm *srvc, struct mwChannel *chan,
 		      struct mwGetBuffer *b) {
+
+  // `srvc` unused
+  (void)srvc;
 
   struct mwConversation *c;
   char *text = NULL;
@@ -572,6 +582,9 @@ static void convo_invite(struct mwConversation *conv,
 
 static void recv_data(struct mwServiceIm *srvc, struct mwChannel *chan,
 		      struct mwGetBuffer *b) {
+
+  // `srvc` unused
+  (void)srvc;
 
   struct mwConversation *conv;
   guint32 type, subtype;
@@ -709,11 +722,19 @@ static void clear(struct mwServiceIm *srvc) {
 
 
 static const char *name(struct mwService *srvc) {
+
+  // `srvc` unused
+  (void)srvc;
+
   return "Instant Messaging";
 }
 
 
 static const char *desc(struct mwService *srvc) {
+
+  // `srvc` unused
+  (void)srvc;
+
   return "IM service with Standard and NotesBuddy features";
 }
 
