@@ -53,7 +53,7 @@ presence, messaging, conferencing, and remote preferences.
 
 %files
 %defattr(-,root,root,0755)
-%doc AUTHORS ChangeLog COPYING INSTALL LICENSE NEWS README TODO
+%doc AUTHORS ChangeLog COPYING INSTALL LICENSE README.md TODO
 %{_libdir}/libmeanwhile.so*
 
 
@@ -129,7 +129,5 @@ Documentation for the Meanwhile library
 - Separated meanwhile from meanwhile-gaim
 - First distribution with autoconf/automake/libtool
 
-* Tue Apr 13 2004  <siege@preoccupied.net> 
+* Tue Apr 13 2004  <siege@preoccupied.net>
 - Initial rpm build.
-
-
