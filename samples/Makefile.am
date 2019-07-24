@@ -12,7 +12,7 @@ sample_SCRIPTS = \
 	build
 
 sample_DATA = \
-	README \
+	README.md \
 	$(SAMPLES_SRC)
 
 
@@ -27,4 +27,3 @@ $(SAMPLES):	%: %.c
 
 clean-local:
 	rm -f $(SAMPLES)
-

@@ -2,7 +2,6 @@
 
 SUBDIRS = doc samples src
 
-
 EXTRA_DIST =	meanwhile.spec \
 		meanwhile.pc \
 		LICENSE
@@ -10,4 +9,3 @@ EXTRA_DIST =	meanwhile.spec \
 
 pkgconfig_DATA = meanwhile.pc
 pkgconfigdir = $(libdir)/pkgconfig
-
