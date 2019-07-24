@@ -1,6 +1,9 @@
 *#
 *.bak
 *.pc
+*.la
+*.lo
+*.o
 *.rpm
 *.spec
 *.swp
@@ -8,8 +11,11 @@
 *~
 .#*
 .deps
+.libs
 Makefile
 Makefile.in
+Doxyfile
+m4
 aclocal.m4
 autom4te.cache
 build
