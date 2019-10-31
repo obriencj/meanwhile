@@ -12,8 +12,8 @@ m4_define(glib_required_version,	2.0.0)
 
 
 
-AC_INIT
-AM_INIT_AUTOMAKE(meanwhile, meanwhile_major.meanwhile_minor.meanwhile_micro)
+AC_INIT([meanwhile],[ meanwhile_major.meanwhile_minor.meanwhile_micro])
+AM_INIT_AUTOMAKE([foreign])
 
 RELEASE=meanwhile_release
 AC_SUBST(RELEASE)
@@ -93,14 +93,6 @@ fi
 AC_SUBST(WITH_DOC_SUBPACKAGE)
 
 
-
-# libm for use in mpi.c
-AC_CHECK_LIB(m, main, LIBM="-lm")
-AC_CHECK_HEADER(math.h)
-AC_SUBST(LIBM)
-
-
-
 # Glib-2.0
 PKG_CHECK_MODULES(GLIB,
 [glib-2.0 >= glib_required_version],
@@ -113,10 +105,16 @@ AC_SUBST(GLIB_VERSION)
 AC_SUBST(GLIB_CFLAGS)
 AC_SUBST(GLIB_LIBS)
 
+
+# GMP 6
+AC_CHECK_LIB(gmp, __gmpz_init, LIBGMP="-lgmp")
+AC_CHECK_HEADER(gmp.h)
+
+
 AC_CONFIG_MACRO_DIR([m4])
 
 AC_CONFIG_FILES(
-	[Makefile src/Makefile src/mpi/Makefile]
+	[Makefile src/Makefile]
 	[samples/Makefile]
 	[doc/Makefile doc/Doxyfile]
 	[meanwhile.spec meanwhile.pc]
@@ -150,5 +148,6 @@ echo
 echo you may need to run \`ldconfig\` as root after installation before
 echo being able to load this library
 echo
+
 
 # The End.

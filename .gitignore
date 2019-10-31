@@ -1,7 +1,11 @@
 *#
 *.bak
+*.la
+*.lo
+*.o
 *.pc
 *.rpm
+*.so
 *.spec
 *.swp
 *.tar.gz

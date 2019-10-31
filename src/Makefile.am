@@ -1,6 +1,4 @@
 
-SUBDIRS = mpi
-
 lib_LTLIBRARIES = libmeanwhile.la
 
 mwinclude_HEADERS = \
@@ -54,8 +52,5 @@ libmeanwhile_la_SOURCES = \
 	mw_debug.c \
 	mw_util.c
 
-libmeanwhile_la_LIBADD = $(GLIB_LIBS) mpi/libmpi.la
-
 AM_CPPFLAGS = \
 	-DG_LOG_DOMAIN=\"@PACKAGE@\"
-
