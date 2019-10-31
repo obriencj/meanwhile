@@ -12,6 +12,7 @@
 *~
 .#*
 .deps
+.libs
 Makefile
 Makefile.in
 aclocal.m4
@@ -22,9 +23,11 @@ config.*
 configure
 configwrap
 depcomp
+doc/*/*
 install-sh
 libtool
 ltmain.sh
+m4
 missing
 mkinstalldirs
 test*
